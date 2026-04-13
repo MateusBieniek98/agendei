@@ -19,8 +19,8 @@ export async function GET(request: NextRequest) {
     {
       cookies: {
         getAll() { return cookieStore.getAll() },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => {
+        setAll(cookiesToSet: any[]) {
+          cookiesToSet.forEach(({ name, value, options }: any) => {
             cookieStore.set(name, value, options)
           })
         },
@@ -44,13 +44,13 @@ export async function GET(request: NextRequest) {
 
   if (!profile) {
     await fetch(
-      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/profiles`,
+      process.env.NEXT_PUBLIC_SUPABASE_URL + '/rest/v1/profiles',
       {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-          'Authorization': `Bearer ${session.access_token}`,
+          'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
+          'Authorization': 'Bearer ' + session.access_token,
           'Prefer': 'return=minimal',
         },
         body: JSON.stringify({
