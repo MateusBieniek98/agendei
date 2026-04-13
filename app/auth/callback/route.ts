@@ -31,7 +31,6 @@ export async function GET(request: NextRequest) {
   const { data: { session }, error: sessionError } = await supabase.auth.exchangeCodeForSession(code)
 
   if (sessionError || !session?.user) {
-    console.error('Erro na sessão:', sessionError)
     return NextResponse.redirect(new URL('/login?erro=sessao', requestUrl.origin))
   }
 
@@ -44,7 +43,6 @@ export async function GET(request: NextRequest) {
     .maybeSingle()
 
   if (!profile) {
-    // Primeiro acesso — tenta criar perfil usando o token do usuário
     await fetch(
       `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/profiles`,
       {
@@ -58,19 +56,17 @@ export async function GET(request: NextRequest) {
         body: JSON.stringify({
           id: user.id,
           email: user.email,
-          name: user.user_metadata?.full_name ?? user.user_metadata?.name ?? '',
-          full_name: user.user_metadata?.full_name ?? user.user_metadata?.name ?? '',
-          avatar_url: user.user_metadata?.avatar_url ?? user.user_metadata?.picture ?? '',
+          name: user.user_metadata?.full_name ?? '',
+          full_name: user.user_metadata?.full_name ?? '',
+          avatar_url: user.user_metadata?.avatar_url ?? '',
           plan: 'free',
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         }),
       }
     )
-
-    // Sempre manda para /planos no primeiro acesso
     return NextResponse.redirect(new URL('/planos', requestUrl.origin))
   }
 
-  // Já tem perfil → dashboard
-  re
+  return NextResponse.redirect(new URL('/dashboard', requestUrl.origin))
+}
