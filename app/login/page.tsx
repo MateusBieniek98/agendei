@@ -1,5 +1,4 @@
 'use client'
-
 import { useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
 
@@ -19,20 +18,43 @@ export default function Login() {
 
   async function handleLogin() {
     setLoading(true); setErro(''); setMsg('')
-    const { error } = await supabase.auth.signInWithPassword({ email, password: senha })
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password: senha })
     if (error) { setErro('E-mail ou senha incorretos.'); setLoading(false); return }
-    window.location.href = '/'
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('onboarded')
+      .eq('id', data.user.id)
+      .maybeSingle()
+    if (!profile || !profile.onboarded) {
+      window.location.href = '/planos'
+    } else {
+      window.location.href = '/dashboard'
+    }
   }
 
   async function handleCadastro() {
     if (!nome || !email || !senha) { setErro('Preencha todos os campos.'); return }
     if (senha.length < 6) { setErro('A senha precisa ter pelo menos 6 caracteres.'); return }
     setLoading(true); setErro(''); setMsg('')
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email, password: senha,
       options: { data: { nome } }
     })
     if (error) { setErro('Erro ao criar conta. Tente outro e-mail.'); setLoading(false); return }
+    if (data.user) {
+      await supabase.from('profiles').upsert({
+        id: data.user.id,
+        email: data.user.email,
+        name: nome,
+        full_name: nome,
+        plan: 'free',
+        onboarded: false,
+      })
+    }
+    if (data.session) {
+      window.location.href = '/planos'
+      return
+    }
     setMsg('✅ Conta criada! Verifique seu e-mail para confirmar.')
     setLoading(false)
   }
@@ -64,43 +86,51 @@ export default function Login() {
           <div style={s.logoText}>agen<span style={s.logoSpan}>dei</span></div>
           <div style={s.tagline}>Gerencie seus agendamentos com facilidade</div>
         </div>
-
         <div style={s.card}>
           <div style={s.tabs}>
             <button style={modo === 'login' ? s.tabAct : s.tab} onClick={() => { setModo('login'); setErro(''); setMsg('') }}>Entrar</button>
             <button style={modo === 'cadastro' ? s.tabAct : s.tab} onClick={() => { setModo('cadastro'); setErro(''); setMsg('') }}>Criar conta</button>
           </div>
-
           {erro && <div style={s.erro}>{erro}</div>}
           {msg && <div style={s.msg}>{msg}</div>}
-
           {modo === 'cadastro' && (
             <div>
               <label style={s.label}>Seu nome</label>
               <input style={s.input} type="text" placeholder="Ex: Maria Silva" value={nome} onChange={e => setNome(e.target.value)} />
             </div>
           )}
-
           <label style={s.label}>E-mail</label>
           <input style={s.input} type="email" placeholder="seu@email.com" value={email} onChange={e => setEmail(e.target.value)} />
-
           <label style={s.label}>Senha</label>
-          <input style={s.input} type="password" placeholder={modo === 'cadastro' ? 'Mínimo 6 caracteres' : '••••••••'} value={senha} onChange={e => setSenha(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && (modo === 'login' ? handleLogin() : handleCadastro())} />
-
+          <input
+            style={s.input}
+            type="password"
+            placeholder={modo === 'cadastro' ? 'Mínimo 6 caracteres' : '••••••••'}
+            value={senha}
+            onChange={e => setSenha(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && (modo === 'login' ? handleLogin() : handleCadastro())}
+          />
           <button style={s.btn} onClick={modo === 'login' ? handleLogin : handleCadastro} disabled={loading}>
             {loading ? 'Aguarde...' : modo === 'login' ? 'Entrar na conta' : 'Criar conta grátis'}
           </button>
-
           <div style={s.divider}>ou</div>
-
-          <button style={s.btnGoogle} onClick={async () => {
-            await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } })
-          }}>
-            <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.2l6.7-6.7C35.8 2.5 30.2 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.8 6C12.4 13 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h12.4c-.5 2.8-2.1 5.2-4.5 6.8l7 5.4c4.1-3.8 6.5-9.4 6.5-16.2z"/><path fill="#FBBC05" d="M10.5 28.6A14.5 14.5 0 0 1 9.5 24c0-1.6.3-3.2.7-4.6l-7.8-6A23.9 23.9 0 0 0 0 24c0 3.9.9 7.5 2.7 10.7l7.8-6.1z"/><path fill="#34A853" d="M24 48c6.2 0 11.4-2 15.2-5.5l-7-5.4c-2 1.4-4.6 2.2-8.2 2.2-6.2 0-11.5-4.2-13.4-9.8l-7.8 6C6.6 42.6 14.6 48 24 48z"/></svg>
+          <button
+            style={s.btnGoogle}
+            onClick={async () => {
+              await supabase.auth.signInWithOAuth({
+                provider: 'google',
+                options: { redirectTo: window.location.origin + '/auth/callback' },
+              })
+            }}
+          >
+            <svg width="18" height="18" viewBox="0 0 48 48">
+              <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.2l6.7-6.7C35.8 2.5 30.2 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.8 6C12.4 13 17.8 9.5 24 9.5z"/>
+              <path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h12.4c-.5 2.8-2.1 5.2-4.5 6.8l7 5.4c4.1-3.8 6.5-9.4 6.5-16.2z"/>
+              <path fill="#FBBC05" d="M10.5 28.6A14.5 14.5 0 0 1 9.5 24c0-1.6.3-3.2.7-4.6l-7.8-6A23.9 23.9 0 0 0 0 24c0 3.9.9 7.5 2.7 10.7l7.8-6.1z"/>
+              <path fill="#34A853" d="M24 48c6.2 0 11.4-2 15.2-5.5l-7-5.4c-2 1.4-4.6 2.2-8.2 2.2-6.2 0-11.5-4.2-13.4-9.8l-7.8 6C6.6 42.6 14.6 48 24 48z"/>
+            </svg>
             Continuar com Google
           </button>
-
           {modo === 'login' && (
             <p style={{ textAlign: 'center', fontSize: 12.5, color: '#9ca3af', marginTop: 16, marginBottom: 0 }}>
               Não tem conta?{' '}
