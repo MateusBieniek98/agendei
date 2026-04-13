@@ -1,459 +1,500 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { createClient } from '@supabase/supabase-js'
 
-// ── DATA ──────────────────────────────────────────────
-const appointments = [
-  { time: '09:00', name: 'Ana Santos',     service: 'Manicure + Pedicure', duration: '1h 30min', price: 'R$ 90',  status: 'done', color: '#fee2e2', text: '#dc2626', bar: '#f87171', initials: 'AS' },
-  { time: '11:00', name: 'João Lima',      service: 'Corte + Barba',       duration: '1h',       price: 'R$ 80',  status: 'now',  color: '#dbeafe', text: '#1d4ed8', bar: '#60a5fa', initials: 'JL' },
-  { time: '14:00', name: 'Patrícia Costa', service: 'Hidratação capilar',  duration: '2h',       price: 'R$ 150', status: 'conf', color: '#ede9fe', text: '#7c3aed', bar: '#a78bfa', initials: 'PC' },
-  { time: '17:00', name: 'Rafael Moura',   service: 'Progressiva',         duration: '3h',       price: 'R$ 100', status: 'pend', color: '#fef3c7', text: '#d97706', bar: '#fbbf24', initials: 'RM' },
-]
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
 
-const clients = [
-  { name: 'Ana Santos',     phone: '(67) 99101-2233', visits: 12, last: '09 Abr', total: 'R$ 780',   initials: 'AS', color: '#fee2e2', text: '#dc2626' },
-  { name: 'João Lima',      phone: '(67) 98822-4411', visits: 8,  last: '11 Abr', total: 'R$ 520',   initials: 'JL', color: '#dbeafe', text: '#1d4ed8' },
-  { name: 'Patrícia Costa', phone: '(67) 99933-5500', visits: 21, last: '07 Abr', total: 'R$ 1.890', initials: 'PC', color: '#ede9fe', text: '#7c3aed' },
-  { name: 'Rafael Moura',   phone: '(67) 98811-7722', visits: 5,  last: '02 Abr', total: 'R$ 350',   initials: 'RM', color: '#fef3c7', text: '#d97706' },
-  { name: 'Lucia Ferreira', phone: '(67) 99244-3310', visits: 15, last: '10 Abr', total: 'R$ 1.200', initials: 'LF', color: '#dcfce7', text: '#166534' },
-  { name: 'Carlos Souza',   phone: '(67) 98700-9988', visits: 3,  last: '28 Mar', total: 'R$ 210',   initials: 'CS', color: '#f3f4f6', text: '#374151' },
-]
-
-const servicesList = [
-  { name: 'Manicure',            duration: '45 min',  price: 'R$ 60',  category: 'Beleza'     },
-  { name: 'Pedicure',            duration: '45 min',  price: 'R$ 60',  category: 'Beleza'     },
-  { name: 'Manicure + Pedicure', duration: '1h 30min',price: 'R$ 90',  category: 'Beleza'     },
-  { name: 'Corte',               duration: '45 min',  price: 'R$ 70',  category: 'Cabelo'     },
-  { name: 'Barba',               duration: '30 min',  price: 'R$ 40',  category: 'Cabelo'     },
-  { name: 'Corte + Barba',       duration: '1h',      price: 'R$ 90',  category: 'Cabelo'     },
-  { name: 'Hidratação capilar',  duration: '2h',      price: 'R$ 150', category: 'Cabelo'     },
-  { name: 'Progressiva',         duration: '3h',      price: 'R$ 200', category: 'Tratamento' },
-]
-
-const reviews = [
-  { name: 'Ana Santos',     stars: 5, comment: 'Profissional incrível! Sempre caprichosa e pontual. Super recomendo!',          date: '09 Abr', service: 'Manicure + Pedicure', initials: 'AS', color: '#fee2e2', text: '#dc2626' },
-  { name: 'Patrícia Costa', stars: 5, comment: 'Melhor hidratação que já fiz! Cabelo ficou lindo. Voltarei com certeza.',        date: '07 Abr', service: 'Hidratação capilar',  initials: 'PC', color: '#ede9fe', text: '#7c3aed' },
-  { name: 'Lucia Ferreira', stars: 4, comment: 'Ótimo atendimento, ambiente agradável. Só o tempo foi um pouco mais longo.',     date: '10 Abr', service: 'Progressiva',         initials: 'LF', color: '#dcfce7', text: '#166534' },
-  { name: 'João Lima',      stars: 5, comment: 'Corte impecável como sempre. Já sou cliente fiel há 2 anos!',                   date: '11 Abr', service: 'Corte + Barba',       initials: 'JL', color: '#dbeafe', text: '#1d4ed8' },
-]
-
-const statusLabel: Record<string, string> = { done: 'Concluído', now: 'Em andamento', conf: 'Confirmado', pend: 'Aguardando' }
-const statusStyle: Record<string, React.CSSProperties> = {
-  done: { background: '#f3f4f6', color: '#6b7280' },
-  now:  { background: '#dbeafe', color: '#1e40af' },
-  conf: { background: '#dcfce7', color: '#166534' },
-  pend: { background: '#fef3c7', color: '#92400e' },
+const SERVICES = ['Manicure','Pedicure','Manicure + Pedicure','Corte','Barba','Corte + Barba','Hidratação capilar','Progressiva','Massagem','Personal Training','Consulta','Outro']
+const BAR  = ['#f87171','#60a5fa','#a78bfa','#fbbf24','#34d399','#fb923c','#e879f9','#38bdf8']
+const BG   = ['#fee2e2','#dbeafe','#ede9fe','#fef3c7','#d1fae5','#ffedd5','#fae8ff','#e0f2fe']
+const TXT  = ['#dc2626','#1d4ed8','#7c3aed','#d97706','#065f46','#9a3412','#86198f','#0369a1']
+const STATUS_STYLE: Record<string,React.CSSProperties> = {
+  confirmado: { background:'#dcfce7', color:'#166534' },
+  concluido:  { background:'#f3f4f6', color:'#6b7280' },
+  pendente:   { background:'#fef3c7', color:'#92400e' },
+  cancelado:  { background:'#fee2e2', color:'#dc2626' },
 }
 
-// ── SHARED STYLES ─────────────────────────────────────
-const card: React.CSSProperties  = { background: '#fff', borderRadius: 12, padding: '16px 18px', border: '1px solid rgba(0,0,0,0.08)' }
-const inp:  React.CSSProperties  = { width: '100%', padding: '9px 12px', border: '1.5px solid #e5e7eb', borderRadius: 8, fontSize: 14, fontFamily: 'inherit', outline: 'none' }
+function initials(n: string) { return n.split(' ').map(x=>x[0]).join('').toUpperCase().slice(0,2) }
+function color(n: string, arr: string[]) { let h=0; for(let c of n) h=c.charCodeAt(0)+h; return arr[h%arr.length] }
+function fmt(v: number) { return `R$ ${v.toFixed(2).replace('.',',')}` }
 
-// ── SCREENS ───────────────────────────────────────────
-function Agenda({ onNew }: { onNew: () => void }) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-        <div>
-          <h1 style={{ fontSize: 22, fontWeight: 600, letterSpacing: -0.5, margin: 0 }}>Olá, Maria! ☀️</h1>
-          <p style={{ fontSize: 13, color: '#6b7280', marginTop: 2 }}>Domingo, 12 de abril de 2026 · 4 agendamentos hoje</p>
-        </div>
-        <button onClick={onNew} style={{ background: '#0d1f17', color: '#fff', border: 'none', padding: '9px 16px', borderRadius: 9, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-          ＋ Novo agendamento
-        </button>
+const inp: React.CSSProperties = { width:'100%', padding:'9px 12px', border:'1.5px solid #e5e7eb', borderRadius:8, fontSize:14, fontFamily:'inherit', outline:'none', boxSizing:'border-box' }
+const lbl: React.CSSProperties = { fontSize:12.5, fontWeight:500, color:'#6b7280', display:'block', marginBottom:5 }
+const card: React.CSSProperties = { background:'#fff', borderRadius:12, padding:'16px 18px', border:'1px solid rgba(0,0,0,0.08)' }
+
+export default function Home() {
+  const [user, setUser]       = useState<any>(null)
+  const [profile, setProfile] = useState<any>(null)
+  const [agendamentos, setAg] = useState<any[]>([])
+  const [allAg, setAllAg]     = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [nav, setNav]         = useState('Agenda')
+  const [modal, setModal]     = useState(false)
+  const [saving, setSaving]   = useState(false)
+  const [filterDate, setFD]   = useState(() => new Date().toISOString().split('T')[0])
+  const [form, setForm]       = useState({ cliente:'', telefone:'', servico:'Manicure', data:'', horario:'09:00', preco:'', duracao:'1h', status:'confirmado' })
+  const [svcForm, setSvcForm] = useState({ nome:'', preco:'', duracao:'' })
+  const [services, setServices] = useState<any[]>([])
+
+  const today = new Date().toLocaleDateString('pt-BR',{ weekday:'long', day:'numeric', month:'long', year:'numeric' })
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (!data.user) { window.location.href='/login'; return }
+      setUser(data.user)
+      loadAll(data.user)
+    })
+  }, [])
+
+  async function loadAll(u: any) {
+    await loadProfile(u)
+    await loadAgendamentos(u.id, new Date().toISOString().split('T')[0])
+    await loadAllAg(u.id)
+    await loadServices(u.id)
+    setLoading(false)
+  }
+
+  async function loadProfile(u: any) {
+    const { data } = await supabase.from('profiles').select('*').eq('id', u.id).single()
+    if (data) { setProfile(data); return }
+    const nome = u.user_metadata?.nome || u.email?.split('@')[0] || 'Profissional'
+    await supabase.from('profiles').insert({ id:u.id, nome, email:u.email })
+    setProfile({ nome, email:u.email })
+  }
+
+  async function loadAgendamentos(uid: string, date: string) {
+    const { data } = await supabase.from('agendamentos').select('*').eq('profissional_id', uid).eq('data', date).order('horario')
+    setAg(data || [])
+  }
+
+  async function loadAllAg(uid: string) {
+    const { data } = await supabase.from('agendamentos').select('*').eq('profissional_id', uid).order('data', { ascending:false })
+    setAllAg(data || [])
+  }
+
+  async function loadServices(uid: string) {
+    const { data } = await supabase.from('servicos').select('*').eq('profissional_id', uid).order('nome')
+    setServices(data || [])
+  }
+
+  async function handleSave() {
+    if (!form.cliente || !form.data || !form.horario) return alert('Preencha nome, data e horário!')
+    setSaving(true)
+    await supabase.from('agendamentos').insert({ profissional_id:user.id, cliente_nome:form.cliente, cliente_telefone:form.telefone, servico:form.servico, data:form.data, horario:form.horario, preco:form.preco, duracao:form.duracao, status:form.status })
+    await loadAgendamentos(user.id, filterDate)
+    await loadAllAg(user.id)
+    setModal(false); setSaving(false)
+    setForm({ cliente:'', telefone:'', servico:'Manicure', data:'', horario:'09:00', preco:'', duracao:'1h', status:'confirmado' })
+  }
+
+  async function updateStatus(id: string, status: string) {
+    await supabase.from('agendamentos').update({ status }).eq('id', id)
+    await loadAgendamentos(user.id, filterDate)
+    await loadAllAg(user.id)
+  }
+
+  async function deleteAg(id: string) {
+    if (!confirm('Cancelar este agendamento?')) return
+    await supabase.from('agendamentos').delete().eq('id', id)
+    await loadAgendamentos(user.id, filterDate)
+    await loadAllAg(user.id)
+  }
+
+  async function saveSvc() {
+    if (!svcForm.nome) return alert('Preencha o nome do serviço!')
+    await supabase.from('servicos').insert({ profissional_id:user.id, ...svcForm })
+    await loadServices(user.id)
+    setSvcForm({ nome:'', preco:'', duracao:'' })
+  }
+
+  async function deleteSvc(id: string) {
+    await supabase.from('servicos').delete().eq('id', id)
+    await loadServices(user.id)
+  }
+
+  async function handleLogout() {
+    await supabase.auth.signOut()
+    window.location.href = '/login'
+  }
+
+  function changeDate(d: string) {
+    setFD(d)
+    loadAgendamentos(user.id, d)
+  }
+
+  // DERIVED DATA
+  const receita      = agendamentos.filter(a=>a.status!=='cancelado').reduce((s,a)=>s+(parseFloat(a.preco?.replace('R$','').replace(',','.').trim())||0),0)
+  const receitaTotal = allAg.filter(a=>a.status!=='cancelado').reduce((s,a)=>s+(parseFloat(a.preco?.replace('R$','').replace(',','.').trim())||0),0)
+  const clientes     = [...new Map(allAg.map(a=>[a.cliente_nome, a])).values()]
+  const nome         = profile?.nome || user?.email?.split('@')[0] || 'Profissional'
+
+  // Monthly revenue for chart
+  const meses: Record<string,number> = {}
+  allAg.filter(a=>a.status!=='cancelado').forEach(a => {
+    const m = a.data?.slice(0,7)
+    if (m) meses[m] = (meses[m]||0) + (parseFloat(a.preco?.replace('R$','').replace(',','.').trim())||0)
+  })
+  const mesesArr = Object.entries(meses).sort().slice(-6)
+  const maxVal   = Math.max(...mesesArr.map(m=>m[1]), 1)
+
+  if (loading) return (
+    <div style={{ display:'flex', height:'100vh', alignItems:'center', justifyContent:'center', fontFamily:'system-ui', background:'#f2f1ec' }}>
+      <div style={{ textAlign:'center' }}>
+        <div style={{ fontSize:32, fontWeight:700, color:'#0d1f17' }}>agen<span style={{ color:'#34d399' }}>dei</span></div>
+        <div style={{ color:'#6b7280', marginTop:8, fontSize:14 }}>Carregando...</div>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
+    </div>
+  )
+
+  // ─── SIDEBAR ──────────────────────────────────────────────────────────
+  const Sidebar = (
+    <div style={{ width:228, background:'#0d1f17', display:'flex', flexDirection:'column', padding:'24px 14px', flexShrink:0 }}>
+      <div style={{ display:'flex', alignItems:'center', gap:9, padding:'0 8px', marginBottom:32 }}>
+        <div style={{ width:30, height:30, background:'#34d399', borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700, fontSize:16, color:'#0d1f17' }}>A</div>
+        <span style={{ fontSize:19, fontWeight:600, color:'#fff', letterSpacing:-0.5 }}>agen<span style={{ color:'#34d399' }}>dei</span></span>
+      </div>
+      <nav style={{ flex:1, display:'flex', flexDirection:'column', gap:2 }}>
+        {[['📅','Agenda'],['👥','Clientes'],['✂️','Serviços'],['💰','Financeiro'],['⚙️','Configurações']].map(([ic,lb])=>(
+          <div key={lb} onClick={()=>setNav(lb)} style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 12px', borderRadius:8, cursor:'pointer', fontSize:13.5, background:nav===lb?'rgba(52,211,153,0.14)':'transparent', color:nav===lb?'#34d399':'rgba(255,255,255,0.45)', fontWeight:nav===lb?500:400 }}>
+            <span style={{ width:18, textAlign:'center' }}>{ic}</span>{lb}
+          </div>
+        ))}
+      </nav>
+      <div style={{ borderTop:'1px solid rgba(255,255,255,0.08)', paddingTop:14 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:10, paddingLeft:4, marginBottom:10 }}>
+          <div style={{ width:33, height:33, borderRadius:'50%', background:'linear-gradient(135deg,#059669,#34d399)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:700, color:'#fff', flexShrink:0 }}>{initials(nome)}</div>
+          <div>
+            <div style={{ fontSize:13, fontWeight:500, color:'rgba(255,255,255,0.75)', maxWidth:120, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{nome}</div>
+            <div style={{ fontSize:11, color:'rgba(255,255,255,0.3)' }}>Plano Pro</div>
+          </div>
+        </div>
+        <button onClick={handleLogout} style={{ width:'100%', padding:'7px', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)', background:'transparent', color:'rgba(255,255,255,0.4)', fontSize:12, cursor:'pointer', fontFamily:'inherit' }}>Sair</button>
+      </div>
+    </div>
+  )
+
+  // ─── AGENDA ──────────────────────────────────────────────────────────
+  const AgendaView = (
+    <div style={{ flex:1, overflowY:'auto', padding:'28px 32px', display:'flex', flexDirection:'column', gap:22 }}>
+      <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between' }}>
+        <div>
+          <h1 style={{ fontSize:22, fontWeight:600, letterSpacing:-0.5, margin:0 }}>Olá, {nome.split(' ')[0]}! ☀️</h1>
+          <p style={{ fontSize:13, color:'#6b7280', marginTop:2, textTransform:'capitalize' }}>{today}</p>
+        </div>
+        <button onClick={()=>setModal(true)} style={{ background:'#0d1f17', color:'#fff', border:'none', padding:'9px 16px', borderRadius:9, fontSize:13, fontWeight:600, cursor:'pointer' }}>＋ Novo agendamento</button>
+      </div>
+
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12 }}>
         {[
-          { label: 'Hoje',            value: '4',       sub: 'agendamentos',  tag: '+2 vs ontem',      bg: '#dcfce7', tc: '#166534' },
-          { label: 'Receita do dia',  value: 'R$ 420',  sub: 'previsto',      tag: '↑ 18%',            bg: '#dcfce7', tc: '#166534' },
-          { label: 'Clientes ativos', value: '134',     sub: 'total na base', tag: '+12 no mês',       bg: '#dbeafe', tc: '#1e40af' },
-          { label: 'Avaliação',       value: '4.9 ⭐',  sub: '47 avaliações', tag: 'Top profissional', bg: '#dcfce7', tc: '#166534' },
-        ].map(s => (
+          { label:'Hoje', value:agendamentos.length.toString(), sub:'agendamentos' },
+          { label:'Receita do dia', value:fmt(receita), sub:'previsto' },
+          { label:'Confirmados', value:agendamentos.filter(a=>a.status==='confirmado').length.toString(), sub:'agendamentos' },
+          { label:'Concluídos', value:agendamentos.filter(a=>a.status==='concluido').length.toString(), sub:'hoje' },
+        ].map(s=>(
           <div key={s.label} style={card}>
-            <div style={{ fontSize: 11, color: '#6b7280', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>{s.label}</div>
-            <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: -0.5 }}>{s.value}</div>
-            <div style={{ fontSize: 11.5, color: '#6b7280', marginTop: 4 }}>{s.sub}</div>
-            <span style={{ display: 'inline-block', fontSize: 10.5, padding: '2px 7px', borderRadius: 99, fontWeight: 600, marginTop: 5, background: s.bg, color: s.tc }}>{s.tag}</span>
+            <div style={{ fontSize:11, color:'#6b7280', fontWeight:500, textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:6 }}>{s.label}</div>
+            <div style={{ fontSize:22, fontWeight:700, letterSpacing:-0.5 }}>{s.value}</div>
+            <div style={{ fontSize:11.5, color:'#6b7280', marginTop:4 }}>{s.sub}</div>
           </div>
         ))}
       </div>
+
       <div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
-          <span style={{ fontSize: 15, fontWeight: 600 }}>Agenda de hoje</span>
-          <span style={{ fontSize: 12.5, color: '#6b7280', cursor: 'pointer' }}>Ver semana →</span>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
+          <span style={{ fontSize:15, fontWeight:600 }}>Agenda</span>
+          <input type="date" value={filterDate} onChange={e=>changeDate(e.target.value)}
+            style={{ padding:'6px 10px', border:'1.5px solid #e5e7eb', borderRadius:8, fontSize:13, fontFamily:'inherit', outline:'none' }} />
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {appointments.map(ap => (
-            <div key={ap.time} style={{ ...card, display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer' }}>
-              <div style={{ fontSize: 12.5, fontWeight: 600, color: '#9ca3af', minWidth: 44 }}>{ap.time}</div>
-              <div style={{ width: 3, height: 40, borderRadius: 99, background: ap.bar, flexShrink: 0 }} />
-              <div style={{ width: 36, height: 36, borderRadius: '50%', background: ap.color, color: ap.text, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>{ap.initials}</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13.5, fontWeight: 500 }}>{ap.name}</div>
-                <div style={{ fontSize: 12, color: '#6b7280' }}>{ap.service}</div>
-                <div style={{ fontSize: 11, color: '#9ca3af' }}>⏱ {ap.duration}</div>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: 14, fontWeight: 700 }}>{ap.price}</div>
-                <span style={{ display: 'inline-block', fontSize: 10.5, padding: '3px 9px', borderRadius: 99, fontWeight: 600, marginTop: 4, ...statusStyle[ap.status] }}>{statusLabel[ap.status]}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  )
-}
 
-function Clientes() {
-  const [search, setSearch] = useState('')
-  const filtered = clients.filter(c => c.name.toLowerCase().includes(search.toLowerCase()))
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <h1 style={{ fontSize: 22, fontWeight: 600, margin: 0 }}>Clientes</h1>
-          <p style={{ fontSize: 13, color: '#6b7280', marginTop: 2 }}>{clients.length} clientes na base</p>
-        </div>
-        <button style={{ background: '#0d1f17', color: '#fff', border: 'none', padding: '9px 16px', borderRadius: 9, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>＋ Novo cliente</button>
-      </div>
-      <input placeholder="🔍  Buscar cliente..." value={search} onChange={e => setSearch(e.target.value)} style={{ ...inp, fontSize: 13 }} />
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {filtered.map(c => (
-          <div key={c.name} style={{ ...card, display: 'flex', alignItems: 'center', gap: 14 }}>
-            <div style={{ width: 42, height: 42, borderRadius: '50%', background: c.color, color: c.text, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, flexShrink: 0 }}>{c.initials}</div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 14, fontWeight: 600 }}>{c.name}</div>
-              <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>{c.phone}</div>
-            </div>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 13, fontWeight: 700 }}>{c.visits}x</div>
-              <div style={{ fontSize: 11, color: '#9ca3af' }}>visitas</div>
-            </div>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 13, fontWeight: 700 }}>{c.total}</div>
-              <div style={{ fontSize: 11, color: '#9ca3af' }}>total gasto</div>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: 11, color: '#9ca3af' }}>Última visita</div>
-              <div style={{ fontSize: 13, fontWeight: 600, marginTop: 2 }}>{c.last}</div>
-            </div>
+        {agendamentos.length === 0 ? (
+          <div style={{ ...card, padding:'40px', textAlign:'center' }}>
+            <div style={{ fontSize:32, marginBottom:10 }}>📅</div>
+            <div style={{ fontSize:15, fontWeight:500 }}>Nenhum agendamento nesta data</div>
+            <div style={{ fontSize:13, color:'#6b7280', marginTop:4 }}>Clique em "+ Novo agendamento" para adicionar</div>
           </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function Servicos() {
-  const categories = [...new Set(servicesList.map(s => s.category))]
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <h1 style={{ fontSize: 22, fontWeight: 600, margin: 0 }}>Serviços</h1>
-          <p style={{ fontSize: 13, color: '#6b7280', marginTop: 2 }}>{servicesList.length} serviços cadastrados</p>
-        </div>
-        <button style={{ background: '#0d1f17', color: '#fff', border: 'none', padding: '9px 16px', borderRadius: 9, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>＋ Novo serviço</button>
-      </div>
-      {categories.map(cat => (
-        <div key={cat}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>{cat}</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {servicesList.filter(s => s.category === cat).map(s => (
-              <div key={s.name} style={{ ...card, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 500 }}>{s.name}</div>
-                  <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>⏱ {s.duration}</div>
+        ) : (
+          <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+            {agendamentos.map(ap=>(
+              <div key={ap.id} style={{ ...card, display:'flex', alignItems:'center', gap:14 }}>
+                <div style={{ fontSize:12.5, fontWeight:600, color:'#9ca3af', minWidth:44 }}>{ap.horario?.slice(0,5)}</div>
+                <div style={{ width:3, height:40, borderRadius:99, background:color(ap.cliente_nome, BAR), flexShrink:0 }} />
+                <div style={{ width:36, height:36, borderRadius:'50%', background:color(ap.cliente_nome, BG), color:color(ap.cliente_nome, TXT), display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:700, flexShrink:0 }}>{initials(ap.cliente_nome)}</div>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontSize:13.5, fontWeight:500 }}>{ap.cliente_nome}</div>
+                  <div style={{ fontSize:12, color:'#6b7280', marginTop:1 }}>{ap.servico}</div>
+                  {ap.duracao && <div style={{ fontSize:11, color:'#9ca3af', marginTop:1 }}>⏱ {ap.duracao}</div>}
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <div style={{ fontSize: 16, fontWeight: 700 }}>{s.price}</div>
-                  <button style={{ background: 'none', border: '1px solid #e5e7eb', borderRadius: 7, padding: '5px 10px', fontSize: 12, cursor: 'pointer', color: '#6b7280' }}>Editar</button>
+                <div style={{ textAlign:'right', display:'flex', flexDirection:'column', alignItems:'flex-end', gap:4 }}>
+                  {ap.preco && <div style={{ fontSize:14, fontWeight:700 }}>{ap.preco}</div>}
+                  <select value={ap.status} onChange={e=>updateStatus(ap.id, e.target.value)}
+                    style={{ ...(STATUS_STYLE[ap.status]||STATUS_STYLE.confirmado), fontSize:10.5, padding:'3px 6px', borderRadius:99, fontWeight:600, border:'none', cursor:'pointer', fontFamily:'inherit' }}>
+                    <option value="confirmado">Confirmado</option>
+                    <option value="concluido">Concluído</option>
+                    <option value="pendente">Aguardando</option>
+                    <option value="cancelado">Cancelado</option>
+                  </select>
+                  <button onClick={()=>deleteAg(ap.id)} style={{ fontSize:11, color:'#dc2626', background:'none', border:'none', cursor:'pointer', padding:0 }}>remover</button>
                 </div>
               </div>
             ))}
           </div>
-        </div>
-      ))}
+        )}
+      </div>
     </div>
   )
-}
 
-function Financeiro() {
-  const months = ['Out', 'Nov', 'Dez', 'Jan', 'Fev', 'Mar', 'Abr']
-  const values = [2100, 2800, 3200, 2600, 3100, 3500, 1680]
-  const max = Math.max(...values)
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+  // ─── CLIENTES ─────────────────────────────────────────────────────────
+  const ClientesView = (
+    <div style={{ flex:1, overflowY:'auto', padding:'28px 32px', display:'flex', flexDirection:'column', gap:22 }}>
       <div>
-        <h1 style={{ fontSize: 22, fontWeight: 600, margin: 0 }}>Financeiro</h1>
-        <p style={{ fontSize: 13, color: '#6b7280', marginTop: 2 }}>Visão geral dos últimos 7 meses</p>
+        <h1 style={{ fontSize:22, fontWeight:600, letterSpacing:-0.5, margin:0 }}>Clientes</h1>
+        <p style={{ fontSize:13, color:'#6b7280', marginTop:2 }}>{clientes.length} clientes na base</p>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12 }}>
         {[
-          { label: 'Receita — Abril', value: 'R$ 1.680', tag: 'até hoje',   bg: '#dbeafe', tc: '#1e40af' },
-          { label: 'Receita — Março', value: 'R$ 3.500', tag: '↑ 13%',      bg: '#dcfce7', tc: '#166534' },
-          { label: 'Ticket médio',    value: 'R$ 96',    tag: 'por cliente', bg: '#ede9fe', tc: '#7c3aed' },
-        ].map(s => (
+          { label:'Total de clientes', value:clientes.length.toString(), sub:'cadastrados' },
+          { label:'Atendimentos', value:allAg.length.toString(), sub:'histórico total' },
+          { label:'Receita total', value:fmt(receitaTotal), sub:'desde o início' },
+        ].map(s=>(
           <div key={s.label} style={card}>
-            <div style={{ fontSize: 11, color: '#6b7280', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>{s.label}</div>
-            <div style={{ fontSize: 22, fontWeight: 700 }}>{s.value}</div>
-            <span style={{ display: 'inline-block', fontSize: 10.5, padding: '2px 7px', borderRadius: 99, fontWeight: 600, marginTop: 6, background: s.bg, color: s.tc }}>{s.tag}</span>
+            <div style={{ fontSize:11, color:'#6b7280', fontWeight:500, textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:6 }}>{s.label}</div>
+            <div style={{ fontSize:22, fontWeight:700, letterSpacing:-0.5 }}>{s.value}</div>
+            <div style={{ fontSize:11.5, color:'#6b7280', marginTop:4 }}>{s.sub}</div>
           </div>
         ))}
       </div>
-      <div style={card}>
-        <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 16 }}>Receita mensal</div>
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, height: 130 }}>
-          {values.map((v, i) => (
-            <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-              <div style={{ fontSize: 10, color: '#9ca3af', fontWeight: 500 }}>R${(v / 1000).toFixed(1)}k</div>
-              <div style={{ width: '100%', background: i === 6 ? '#0d1f17' : '#dcfce7', borderRadius: '6px 6px 0 0', height: `${(v / max) * 90}px` }} />
-              <div style={{ fontSize: 11, color: '#6b7280', fontWeight: 500 }}>{months[i]}</div>
-            </div>
-          ))}
+      {clientes.length === 0 ? (
+        <div style={{ ...card, padding:'40px', textAlign:'center' }}>
+          <div style={{ fontSize:32, marginBottom:10 }}>👥</div>
+          <div style={{ fontSize:15, fontWeight:500 }}>Nenhum cliente ainda</div>
+          <div style={{ fontSize:13, color:'#6b7280', marginTop:4 }}>Crie agendamentos para ver seus clientes aqui</div>
         </div>
-      </div>
-      <div style={card}>
-        <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 14 }}>Serviços mais lucrativos</div>
-        {[
-          { name: 'Progressiva', pct: 88, value: 'R$ 800' },
-          { name: 'Hidratação',  pct: 65, value: 'R$ 600' },
-          { name: 'Manicure',    pct: 45, value: 'R$ 420' },
-        ].map(s => (
-          <div key={s.name} style={{ marginBottom: 12 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 5 }}>
-              <span style={{ fontWeight: 500 }}>{s.name}</span>
-              <span style={{ color: '#6b7280' }}>{s.value}</span>
-            </div>
-            <div style={{ height: 6, background: '#f3f4f6', borderRadius: 99, overflow: 'hidden' }}>
-              <div style={{ height: '100%', width: `${s.pct}%`, background: '#0d1f17', borderRadius: 99 }} />
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function Avaliacoes() {
-  const avg = (reviews.reduce((a, r) => a + r.stars, 0) / reviews.length).toFixed(1)
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <div>
-        <h1 style={{ fontSize: 22, fontWeight: 600, margin: 0 }}>Avaliações</h1>
-        <p style={{ fontSize: 13, color: '#6b7280', marginTop: 2 }}>{reviews.length} avaliações recebidas</p>
-      </div>
-      <div style={{ ...card, display: 'flex', alignItems: 'center', gap: 24 }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 48, fontWeight: 700, lineHeight: 1 }}>{avg}</div>
-          <div style={{ fontSize: 20, marginTop: 4 }}>⭐⭐⭐⭐⭐</div>
-          <div style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>média geral</div>
-        </div>
-        <div style={{ flex: 1 }}>
-          {[5, 4, 3, 2, 1].map(n => {
-            const count = reviews.filter(r => r.stars === n).length
+      ) : (
+        <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+          {clientes.map(c=>{
+            const ags = allAg.filter(a=>a.cliente_nome===c.cliente_nome)
+            const total = ags.filter(a=>a.status!=='cancelado').reduce((s,a)=>s+(parseFloat(a.preco?.replace('R$','').replace(',','.').trim())||0),0)
             return (
-              <div key={n} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                <span style={{ fontSize: 12, color: '#6b7280', width: 14 }}>{n}</span>
-                <span style={{ fontSize: 12 }}>⭐</span>
-                <div style={{ flex: 1, height: 6, background: '#f3f4f6', borderRadius: 99, overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${(count / reviews.length) * 100}%`, background: '#fbbf24', borderRadius: 99 }} />
+              <div key={c.cliente_nome} style={{ ...card, display:'flex', alignItems:'center', gap:14 }}>
+                <div style={{ width:40, height:40, borderRadius:'50%', background:color(c.cliente_nome, BG), color:color(c.cliente_nome, TXT), display:'flex', alignItems:'center', justifyContent:'center', fontSize:13, fontWeight:700, flexShrink:0 }}>{initials(c.cliente_nome)}</div>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontSize:14, fontWeight:600 }}>{c.cliente_nome}</div>
+                  {c.cliente_telefone && <div style={{ fontSize:12, color:'#6b7280', marginTop:1 }}>📱 {c.cliente_telefone}</div>}
+                  <div style={{ fontSize:12, color:'#6b7280', marginTop:1 }}>{ags.length} atendimento{ags.length!==1?'s':''}</div>
                 </div>
-                <span style={{ fontSize: 12, color: '#9ca3af', width: 14 }}>{count}</span>
+                <div style={{ textAlign:'right' }}>
+                  <div style={{ fontSize:14, fontWeight:700 }}>{fmt(total)}</div>
+                  <div style={{ fontSize:11, color:'#6b7280', marginTop:2 }}>gasto total</div>
+                </div>
               </div>
             )
           })}
         </div>
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {reviews.map(r => (
-          <div key={r.name} style={card}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-              <div style={{ width: 36, height: 36, borderRadius: '50%', background: r.color, color: r.text, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>{r.initials}</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 14, fontWeight: 600 }}>{r.name}</div>
-                <div style={{ fontSize: 12, color: '#9ca3af' }}>{r.service} · {r.date}</div>
-              </div>
-              <div style={{ fontSize: 16 }}>{'⭐'.repeat(r.stars)}</div>
-            </div>
-            <p style={{ fontSize: 13, color: '#374151', lineHeight: 1.55, fontStyle: 'italic' }}>"{r.comment}"</p>
-          </div>
-        ))}
-      </div>
+      )}
     </div>
   )
-}
 
-function Configuracoes() {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+  // ─── SERVIÇOS ─────────────────────────────────────────────────────────
+  const ServicosView = (
+    <div style={{ flex:1, overflowY:'auto', padding:'28px 32px', display:'flex', flexDirection:'column', gap:22 }}>
       <div>
-        <h1 style={{ fontSize: 22, fontWeight: 600, margin: 0 }}>Configurações</h1>
-        <p style={{ fontSize: 13, color: '#6b7280', marginTop: 2 }}>Gerencie seu perfil e preferências</p>
+        <h1 style={{ fontSize:22, fontWeight:600, letterSpacing:-0.5, margin:0 }}>Serviços</h1>
+        <p style={{ fontSize:13, color:'#6b7280', marginTop:2 }}>Cadastre seus serviços com preço e duração</p>
       </div>
-      <div style={card}>
-        <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 14 }}>Perfil profissional</div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          {[
-            { label: 'Nome',          value: 'Maria Silva'       },
-            { label: 'WhatsApp',      value: '(67) 99999-0000'   },
-            { label: 'Especialidade', value: 'Beleza & Estética' },
-            { label: 'Cidade',        value: 'Campo Grande, MS'  },
-          ].map(f => (
-            <div key={f.label}>
-              <label style={{ fontSize: 12.5, fontWeight: 500, color: '#6b7280', display: 'block', marginBottom: 5 }}>{f.label}</label>
-              <input defaultValue={f.value} style={inp} />
-            </div>
-          ))}
-        </div>
-        <button style={{ marginTop: 16, background: '#0d1f17', color: '#fff', border: 'none', padding: '9px 18px', borderRadius: 9, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-          Salvar alterações
-        </button>
-      </div>
-      <div style={card}>
-        <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 14 }}>Notificações automáticas</div>
-        {[
-          { label: 'Confirmação imediata', desc: 'Enviar WhatsApp ao agendar'     },
-          { label: 'Lembrete 24h antes',   desc: 'Lembrar cliente no dia anterior' },
-          { label: 'Lembrete 1h antes',    desc: 'Lembrar cliente 1h antes'        },
-          { label: 'Pedido de avaliação',  desc: 'Enviar após o atendimento'       },
-        ].map(n => (
-          <div key={n.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #f3f4f6' }}>
-            <div>
-              <div style={{ fontSize: 13.5, fontWeight: 500 }}>{n.label}</div>
-              <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>{n.desc}</div>
-            </div>
-            <div style={{ width: 40, height: 22, borderRadius: 99, background: '#059669', position: 'relative', cursor: 'pointer', flexShrink: 0 }}>
-              <div style={{ position: 'absolute', width: 16, height: 16, borderRadius: '50%', background: '#fff', top: 3, left: 21, boxShadow: '0 1px 3px rgba(0,0,0,.2)' }} />
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-// ── MAIN APP ──────────────────────────────────────────
-const navItems = [
-  { icon: '📅', label: 'Agenda'        },
-  { icon: '👥', label: 'Clientes'      },
-  { icon: '✂️', label: 'Serviços'      },
-  { icon: '💰', label: 'Financeiro'    },
-  { icon: '⭐', label: 'Avaliações'    },
-  { icon: '⚙️', label: 'Configurações' },
-]
-
-export default function Home() {
-  const [active, setActive] = useState('Agenda')
-  const [modal, setModal]   = useState(false)
-  const [saved, setSaved]   = useState(false)
-  const [form, setForm]     = useState({ client: '', service: 'Manicure', date: '', time: '09:00', phone: '' })
-
-  function handleSave() {
-    if (!form.client || !form.date) return alert('Preencha o nome e a data!')
-    setSaved(true)
-    setTimeout(() => { setModal(false); setSaved(false) }, 2000)
-  }
-
-  return (
-    <div style={{ display: 'flex', height: '100vh', fontFamily: 'system-ui, sans-serif', background: '#f2f1ec' }}>
-
-      {/* SIDEBAR */}
-      <div style={{ width: 228, background: '#0d1f17', display: 'flex', flexDirection: 'column', padding: '24px 14px', flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '0 8px', marginBottom: 32 }}>
-          <div style={{ width: 30, height: 30, background: '#34d399', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 16, color: '#0d1f17' }}>A</div>
-          <span style={{ fontSize: 19, fontWeight: 600, color: '#fff', letterSpacing: -0.5 }}>
-            agen<span style={{ color: '#34d399' }}>dei</span>
-          </span>
-        </div>
-
-        <nav style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {navItems.map(item => (
-            <div key={item.label} onClick={() => setActive(item.label)} style={{
-              display: 'flex', alignItems: 'center', gap: 10,
-              padding: '9px 12px', borderRadius: 8, cursor: 'pointer', fontSize: 13.5,
-              background: active === item.label ? 'rgba(52,211,153,0.14)' : 'transparent',
-              color: active === item.label ? '#34d399' : 'rgba(255,255,255,0.45)',
-              fontWeight: active === item.label ? 500 : 400,
-              transition: 'all .15s',
-            }}>
-              <span style={{ width: 18, textAlign: 'center' }}>{item.icon}</span>
-              {item.label}
-            </div>
-          ))}
-        </nav>
-
-        <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 14, display: 'flex', alignItems: 'center', gap: 10, paddingLeft: 4 }}>
-          <div style={{ width: 33, height: 33, borderRadius: '50%', background: 'linear-gradient(135deg,#059669,#34d399)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#fff', flexShrink: 0 }}>MS</div>
+      <div style={{ ...card }}>
+        <div style={{ fontSize:14, fontWeight:600, marginBottom:14 }}>Adicionar serviço</div>
+        <div style={{ display:'grid', gridTemplateColumns:'2fr 1fr 1fr', gap:10, marginBottom:12 }}>
           <div>
-            <div style={{ fontSize: 13, fontWeight: 500, color: 'rgba(255,255,255,0.75)' }}>Maria Silva</div>
-            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>Plano Pro</div>
+            <label style={lbl}>Nome do serviço</label>
+            <input style={inp} placeholder="Ex: Manicure" value={svcForm.nome} onChange={e=>setSvcForm({...svcForm, nome:e.target.value})} />
+          </div>
+          <div>
+            <label style={lbl}>Preço</label>
+            <input style={inp} placeholder="R$ 60" value={svcForm.preco} onChange={e=>setSvcForm({...svcForm, preco:e.target.value})} />
+          </div>
+          <div>
+            <label style={lbl}>Duração</label>
+            <input style={inp} placeholder="45 min" value={svcForm.duracao} onChange={e=>setSvcForm({...svcForm, duracao:e.target.value})} />
           </div>
         </div>
+        <button onClick={saveSvc} style={{ background:'#0d1f17', color:'#fff', border:'none', padding:'9px 18px', borderRadius:8, fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>＋ Adicionar</button>
       </div>
-
-      {/* MAIN CONTENT */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '28px 32px' }}>
-        {active === 'Agenda'        && <Agenda onNew={() => setModal(true)} />}
-        {active === 'Clientes'      && <Clientes />}
-        {active === 'Serviços'      && <Servicos />}
-        {active === 'Financeiro'    && <Financeiro />}
-        {active === 'Avaliações'    && <Avaliacoes />}
-        {active === 'Configurações' && <Configuracoes />}
-      </div>
-
-      {/* MODAL NOVO AGENDAMENTO */}
-      {modal && (
-        <div onClick={e => e.target === e.currentTarget && setModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
-          <div style={{ background: '#fff', borderRadius: 16, padding: 26, width: 400, maxWidth: '94vw' }}>
-            {saved ? (
-              <div style={{ textAlign: 'center', padding: '20px 0' }}>
-                <div style={{ fontSize: 48 }}>✅</div>
-                <div style={{ fontSize: 18, fontWeight: 600, marginTop: 12 }}>Agendamento salvo!</div>
-                <div style={{ fontSize: 13, color: '#6b7280', marginTop: 6 }}>Notificação enviada via WhatsApp</div>
+      {services.length === 0 ? (
+        <div style={{ ...card, padding:'40px', textAlign:'center' }}>
+          <div style={{ fontSize:32, marginBottom:10 }}>✂️</div>
+          <div style={{ fontSize:15, fontWeight:500 }}>Nenhum serviço cadastrado</div>
+          <div style={{ fontSize:13, color:'#6b7280', marginTop:4 }}>Adicione seus serviços acima</div>
+        </div>
+      ) : (
+        <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+          {services.map((s:any)=>(
+            <div key={s.id} style={{ ...card, display:'flex', alignItems:'center', gap:14 }}>
+              <div style={{ width:36, height:36, borderRadius:10, background:'#f0fdf4', display:'flex', alignItems:'center', justifyContent:'center', fontSize:18, flexShrink:0 }}>✂️</div>
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize:14, fontWeight:600 }}>{s.nome}</div>
+                {s.duracao && <div style={{ fontSize:12, color:'#6b7280', marginTop:1 }}>⏱ {s.duracao}</div>}
               </div>
-            ) : (
-              <>
-                <h2 style={{ fontSize: 17, fontWeight: 600, marginBottom: 18 }}>Novo agendamento</h2>
-                {[
-                  { label: 'Cliente',  key: 'client', type: 'text', placeholder: 'Nome do cliente'  },
-                  { label: 'WhatsApp', key: 'phone',  type: 'tel',  placeholder: '(67) 99999-0000'  },
-                ].map(f => (
-                  <div key={f.key} style={{ marginBottom: 13 }}>
-                    <label style={{ fontSize: 12.5, fontWeight: 500, color: '#6b7280', display: 'block', marginBottom: 5 }}>{f.label}</label>
-                    <input type={f.type} placeholder={f.placeholder} value={(form as any)[f.key]}
-                      onChange={e => setForm({ ...form, [f.key]: e.target.value })} style={inp} />
-                  </div>
-                ))}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 13 }}>
-                  <div>
-                    <label style={{ fontSize: 12.5, fontWeight: 500, color: '#6b7280', display: 'block', marginBottom: 5 }}>Serviço</label>
-                    <select value={form.service} onChange={e => setForm({ ...form, service: e.target.value })} style={inp}>
-                      {servicesList.map(s => <option key={s.name}>{s.name}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label style={{ fontSize: 12.5, fontWeight: 500, color: '#6b7280', display: 'block', marginBottom: 5 }}>Horário</label>
-                    <input type="time" value={form.time} onChange={e => setForm({ ...form, time: e.target.value })} style={inp} />
-                  </div>
-                </div>
-                <div style={{ marginBottom: 13 }}>
-                  <label style={{ fontSize: 12.5, fontWeight: 500, color: '#6b7280', display: 'block', marginBottom: 5 }}>Data</label>
-                  <input type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} style={inp} />
-                </div>
-                <div style={{ display: 'flex', gap: 8, marginTop: 18 }}>
-                  <button onClick={() => setModal(false)} style={{ flex: 1, padding: 9, border: '1.5px solid #e5e7eb', borderRadius: 8, fontSize: 13.5, fontWeight: 500, background: '#fff', cursor: 'pointer', fontFamily: 'inherit' }}>Cancelar</button>
-                  <button onClick={handleSave} style={{ flex: 2, padding: 9, border: 'none', borderRadius: 8, fontSize: 13.5, fontWeight: 700, background: '#0d1f17', color: '#fff', cursor: 'pointer', fontFamily: 'inherit' }}>Confirmar</button>
-                </div>
-                <button onClick={() => alert('📲 Notificação enviada!')} style={{ width: '100%', padding: 10, border: 'none', borderRadius: 8, fontSize: 13.5, fontWeight: 700, background: '#22c55e', color: '#fff', cursor: 'pointer', fontFamily: 'inherit', marginTop: 8 }}>
-                  📲 Notificar via WhatsApp
-                </button>
-              </>
-            )}
-          </div>
+              <div style={{ fontSize:16, fontWeight:700, color:'#0d1f17' }}>{s.preco}</div>
+              <button onClick={()=>deleteSvc(s.id)} style={{ fontSize:11, color:'#dc2626', background:'none', border:'none', cursor:'pointer', padding:'4px 8px' }}>remover</button>
+            </div>
+          ))}
         </div>
       )}
+    </div>
+  )
+
+  // ─── FINANCEIRO ───────────────────────────────────────────────────────
+  const FinanceiroView = (
+    <div style={{ flex:1, overflowY:'auto', padding:'28px 32px', display:'flex', flexDirection:'column', gap:22 }}>
+      <div>
+        <h1 style={{ fontSize:22, fontWeight:600, letterSpacing:-0.5, margin:0 }}>Financeiro</h1>
+        <p style={{ fontSize:13, color:'#6b7280', marginTop:2 }}>Visão geral das suas receitas</p>
+      </div>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12 }}>
+        {[
+          { label:'Receita total', value:fmt(receitaTotal), sub:'todos os períodos' },
+          { label:'Atendimentos', value:allAg.filter(a=>a.status==='concluido').length.toString(), sub:'concluídos' },
+          { label:'Ticket médio', value: allAg.filter(a=>a.status==='concluido').length ? fmt(receitaTotal/allAg.filter(a=>a.status==='concluido').length) : 'R$ 0,00', sub:'por atendimento' },
+        ].map(s=>(
+          <div key={s.label} style={card}>
+            <div style={{ fontSize:11, color:'#6b7280', fontWeight:500, textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:6 }}>{s.label}</div>
+            <div style={{ fontSize:22, fontWeight:700, letterSpacing:-0.5 }}>{s.value}</div>
+            <div style={{ fontSize:11.5, color:'#6b7280', marginTop:4 }}>{s.sub}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={card}>
+        <div style={{ fontSize:14, fontWeight:600, marginBottom:16 }}>Receita por mês</div>
+        {mesesArr.length === 0 ? (
+          <div style={{ textAlign:'center', padding:'20px', color:'#9ca3af', fontSize:13 }}>Sem dados ainda — crie agendamentos para ver o gráfico</div>
+        ) : (
+          <div style={{ display:'flex', alignItems:'flex-end', gap:12, height:140 }}>
+            {mesesArr.map(([m,v])=>(
+              <div key={m} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:6 }}>
+                <div style={{ fontSize:11, fontWeight:600, color:'#0d1f17' }}>{fmt(v).replace('R$ ','R$')}</div>
+                <div style={{ width:'100%', background:'#0d1f17', borderRadius:'4px 4px 0 0', height:`${Math.max((v/maxVal)*100,4)}%`, minHeight:4 }} />
+                <div style={{ fontSize:10, color:'#9ca3af' }}>{m.slice(5)}/{m.slice(2,4)}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div style={card}>
+        <div style={{ fontSize:14, fontWeight:600, marginBottom:14 }}>Últimos atendimentos</div>
+        {allAg.slice(0,10).map(a=>(
+          <div key={a.id} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 0', borderBottom:'1px solid #f3f4f6' }}>
+            <div>
+              <div style={{ fontSize:13.5, fontWeight:500 }}>{a.cliente_nome}</div>
+              <div style={{ fontSize:12, color:'#6b7280' }}>{a.servico} · {a.data}</div>
+            </div>
+            <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+              <span style={{ fontSize:14, fontWeight:700 }}>{a.preco || '—'}</span>
+              <span style={{ ...(STATUS_STYLE[a.status]||STATUS_STYLE.confirmado), fontSize:10.5, padding:'2px 8px', borderRadius:99, fontWeight:600 }}>{a.status}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+
+  // ─── CONFIGURAÇÕES ────────────────────────────────────────────────────
+  const ConfigView = (
+    <div style={{ flex:1, overflowY:'auto', padding:'28px 32px', display:'flex', flexDirection:'column', gap:22 }}>
+      <div>
+        <h1 style={{ fontSize:22, fontWeight:600, letterSpacing:-0.5, margin:0 }}>Configurações</h1>
+        <p style={{ fontSize:13, color:'#6b7280', marginTop:2 }}>Gerencie seu perfil e conta</p>
+      </div>
+      <div style={card}>
+        <div style={{ fontSize:14, fontWeight:600, marginBottom:16 }}>Seu perfil</div>
+        <div style={{ display:'flex', alignItems:'center', gap:16, marginBottom:20 }}>
+          <div style={{ width:56, height:56, borderRadius:'50%', background:'linear-gradient(135deg,#059669,#34d399)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, fontWeight:700, color:'#fff' }}>{initials(nome)}</div>
+          <div>
+            <div style={{ fontSize:16, fontWeight:600 }}>{nome}</div>
+            <div style={{ fontSize:13, color:'#6b7280' }}>{profile?.email || user?.email}</div>
+          </div>
+        </div>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, padding:'16px 0', borderTop:'1px solid #f3f4f6' }}>
+          {[
+            { label:'Total de agendamentos', value:allAg.length },
+            { label:'Clientes únicos', value:clientes.length },
+            { label:'Serviços cadastrados', value:services.length },
+            { label:'Receita total', value:fmt(receitaTotal) },
+          ].map(s=>(
+            <div key={s.label}>
+              <div style={{ fontSize:12, color:'#6b7280' }}>{s.label}</div>
+              <div style={{ fontSize:18, fontWeight:700, marginTop:2 }}>{s.value}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div style={card}>
+        <div style={{ fontSize:14, fontWeight:600, marginBottom:4 }}>Link do seu agendamento</div>
+        <div style={{ fontSize:13, color:'#6b7280', marginBottom:12 }}>Compartilhe este link com seus clientes</div>
+        <div style={{ background:'#f9fafb', border:'1.5px solid #e5e7eb', borderRadius:8, padding:'10px 14px', fontSize:13, color:'#0d1f17', fontWeight:500, wordBreak:'break-all' }}>
+          agendei.vercel.app/agendar/{nome.toLowerCase().replace(/\s+/g,'-')}
+        </div>
+      </div>
+      <button onClick={handleLogout} style={{ padding:'12px', borderRadius:10, border:'1.5px solid #fee2e2', background:'#fee2e2', color:'#dc2626', fontSize:14, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>
+        Sair da conta
+      </button>
+    </div>
+  )
+
+  // ─── MODAL NOVO AGENDAMENTO ───────────────────────────────────────────
+  const Modal = modal && (
+    <div onClick={e=>e.target===e.currentTarget&&setModal(false)}
+      style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:50 }}>
+      <div style={{ background:'#fff', borderRadius:16, padding:26, width:420, maxWidth:'94vw', maxHeight:'90vh', overflowY:'auto' }}>
+        <h2 style={{ fontSize:17, fontWeight:600, margin:'0 0 18px' }}>Novo agendamento</h2>
+        {[
+          { label:'Nome do cliente', key:'cliente', type:'text', ph:'Ex: Ana Santos' },
+          { label:'WhatsApp', key:'telefone', type:'tel', ph:'(67) 99999-0000' },
+        ].map(f=>(
+          <div key={f.key} style={{ marginBottom:13 }}>
+            <label style={lbl}>{f.label}</label>
+            <input type={f.type} placeholder={f.ph} value={(form as any)[f.key]} onChange={e=>setForm({...form,[f.key]:e.target.value})} style={inp} />
+          </div>
+        ))}
+        <div style={{ marginBottom:13 }}>
+          <label style={lbl}>Serviço</label>
+          <select value={form.servico} onChange={e=>setForm({...form,servico:e.target.value})} style={{ ...inp }}>
+            {SERVICES.map(s=><option key={s}>{s}</option>)}
+          </select>
+        </div>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:13 }}>
+          <div><label style={lbl}>Data</label><input type="date" value={form.data} onChange={e=>setForm({...form,data:e.target.value})} style={inp} /></div>
+          <div><label style={lbl}>Horário</label><input type="time" value={form.horario} onChange={e=>setForm({...form,horario:e.target.value})} style={inp} /></div>
+        </div>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:18 }}>
+          <div><label style={lbl}>Preço</label><input type="text" placeholder="R$ 80" value={form.preco} onChange={e=>setForm({...form,preco:e.target.value})} style={inp} /></div>
+          <div><label style={lbl}>Duração</label><input type="text" placeholder="1h 30min" value={form.duracao} onChange={e=>setForm({...form,duracao:e.target.value})} style={inp} /></div>
+        </div>
+        <div style={{ display:'flex', gap:8 }}>
+          <button onClick={()=>setModal(false)} style={{ flex:1, padding:10, border:'1.5px solid #e5e7eb', borderRadius:8, fontSize:13.5, fontWeight:500, background:'#fff', cursor:'pointer', fontFamily:'inherit' }}>Cancelar</button>
+          <button onClick={handleSave} disabled={saving} style={{ flex:2, padding:10, border:'none', borderRadius:8, fontSize:13.5, fontWeight:700, background:'#0d1f17', color:'#fff', cursor:'pointer', fontFamily:'inherit', opacity:saving?0.7:1 }}>
+            {saving?'Salvando...':'Confirmar agendamento'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+
+  return (
+    <div style={{ display:'flex', height:'100vh', fontFamily:'system-ui, sans-serif', background:'#f2f1ec' }}>
+      {Sidebar}
+      {nav==='Agenda'       && AgendaView}
+      {nav==='Clientes'     && ClientesView}
+      {nav==='Serviços'     && ServicosView}
+      {nav==='Financeiro'   && FinanceiroView}
+      {nav==='Configurações'&& ConfigView}
+      {Modal}
     </div>
   )
 }
