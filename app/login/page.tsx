@@ -55,7 +55,7 @@ export default function Login() {
       window.location.href = '/planos'
       return
     }
-    setMsg('✅ Conta criada! Verifique seu e-mail para confirmar.')
+    setMsg('Conta criada! Verifique seu e-mail para confirmar.')
     setLoading(false)
   }
 
@@ -68,14 +68,14 @@ export default function Login() {
     tagline: { fontSize: 13.5, color: '#6b7280', marginTop: 4 },
     card: { background: '#fff', borderRadius: 20, padding: '28px 28px 24px', boxShadow: '0 4px 24px rgba(0,0,0,0.08)' },
     tabs: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 24 },
-    tab: { padding: '9px', borderRadius: 10, border: '1.5px solid #e5e7eb', fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', background: '#fff', color: '#6b7280', transition: 'all .15s' },
+    tab: { padding: '9px', borderRadius: 10, border: '1.5px solid #e5e7eb', fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', background: '#fff', color: '#6b7280' },
     tabAct: { padding: '9px', borderRadius: 10, border: '1.5px solid #0d1f17', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', background: '#0d1f17', color: '#fff' },
     label: { fontSize: 12.5, fontWeight: 500, color: '#6b7280', display: 'block', marginBottom: 5 },
     input: { width: '100%', padding: '10px 13px', border: '1.5px solid #e5e7eb', borderRadius: 10, fontSize: 14, fontFamily: 'inherit', outline: 'none', color: '#111827', marginBottom: 13, boxSizing: 'border-box' as const },
-    btn: { width: '100%', padding: 13, border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 700, background: '#0d1f17', color: '#fff', cursor: 'pointer', fontFamily: 'inherit', marginTop: 4, opacity: loading ? 0.7 : 1 },
+    btn: { width: '100%', padding: 13, border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 700, background: '#0d1f17', color: '#fff', cursor: 'pointer', fontFamily: 'inherit', marginTop: 4 },
     erro: { background: '#fee2e2', color: '#dc2626', padding: '10px 13px', borderRadius: 10, fontSize: 13, marginBottom: 14, textAlign: 'center' as const },
     msg: { background: '#dcfce7', color: '#166534', padding: '10px 13px', borderRadius: 10, fontSize: 13, marginBottom: 14, textAlign: 'center' as const },
-    divider: { textAlign: 'center' as const, color: '#9ca3af', fontSize: 12, margin: '16px 0', position: 'relative' as const },
+    divider: { textAlign: 'center' as const, color: '#9ca3af', fontSize: 12, margin: '16px 0' },
     btnGoogle: { width: '100%', padding: 11, border: '1.5px solid #e5e7eb', borderRadius: 12, fontSize: 14, fontWeight: 500, background: '#fff', color: '#111827', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 },
   }
 
@@ -105,13 +105,13 @@ export default function Login() {
           <input
             style={s.input}
             type="password"
-            placeholder={modo === 'cadastro' ? 'Mínimo 6 caracteres' : '••••••••'}
+            placeholder={modo === 'cadastro' ? 'Minimo 6 caracteres' : '••••••••'}
             value={senha}
             onChange={e => setSenha(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && (modo === 'login' ? handleLogin() : handleCadastro())}
           />
           <button style={s.btn} onClick={modo === 'login' ? handleLogin : handleCadastro} disabled={loading}>
-            {loading ? 'Aguarde...' : modo === 'login' ? 'Entrar na conta' : 'Criar conta grátis'}
+            {loading ? 'Aguarde...' : modo === 'login' ? 'Entrar na conta' : 'Criar conta gratis'}
           </button>
           <div style={s.divider}>ou</div>
           <button
@@ -133,7 +133,7 @@ export default function Login() {
           </button>
           {modo === 'login' && (
             <p style={{ textAlign: 'center', fontSize: 12.5, color: '#9ca3af', marginTop: 16, marginBottom: 0 }}>
-              Não tem conta?{' '}
+              Nao tem conta?{' '}
               <span style={{ color: '#059669', fontWeight: 600, cursor: 'pointer' }} onClick={() => setModo('cadastro')}>
                 Criar agora
               </span>
