@@ -22,6 +22,11 @@ const STATUS_STYLE: Record<string,React.CSSProperties> = {
 function initials(n: string) { return n.split(' ').map(x=>x[0]).join('').toUpperCase().slice(0,2) }
 function color(n: string, arr: string[]) { let h=0; for(let c of n) h=c.charCodeAt(0)+h; return arr[h%arr.length] }
 function fmt(v: number) { return `R$ ${v.toFixed(2).replace('.',',')}` }
+function fmtDate(d: string) {
+  if (!d) return ''
+  const [y,m,day] = d.split('-')
+  return `${day}/${m}/${y}`
+}
 
 const inp: React.CSSProperties = { width:'100%', padding:'9px 12px', border:'1.5px solid #e5e7eb', borderRadius:8, fontSize:14, fontFamily:'inherit', outline:'none', boxSizing:'border-box' }
 const lbl: React.CSSProperties = { fontSize:12.5, fontWeight:500, color:'#6b7280', display:'block', marginBottom:5 }
@@ -40,6 +45,7 @@ export default function Home() {
   const [filterDate, setFD]     = useState(() => new Date().toISOString().split('T')[0])
   const [form, setForm]         = useState({ cliente:'', telefone:'', servico:'', data:'', horario:'09:00', preco:'', duracao:'1h', status:'confirmado' })
   const [svcForm, setSvcForm]   = useState({ nome:'', preco:'', duracao:'' })
+  const [expandedClient, setExpandedClient] = useState<string|null>(null)
 
   const today = new Date().toLocaleDateString('pt-BR',{ weekday:'long', day:'numeric', month:'long', year:'numeric' })
 
@@ -80,7 +86,6 @@ export default function Home() {
   async function loadServices(uid: string) {
     const { data } = await supabase.from('servicos').select('*').eq('profissional_id', uid).order('nome')
     setServices(data || [])
-    // Set default service in form
     if (data && data.length > 0) {
       setForm(f => ({ ...f, servico: data[0].nome, preco: data[0].preco || '', duracao: data[0].duracao || '1h' }))
     } else {
@@ -152,6 +157,7 @@ export default function Home() {
   const receitaTotal = allAg.filter(a=>a.status!=='cancelado').reduce((s,a)=>s+(parseFloat(a.preco?.replace('R$','').replace(',','.').trim())||0),0)
   const clientes     = [...new Map(allAg.map(a=>[a.cliente_nome, a])).values()]
   const nome         = profile?.nome || user?.email?.split('@')[0] || 'Profissional'
+  const svcOptions   = services.length > 0 ? services.map(s => s.nome) : DEFAULT_SERVICES
 
   const meses: Record<string,number> = {}
   allAg.filter(a=>a.status!=='cancelado').forEach(a => {
@@ -160,11 +166,6 @@ export default function Home() {
   })
   const mesesArr = Object.entries(meses).sort().slice(-6)
   const maxVal   = Math.max(...mesesArr.map(m=>m[1]), 1)
-
-  // Service options for modal
-  const svcOptions = services.length > 0
-    ? services.map(s => s.nome)
-    : DEFAULT_SERVICES
 
   if (loading) return (
     <div style={{ display:'flex', height:'100vh', alignItems:'center', justifyContent:'center', fontFamily:'system-ui', background:'#f2f1ec' }}>
@@ -294,21 +295,50 @@ export default function Home() {
         </div>
       ) : (
         <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-          {clientes.map(c=>{
-            const ags = allAg.filter(a=>a.cliente_nome===c.cliente_nome)
+          {clientes.map(c => {
+            const ags = allAg.filter(a=>a.cliente_nome===c.cliente_nome).sort((a,b)=>a.data>b.data?1:-1)
             const total = ags.filter(a=>a.status!=='cancelado').reduce((s,a)=>s+(parseFloat(a.preco?.replace('R$','').replace(',','.').trim())||0),0)
+            const isExpanded = expandedClient === c.cliente_nome
             return (
-              <div key={c.cliente_nome} style={{ ...card, display:'flex', alignItems:'center', gap:14 }}>
-                <div style={{ width:40, height:40, borderRadius:'50%', background:color(c.cliente_nome, BG), color:color(c.cliente_nome, TXT), display:'flex', alignItems:'center', justifyContent:'center', fontSize:13, fontWeight:700, flexShrink:0 }}>{initials(c.cliente_nome)}</div>
-                <div style={{ flex:1 }}>
-                  <div style={{ fontSize:14, fontWeight:600 }}>{c.cliente_nome}</div>
-                  {c.cliente_telefone && <div style={{ fontSize:12, color:'#6b7280', marginTop:1 }}>📱 {c.cliente_telefone}</div>}
-                  <div style={{ fontSize:12, color:'#6b7280', marginTop:1 }}>{ags.length} atendimento{ags.length!==1?'s':''}</div>
+              <div key={c.cliente_nome} style={{ ...card, padding:0, overflow:'hidden' }}>
+                {/* Header do cliente */}
+                <div onClick={()=>setExpandedClient(isExpanded ? null : c.cliente_nome)}
+                  style={{ display:'flex', alignItems:'center', gap:14, padding:'14px 18px', cursor:'pointer' }}>
+                  <div style={{ width:40, height:40, borderRadius:'50%', background:color(c.cliente_nome, BG), color:color(c.cliente_nome, TXT), display:'flex', alignItems:'center', justifyContent:'center', fontSize:13, fontWeight:700, flexShrink:0 }}>{initials(c.cliente_nome)}</div>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontSize:14, fontWeight:600 }}>{c.cliente_nome}</div>
+                    {c.cliente_telefone && <div style={{ fontSize:12, color:'#6b7280', marginTop:1 }}>📱 {c.cliente_telefone}</div>}
+                    <div style={{ fontSize:12, color:'#6b7280', marginTop:1 }}>{ags.length} agendamento{ags.length!==1?'s':''}</div>
+                  </div>
+                  <div style={{ textAlign:'right' }}>
+                    <div style={{ fontSize:14, fontWeight:700 }}>{fmt(total)}</div>
+                    <div style={{ fontSize:11, color:'#6b7280', marginTop:2 }}>gasto total</div>
+                  </div>
+                  <span style={{ fontSize:12, color:'#9ca3af', marginLeft:8 }}>{isExpanded ? '▲' : '▼'}</span>
                 </div>
-                <div style={{ textAlign:'right' }}>
-                  <div style={{ fontSize:14, fontWeight:700 }}>{fmt(total)}</div>
-                  <div style={{ fontSize:11, color:'#6b7280', marginTop:2 }}>gasto total</div>
-                </div>
+
+                {/* Histórico expandido */}
+                {isExpanded && (
+                  <div style={{ borderTop:'1px solid #f3f4f6', padding:'12px 18px', background:'#fafafa' }}>
+                    <div style={{ fontSize:12, fontWeight:600, color:'#6b7280', marginBottom:10, textTransform:'uppercase', letterSpacing:'0.04em' }}>Histórico de agendamentos</div>
+                    {ags.map(a => (
+                      <div key={a.id} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'8px 0', borderBottom:'1px solid #f3f4f6' }}>
+                        <div>
+                          <div style={{ fontSize:13, fontWeight:500 }}>{a.servico}</div>
+                          <div style={{ fontSize:12, color:'#6b7280', marginTop:2 }}>
+                            📅 {fmtDate(a.data)} às {a.horario?.slice(0,5)}
+                          </div>
+                        </div>
+                        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                          {a.preco && <div style={{ fontSize:13, fontWeight:700 }}>{a.preco}</div>}
+                          <span style={{ ...(STATUS_STYLE[a.status]||STATUS_STYLE.confirmado), fontSize:10.5, padding:'2px 8px', borderRadius:99, fontWeight:600 }}>
+                            {a.status}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )
           })}
@@ -345,7 +375,7 @@ export default function Home() {
         <div style={{ ...card, padding:'40px', textAlign:'center' }}>
           <div style={{ fontSize:32, marginBottom:10 }}>✂️</div>
           <div style={{ fontSize:15, fontWeight:500 }}>Nenhum serviço cadastrado</div>
-          <div style={{ fontSize:13, color:'#6b7280', marginTop:4 }}>Adicione seus serviços acima — eles aparecerão automaticamente para os clientes</div>
+          <div style={{ fontSize:13, color:'#6b7280', marginTop:4 }}>Adicione seus serviços acima</div>
         </div>
       ) : (
         <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
@@ -406,7 +436,7 @@ export default function Home() {
           <div key={a.id} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 0', borderBottom:'1px solid #f3f4f6' }}>
             <div>
               <div style={{ fontSize:13.5, fontWeight:500 }}>{a.cliente_nome}</div>
-              <div style={{ fontSize:12, color:'#6b7280' }}>{a.servico} · {a.data}</div>
+              <div style={{ fontSize:12, color:'#6b7280' }}>{a.servico} · {fmtDate(a.data)}</div>
             </div>
             <div style={{ display:'flex', alignItems:'center', gap:10 }}>
               <span style={{ fontSize:14, fontWeight:700 }}>{a.preco || '—'}</span>
