@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL('/login?erro=sem_codigo', requestUrl.origin))
   }
 
-  const cookieStore = cookies()
+  const cookieStore = await cookies()
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
