@@ -8,12 +8,12 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-const SERVICES = ['Manicure','Pedicure','Manicure + Pedicure','Corte','Barba','Corte + Barba','Hidratação capilar','Progressiva','Massagem','Personal Training','Consulta','Outro']
+const DEFAULT_SERVICES = ['Manicure','Pedicure','Manicure + Pedicure','Corte','Barba','Corte + Barba','Hidratação capilar','Progressiva','Massagem','Personal Training','Consulta','Outro']
 const BAR  = ['#f87171','#60a5fa','#a78bfa','#fbbf24','#34d399','#fb923c','#e879f9','#38bdf8']
 const BG   = ['#fee2e2','#dbeafe','#ede9fe','#fef3c7','#d1fae5','#ffedd5','#fae8ff','#e0f2fe']
 const TXT  = ['#dc2626','#1d4ed8','#7c3aed','#d97706','#065f46','#9a3412','#86198f','#0369a1']
 const STATUS_STYLE: Record<string,React.CSSProperties> = {
-  confirmado: { background:'#dcfce7', color:'#166534' },
+  confirmado: { background:'#dcfce7', color:'#166634' },
   concluido:  { background:'#f3f4f6', color:'#6b7280' },
   pendente:   { background:'#fef3c7', color:'#92400e' },
   cancelado:  { background:'#fee2e2', color:'#dc2626' },
@@ -28,18 +28,18 @@ const lbl: React.CSSProperties = { fontSize:12.5, fontWeight:500, color:'#6b7280
 const card: React.CSSProperties = { background:'#fff', borderRadius:12, padding:'16px 18px', border:'1px solid rgba(0,0,0,0.08)' }
 
 export default function Home() {
-  const [user, setUser]       = useState<any>(null)
-  const [profile, setProfile] = useState<any>(null)
-  const [agendamentos, setAg] = useState<any[]>([])
-  const [allAg, setAllAg]     = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [nav, setNav]         = useState('Agenda')
-  const [modal, setModal]     = useState(false)
-  const [saving, setSaving]   = useState(false)
-  const [filterDate, setFD]   = useState(() => new Date().toISOString().split('T')[0])
-  const [form, setForm]       = useState({ cliente:'', telefone:'', servico:'Manicure', data:'', horario:'09:00', preco:'', duracao:'1h', status:'confirmado' })
-  const [svcForm, setSvcForm] = useState({ nome:'', preco:'', duracao:'' })
+  const [user, setUser]         = useState<any>(null)
+  const [profile, setProfile]   = useState<any>(null)
+  const [agendamentos, setAg]   = useState<any[]>([])
+  const [allAg, setAllAg]       = useState<any[]>([])
   const [services, setServices] = useState<any[]>([])
+  const [loading, setLoading]   = useState(true)
+  const [nav, setNav]           = useState('Agenda')
+  const [modal, setModal]       = useState(false)
+  const [saving, setSaving]     = useState(false)
+  const [filterDate, setFD]     = useState(() => new Date().toISOString().split('T')[0])
+  const [form, setForm]         = useState({ cliente:'', telefone:'', servico:'', data:'', horario:'09:00', preco:'', duracao:'1h', status:'confirmado' })
+  const [svcForm, setSvcForm]   = useState({ nome:'', preco:'', duracao:'' })
 
   const today = new Date().toLocaleDateString('pt-BR',{ weekday:'long', day:'numeric', month:'long', year:'numeric' })
 
@@ -80,16 +80,32 @@ export default function Home() {
   async function loadServices(uid: string) {
     const { data } = await supabase.from('servicos').select('*').eq('profissional_id', uid).order('nome')
     setServices(data || [])
+    // Set default service in form
+    if (data && data.length > 0) {
+      setForm(f => ({ ...f, servico: data[0].nome, preco: data[0].preco || '', duracao: data[0].duracao || '1h' }))
+    } else {
+      setForm(f => ({ ...f, servico: DEFAULT_SERVICES[0] }))
+    }
   }
 
   async function handleSave() {
     if (!form.cliente || !form.data || !form.horario) return alert('Preencha nome, data e horário!')
     setSaving(true)
-    await supabase.from('agendamentos').insert({ profissional_id:user.id, cliente_nome:form.cliente, cliente_telefone:form.telefone, servico:form.servico, data:form.data, horario:form.horario, preco:form.preco, duracao:form.duracao, status:form.status })
+    await supabase.from('agendamentos').insert({
+      profissional_id: user.id,
+      cliente_nome: form.cliente,
+      cliente_telefone: form.telefone,
+      servico: form.servico,
+      data: form.data,
+      horario: form.horario,
+      preco: form.preco,
+      duracao: form.duracao,
+      status: form.status,
+    })
     await loadAgendamentos(user.id, filterDate)
     await loadAllAg(user.id)
     setModal(false); setSaving(false)
-    setForm({ cliente:'', telefone:'', servico:'Manicure', data:'', horario:'09:00', preco:'', duracao:'1h', status:'confirmado' })
+    setForm({ cliente:'', telefone:'', servico: services.length > 0 ? services[0].nome : DEFAULT_SERVICES[0], data:'', horario:'09:00', preco: services.length > 0 ? services[0].preco || '' : '', duracao: services.length > 0 ? services[0].duracao || '1h' : '1h', status:'confirmado' })
   }
 
   async function updateStatus(id: string, status: string) {
@@ -127,13 +143,16 @@ export default function Home() {
     loadAgendamentos(user.id, d)
   }
 
-  // DERIVED DATA
+  function onServiceChange(nome: string) {
+    const svc = services.find(s => s.nome === nome)
+    setForm(f => ({ ...f, servico: nome, preco: svc?.preco || f.preco, duracao: svc?.duracao || f.duracao }))
+  }
+
   const receita      = agendamentos.filter(a=>a.status!=='cancelado').reduce((s,a)=>s+(parseFloat(a.preco?.replace('R$','').replace(',','.').trim())||0),0)
   const receitaTotal = allAg.filter(a=>a.status!=='cancelado').reduce((s,a)=>s+(parseFloat(a.preco?.replace('R$','').replace(',','.').trim())||0),0)
   const clientes     = [...new Map(allAg.map(a=>[a.cliente_nome, a])).values()]
   const nome         = profile?.nome || user?.email?.split('@')[0] || 'Profissional'
 
-  // Monthly revenue for chart
   const meses: Record<string,number> = {}
   allAg.filter(a=>a.status!=='cancelado').forEach(a => {
     const m = a.data?.slice(0,7)
@@ -141,6 +160,11 @@ export default function Home() {
   })
   const mesesArr = Object.entries(meses).sort().slice(-6)
   const maxVal   = Math.max(...mesesArr.map(m=>m[1]), 1)
+
+  // Service options for modal
+  const svcOptions = services.length > 0
+    ? services.map(s => s.nome)
+    : DEFAULT_SERVICES
 
   if (loading) return (
     <div style={{ display:'flex', height:'100vh', alignItems:'center', justifyContent:'center', fontFamily:'system-ui', background:'#f2f1ec' }}>
@@ -151,7 +175,6 @@ export default function Home() {
     </div>
   )
 
-  // ─── SIDEBAR ──────────────────────────────────────────────────────────
   const Sidebar = (
     <div style={{ width:228, background:'#0d1f17', display:'flex', flexDirection:'column', padding:'24px 14px', flexShrink:0 }}>
       <div style={{ display:'flex', alignItems:'center', gap:9, padding:'0 8px', marginBottom:32 }}>
@@ -178,7 +201,6 @@ export default function Home() {
     </div>
   )
 
-  // ─── AGENDA ──────────────────────────────────────────────────────────
   const AgendaView = (
     <div style={{ flex:1, overflowY:'auto', padding:'28px 32px', display:'flex', flexDirection:'column', gap:22 }}>
       <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between' }}>
@@ -188,7 +210,6 @@ export default function Home() {
         </div>
         <button onClick={()=>setModal(true)} style={{ background:'#0d1f17', color:'#fff', border:'none', padding:'9px 16px', borderRadius:9, fontSize:13, fontWeight:600, cursor:'pointer' }}>＋ Novo agendamento</button>
       </div>
-
       <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12 }}>
         {[
           { label:'Hoje', value:agendamentos.length.toString(), sub:'agendamentos' },
@@ -203,14 +224,12 @@ export default function Home() {
           </div>
         ))}
       </div>
-
       <div>
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
           <span style={{ fontSize:15, fontWeight:600 }}>Agenda</span>
           <input type="date" value={filterDate} onChange={e=>changeDate(e.target.value)}
             style={{ padding:'6px 10px', border:'1.5px solid #e5e7eb', borderRadius:8, fontSize:13, fontFamily:'inherit', outline:'none' }} />
         </div>
-
         {agendamentos.length === 0 ? (
           <div style={{ ...card, padding:'40px', textAlign:'center' }}>
             <div style={{ fontSize:32, marginBottom:10 }}>📅</div>
@@ -248,7 +267,6 @@ export default function Home() {
     </div>
   )
 
-  // ─── CLIENTES ─────────────────────────────────────────────────────────
   const ClientesView = (
     <div style={{ flex:1, overflowY:'auto', padding:'28px 32px', display:'flex', flexDirection:'column', gap:22 }}>
       <div>
@@ -299,14 +317,13 @@ export default function Home() {
     </div>
   )
 
-  // ─── SERVIÇOS ─────────────────────────────────────────────────────────
   const ServicosView = (
     <div style={{ flex:1, overflowY:'auto', padding:'28px 32px', display:'flex', flexDirection:'column', gap:22 }}>
       <div>
         <h1 style={{ fontSize:22, fontWeight:600, letterSpacing:-0.5, margin:0 }}>Serviços</h1>
-        <p style={{ fontSize:13, color:'#6b7280', marginTop:2 }}>Cadastre seus serviços com preço e duração</p>
+        <p style={{ fontSize:13, color:'#6b7280', marginTop:2 }}>Estes serviços aparecem para os clientes ao agendar</p>
       </div>
-      <div style={{ ...card }}>
+      <div style={card}>
         <div style={{ fontSize:14, fontWeight:600, marginBottom:14 }}>Adicionar serviço</div>
         <div style={{ display:'grid', gridTemplateColumns:'2fr 1fr 1fr', gap:10, marginBottom:12 }}>
           <div>
@@ -328,7 +345,7 @@ export default function Home() {
         <div style={{ ...card, padding:'40px', textAlign:'center' }}>
           <div style={{ fontSize:32, marginBottom:10 }}>✂️</div>
           <div style={{ fontSize:15, fontWeight:500 }}>Nenhum serviço cadastrado</div>
-          <div style={{ fontSize:13, color:'#6b7280', marginTop:4 }}>Adicione seus serviços acima</div>
+          <div style={{ fontSize:13, color:'#6b7280', marginTop:4 }}>Adicione seus serviços acima — eles aparecerão automaticamente para os clientes</div>
         </div>
       ) : (
         <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
@@ -348,7 +365,6 @@ export default function Home() {
     </div>
   )
 
-  // ─── FINANCEIRO ───────────────────────────────────────────────────────
   const FinanceiroView = (
     <div style={{ flex:1, overflowY:'auto', padding:'28px 32px', display:'flex', flexDirection:'column', gap:22 }}>
       <div>
@@ -368,11 +384,10 @@ export default function Home() {
           </div>
         ))}
       </div>
-
       <div style={card}>
         <div style={{ fontSize:14, fontWeight:600, marginBottom:16 }}>Receita por mês</div>
         {mesesArr.length === 0 ? (
-          <div style={{ textAlign:'center', padding:'20px', color:'#9ca3af', fontSize:13 }}>Sem dados ainda — crie agendamentos para ver o gráfico</div>
+          <div style={{ textAlign:'center', padding:'20px', color:'#9ca3af', fontSize:13 }}>Sem dados ainda</div>
         ) : (
           <div style={{ display:'flex', alignItems:'flex-end', gap:12, height:140 }}>
             {mesesArr.map(([m,v])=>(
@@ -385,7 +400,6 @@ export default function Home() {
           </div>
         )}
       </div>
-
       <div style={card}>
         <div style={{ fontSize:14, fontWeight:600, marginBottom:14 }}>Últimos atendimentos</div>
         {allAg.slice(0,10).map(a=>(
@@ -404,7 +418,6 @@ export default function Home() {
     </div>
   )
 
-  // ─── CONFIGURAÇÕES ────────────────────────────────────────────────────
   const ConfigView = (
     <div style={{ flex:1, overflowY:'auto', padding:'28px 32px', display:'flex', flexDirection:'column', gap:22 }}>
       <div>
@@ -436,10 +449,17 @@ export default function Home() {
       </div>
       <div style={card}>
         <div style={{ fontSize:14, fontWeight:600, marginBottom:4 }}>Link do seu agendamento</div>
-        <div style={{ fontSize:13, color:'#6b7280', marginBottom:12 }}>Compartilhe este link com seus clientes</div>
+        <div style={{ fontSize:13, color:'#6b7280', marginBottom:12 }}>Compartilhe com seus clientes</div>
         <div style={{ background:'#f9fafb', border:'1.5px solid #e5e7eb', borderRadius:8, padding:'10px 14px', fontSize:13, color:'#0d1f17', fontWeight:500, wordBreak:'break-all' }}>
-          agendei.vercel.app/agendar/{nome.toLowerCase().replace(/\s+/g,'-')}
+          {typeof window !== 'undefined' ? window.location.origin : 'agendei-rho.vercel.app'}/agendar/{nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'')}
         </div>
+        <button onClick={() => {
+          const link = `${window.location.origin}/agendar/${nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'')}`
+          navigator.clipboard.writeText(link)
+          alert('Link copiado!')
+        }} style={{ marginTop:10, padding:'8px 16px', border:'1.5px solid #e5e7eb', borderRadius:8, fontSize:13, fontWeight:500, background:'#fff', cursor:'pointer', fontFamily:'inherit' }}>
+          Copiar link
+        </button>
       </div>
       <button onClick={handleLogout} style={{ padding:'12px', borderRadius:10, border:'1.5px solid #fee2e2', background:'#fee2e2', color:'#dc2626', fontSize:14, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>
         Sair da conta
@@ -447,7 +467,6 @@ export default function Home() {
     </div>
   )
 
-  // ─── MODAL NOVO AGENDAMENTO ───────────────────────────────────────────
   const Modal = modal && (
     <div onClick={e=>e.target===e.currentTarget&&setModal(false)}
       style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:50 }}>
@@ -464,8 +483,8 @@ export default function Home() {
         ))}
         <div style={{ marginBottom:13 }}>
           <label style={lbl}>Serviço</label>
-          <select value={form.servico} onChange={e=>setForm({...form,servico:e.target.value})} style={{ ...inp }}>
-            {SERVICES.map(s=><option key={s}>{s}</option>)}
+          <select value={form.servico} onChange={e=>onServiceChange(e.target.value)} style={{ ...inp }}>
+            {svcOptions.map(s=><option key={s} value={s}>{s}</option>)}
           </select>
         </div>
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:13 }}>
@@ -489,11 +508,11 @@ export default function Home() {
   return (
     <div style={{ display:'flex', height:'100vh', fontFamily:'system-ui, sans-serif', background:'#f2f1ec' }}>
       {Sidebar}
-      {nav==='Agenda'       && AgendaView}
-      {nav==='Clientes'     && ClientesView}
-      {nav==='Serviços'     && ServicosView}
-      {nav==='Financeiro'   && FinanceiroView}
-      {nav==='Configurações'&& ConfigView}
+      {nav==='Agenda'        && AgendaView}
+      {nav==='Clientes'      && ClientesView}
+      {nav==='Serviços'      && ServicosView}
+      {nav==='Financeiro'    && FinanceiroView}
+      {nav==='Configurações' && ConfigView}
       {Modal}
     </div>
   )
