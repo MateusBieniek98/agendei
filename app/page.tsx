@@ -69,8 +69,8 @@ export default function Home() {
     const { data } = await supabase.from('profiles').select('*').eq('id', u.id).single()
     if (data) { setProfile(data); return }
     const nome = u.user_metadata?.nome || u.email?.split('@')[0] || 'Profissional'
-    await supabase.from('profiles').insert({ id:u.id, nome, email:u.email })
-    setProfile({ nome, email:u.email })
+    await supabase.from('profiles').insert({ id:u.id, nome, email:u.email, plano:'starter' })
+    setProfile({ nome, email:u.email, plano:'starter' })
   }
 
   async function loadAgendamentos(uid: string, date: string) {
@@ -97,20 +97,14 @@ export default function Home() {
     if (!form.cliente || !form.data || !form.horario) return alert('Preencha nome, data e horário!')
     setSaving(true)
     await supabase.from('agendamentos').insert({
-      profissional_id: user.id,
-      cliente_nome: form.cliente,
-      cliente_telefone: form.telefone,
-      servico: form.servico,
-      data: form.data,
-      horario: form.horario,
-      preco: form.preco,
-      duracao: form.duracao,
-      status: form.status,
+      profissional_id: user.id, cliente_nome: form.cliente, cliente_telefone: form.telefone,
+      servico: form.servico, data: form.data, horario: form.horario,
+      preco: form.preco, duracao: form.duracao, status: form.status,
     })
     await loadAgendamentos(user.id, filterDate)
     await loadAllAg(user.id)
     setModal(false); setSaving(false)
-    setForm({ cliente:'', telefone:'', servico: services.length > 0 ? services[0].nome : DEFAULT_SERVICES[0], data:'', horario:'09:00', preco: services.length > 0 ? services[0].preco || '' : '', duracao: services.length > 0 ? services[0].duracao || '1h' : '1h', status:'confirmado' })
+    setForm({ cliente:'', telefone:'', servico: services.length>0?services[0].nome:DEFAULT_SERVICES[0], data:'', horario:'09:00', preco: services.length>0?services[0].preco||'':'', duracao: services.length>0?services[0].duracao||'1h':'1h', status:'confirmado' })
   }
 
   async function updateStatus(id: string, status: string) {
@@ -158,6 +152,8 @@ export default function Home() {
   const clientes     = [...new Map(allAg.map(a=>[a.cliente_nome, a])).values()]
   const nome         = profile?.nome || user?.email?.split('@')[0] || 'Profissional'
   const svcOptions   = services.length > 0 ? services.map(s => s.nome) : DEFAULT_SERVICES
+  const planoAtual   = profile?.plano || 'starter'
+  const isPro        = planoAtual !== 'starter'
 
   const meses: Record<string,number> = {}
   allAg.filter(a=>a.status!=='cancelado').forEach(a => {
@@ -194,7 +190,7 @@ export default function Home() {
           <div style={{ width:33, height:33, borderRadius:'50%', background:'linear-gradient(135deg,#059669,#34d399)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:700, color:'#fff', flexShrink:0 }}>{initials(nome)}</div>
           <div>
             <div style={{ fontSize:13, fontWeight:500, color:'rgba(255,255,255,0.75)', maxWidth:120, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{nome}</div>
-            <div style={{ fontSize:11, color:'rgba(255,255,255,0.3)' }}>Plano Pro</div>
+            <div style={{ fontSize:11, color: isPro ? '#34d399' : 'rgba(255,255,255,0.3)' }}>{isPro ? '⭐ Plano Pro' : 'Plano Starter'}</div>
           </div>
         </div>
         <button onClick={handleLogout} style={{ width:'100%', padding:'7px', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)', background:'transparent', color:'rgba(255,255,255,0.4)', fontSize:12, cursor:'pointer', fontFamily:'inherit' }}>Sair</button>
@@ -301,8 +297,7 @@ export default function Home() {
             const isExpanded = expandedClient === c.cliente_nome
             return (
               <div key={c.cliente_nome} style={{ ...card, padding:0, overflow:'hidden' }}>
-                {/* Header do cliente */}
-                <div onClick={()=>setExpandedClient(isExpanded ? null : c.cliente_nome)}
+                <div onClick={()=>setExpandedClient(isExpanded?null:c.cliente_nome)}
                   style={{ display:'flex', alignItems:'center', gap:14, padding:'14px 18px', cursor:'pointer' }}>
                   <div style={{ width:40, height:40, borderRadius:'50%', background:color(c.cliente_nome, BG), color:color(c.cliente_nome, TXT), display:'flex', alignItems:'center', justifyContent:'center', fontSize:13, fontWeight:700, flexShrink:0 }}>{initials(c.cliente_nome)}</div>
                   <div style={{ flex:1 }}>
@@ -314,26 +309,20 @@ export default function Home() {
                     <div style={{ fontSize:14, fontWeight:700 }}>{fmt(total)}</div>
                     <div style={{ fontSize:11, color:'#6b7280', marginTop:2 }}>gasto total</div>
                   </div>
-                  <span style={{ fontSize:12, color:'#9ca3af', marginLeft:8 }}>{isExpanded ? '▲' : '▼'}</span>
+                  <span style={{ fontSize:12, color:'#9ca3af', marginLeft:8 }}>{isExpanded?'▲':'▼'}</span>
                 </div>
-
-                {/* Histórico expandido */}
                 {isExpanded && (
                   <div style={{ borderTop:'1px solid #f3f4f6', padding:'12px 18px', background:'#fafafa' }}>
-                    <div style={{ fontSize:12, fontWeight:600, color:'#6b7280', marginBottom:10, textTransform:'uppercase', letterSpacing:'0.04em' }}>Histórico de agendamentos</div>
-                    {ags.map(a => (
+                    <div style={{ fontSize:12, fontWeight:600, color:'#6b7280', marginBottom:10, textTransform:'uppercase', letterSpacing:'0.04em' }}>Histórico</div>
+                    {ags.map(a=>(
                       <div key={a.id} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'8px 0', borderBottom:'1px solid #f3f4f6' }}>
                         <div>
                           <div style={{ fontSize:13, fontWeight:500 }}>{a.servico}</div>
-                          <div style={{ fontSize:12, color:'#6b7280', marginTop:2 }}>
-                            📅 {fmtDate(a.data)} às {a.horario?.slice(0,5)}
-                          </div>
+                          <div style={{ fontSize:12, color:'#6b7280', marginTop:2 }}>📅 {fmtDate(a.data)} às {a.horario?.slice(0,5)}</div>
                         </div>
                         <div style={{ display:'flex', alignItems:'center', gap:10 }}>
                           {a.preco && <div style={{ fontSize:13, fontWeight:700 }}>{a.preco}</div>}
-                          <span style={{ ...(STATUS_STYLE[a.status]||STATUS_STYLE.confirmado), fontSize:10.5, padding:'2px 8px', borderRadius:99, fontWeight:600 }}>
-                            {a.status}
-                          </span>
+                          <span style={{ ...(STATUS_STYLE[a.status]||STATUS_STYLE.confirmado), fontSize:10.5, padding:'2px 8px', borderRadius:99, fontWeight:600 }}>{a.status}</span>
                         </div>
                       </div>
                     ))}
@@ -356,18 +345,9 @@ export default function Home() {
       <div style={card}>
         <div style={{ fontSize:14, fontWeight:600, marginBottom:14 }}>Adicionar serviço</div>
         <div style={{ display:'grid', gridTemplateColumns:'2fr 1fr 1fr', gap:10, marginBottom:12 }}>
-          <div>
-            <label style={lbl}>Nome do serviço</label>
-            <input style={inp} placeholder="Ex: Manicure" value={svcForm.nome} onChange={e=>setSvcForm({...svcForm, nome:e.target.value})} />
-          </div>
-          <div>
-            <label style={lbl}>Preço</label>
-            <input style={inp} placeholder="R$ 60" value={svcForm.preco} onChange={e=>setSvcForm({...svcForm, preco:e.target.value})} />
-          </div>
-          <div>
-            <label style={lbl}>Duração</label>
-            <input style={inp} placeholder="45 min" value={svcForm.duracao} onChange={e=>setSvcForm({...svcForm, duracao:e.target.value})} />
-          </div>
+          <div><label style={lbl}>Nome</label><input style={inp} placeholder="Ex: Manicure" value={svcForm.nome} onChange={e=>setSvcForm({...svcForm, nome:e.target.value})} /></div>
+          <div><label style={lbl}>Preço</label><input style={inp} placeholder="R$ 60" value={svcForm.preco} onChange={e=>setSvcForm({...svcForm, preco:e.target.value})} /></div>
+          <div><label style={lbl}>Duração</label><input style={inp} placeholder="45 min" value={svcForm.duracao} onChange={e=>setSvcForm({...svcForm, duracao:e.target.value})} /></div>
         </div>
         <button onClick={saveSvc} style={{ background:'#0d1f17', color:'#fff', border:'none', padding:'9px 18px', borderRadius:8, fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>＋ Adicionar</button>
       </div>
@@ -404,7 +384,7 @@ export default function Home() {
       <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12 }}>
         {[
           { label:'Receita total', value:fmt(receitaTotal), sub:'todos os períodos' },
-          { label:'Atendimentos', value:allAg.filter(a=>a.status==='concluido').length.toString(), sub:'concluídos' },
+          { label:'Concluídos', value:allAg.filter(a=>a.status==='concluido').length.toString(), sub:'atendimentos' },
           { label:'Ticket médio', value: allAg.filter(a=>a.status==='concluido').length ? fmt(receitaTotal/allAg.filter(a=>a.status==='concluido').length) : 'R$ 0,00', sub:'por atendimento' },
         ].map(s=>(
           <div key={s.label} style={card}>
@@ -439,7 +419,7 @@ export default function Home() {
               <div style={{ fontSize:12, color:'#6b7280' }}>{a.servico} · {fmtDate(a.data)}</div>
             </div>
             <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-              <span style={{ fontSize:14, fontWeight:700 }}>{a.preco || '—'}</span>
+              <span style={{ fontSize:14, fontWeight:700 }}>{a.preco||'—'}</span>
               <span style={{ ...(STATUS_STYLE[a.status]||STATUS_STYLE.confirmado), fontSize:10.5, padding:'2px 8px', borderRadius:99, fontWeight:600 }}>{a.status}</span>
             </div>
           </div>
@@ -452,8 +432,10 @@ export default function Home() {
     <div style={{ flex:1, overflowY:'auto', padding:'28px 32px', display:'flex', flexDirection:'column', gap:22 }}>
       <div>
         <h1 style={{ fontSize:22, fontWeight:600, letterSpacing:-0.5, margin:0 }}>Configurações</h1>
-        <p style={{ fontSize:13, color:'#6b7280', marginTop:2 }}>Gerencie seu perfil e conta</p>
+        <p style={{ fontSize:13, color:'#6b7280', marginTop:2 }}>Gerencie seu perfil e plano</p>
       </div>
+
+      {/* Perfil */}
       <div style={card}>
         <div style={{ fontSize:14, fontWeight:600, marginBottom:16 }}>Seu perfil</div>
         <div style={{ display:'flex', alignItems:'center', gap:16, marginBottom:20 }}>
@@ -477,13 +459,65 @@ export default function Home() {
           ))}
         </div>
       </div>
+
+      {/* Plano atual */}
+      <div style={{ ...card, padding:0, overflow:'hidden' }}>
+        <div style={{ padding:'16px 18px', background: isPro ? '#0d1f17' : '#f9fafb' }}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+            <div>
+              <div style={{ fontSize:14, fontWeight:600, color: isPro ? '#34d399' : '#6b7280', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:4 }}>
+                {isPro ? '⭐ Plano Pro' : 'Plano Starter'}
+              </div>
+              <div style={{ fontSize:13, color: isPro ? 'rgba(255,255,255,0.6)' : '#9ca3af' }}>
+                {isPro
+                  ? profile?.plano_expira ? `Válido até ${fmtDate(profile.plano_expira)}` : 'Plano ativo'
+                  : 'Grátis — 20 agendamentos/mês'}
+              </div>
+            </div>
+            <div style={{ fontSize:22 }}>{isPro ? '🚀' : '🌱'}</div>
+          </div>
+        </div>
+
+        <div style={{ padding:'16px 18px' }}>
+          {isPro ? (
+            <div>
+              <div style={{ fontSize:13, color:'#6b7280', marginBottom:12 }}>Seu plano inclui:</div>
+              <div style={{ display:'flex', flexDirection:'column', gap:8, marginBottom:16 }}>
+                {['✓ Agendamentos ilimitados','✓ Notificações WhatsApp','✓ Relatórios completos','✓ Suporte prioritário'].map(f=>(
+                  <div key={f} style={{ fontSize:13, color:'#059669' }}>{f}</div>
+                ))}
+              </div>
+              <button onClick={()=>window.location.href='/planos'}
+                style={{ padding:'9px 18px', border:'1.5px solid #e5e7eb', borderRadius:8, fontSize:13, fontWeight:500, background:'#fff', cursor:'pointer', fontFamily:'inherit', color:'#6b7280' }}>
+                Gerenciar plano
+              </button>
+            </div>
+          ) : (
+            <div>
+              <div style={{ fontSize:13, color:'#6b7280', marginBottom:12 }}>Faça upgrade para desbloquear:</div>
+              <div style={{ display:'flex', flexDirection:'column', gap:8, marginBottom:16 }}>
+                {['🔔 Notificações WhatsApp automáticas','📊 Relatórios financeiros avançados','💳 Pix integrado nos agendamentos','🎯 Agendamentos ilimitados'].map(f=>(
+                  <div key={f} style={{ fontSize:13, color:'#111827' }}>{f}</div>
+                ))}
+              </div>
+              <button onClick={()=>window.location.href='/planos'}
+                style={{ padding:'11px 24px', border:'none', borderRadius:10, fontSize:14, fontWeight:700, background:'#0d1f17', color:'#fff', cursor:'pointer', fontFamily:'inherit' }}>
+                ⭐ Fazer upgrade para Pro →
+              </button>
+              <div style={{ fontSize:11.5, color:'#9ca3af', marginTop:8 }}>A partir de R$ 29/mês · 7 dias grátis</div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Link */}
       <div style={card}>
         <div style={{ fontSize:14, fontWeight:600, marginBottom:4 }}>Link do seu agendamento</div>
         <div style={{ fontSize:13, color:'#6b7280', marginBottom:12 }}>Compartilhe com seus clientes</div>
         <div style={{ background:'#f9fafb', border:'1.5px solid #e5e7eb', borderRadius:8, padding:'10px 14px', fontSize:13, color:'#0d1f17', fontWeight:500, wordBreak:'break-all' }}>
-          {typeof window !== 'undefined' ? window.location.origin : 'agendei-rho.vercel.app'}/agendar/{nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'')}
+          {typeof window!=='undefined'?window.location.origin:'agendei-rho.vercel.app'}/agendar/{nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'')}
         </div>
-        <button onClick={() => {
+        <button onClick={()=>{
           const link = `${window.location.origin}/agendar/${nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'')}`
           navigator.clipboard.writeText(link)
           alert('Link copiado!')
@@ -491,6 +525,7 @@ export default function Home() {
           Copiar link
         </button>
       </div>
+
       <button onClick={handleLogout} style={{ padding:'12px', borderRadius:10, border:'1.5px solid #fee2e2', background:'#fee2e2', color:'#dc2626', fontSize:14, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>
         Sair da conta
       </button>
