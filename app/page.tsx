@@ -188,6 +188,15 @@ export default function Home() {
     await supabase.from('agendamentos').update({ status }).eq('id', id)
     await loadAgendamentos(user.id, filterDate)
     await loadAllAg(user.id)
+    // Se concluído, mostra link de avaliação para copiar
+    if (status === 'concluido') {
+      const { data: ag } = await supabase.from('agendamentos').select('cancel_token').eq('id', id).single()
+      if (ag?.cancel_token) {
+        const link = `${window.location.origin}/avaliar/${ag.cancel_token}`
+        await navigator.clipboard.writeText(link).catch(()=>{})
+        showToast('⭐ Link de avaliação copiado! Envie ao cliente.')
+      }
+    }
   }
 
   async function deleteAg(id: string) {
@@ -549,6 +558,11 @@ export default function Home() {
                           <div style={{ fontSize:12, color:'#6b7280', marginTop:2 }}>📅 {fmtDate(a.data)} às {a.horario?.slice(0,5)}</div>
                         </div>
                         <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                          {a.avaliacao && (
+                            <div style={{ display:'flex', gap:1 }}>
+                              {[1,2,3,4,5].map(n=><span key={n} style={{ fontSize:11, color: n<=a.avaliacao?'#f59e0b':'#e5e7eb' }}>★</span>)}
+                            </div>
+                          )}
                           {a.preco && <div style={{ fontSize:13, fontWeight:700 }}>{a.preco}</div>}
                           <select value={a.status} onClick={e=>e.stopPropagation()} onChange={e=>{ e.stopPropagation(); updateStatus(a.id, e.target.value) }}
                             style={{ ...(STATUS_STYLE[a.status]||STATUS_STYLE.confirmado), fontSize:10.5, padding:'3px 6px', borderRadius:99, fontWeight:600, border:'none', cursor:'pointer', fontFamily:'inherit' }}>
