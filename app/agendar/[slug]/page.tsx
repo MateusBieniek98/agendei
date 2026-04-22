@@ -124,7 +124,8 @@ export default function AgendarPage({ params }: { params: Promise<{ slug: string
   async function confirmar() {
     if (!nome.trim() || !tel.trim()) return
     setSaving(true)
-    const { data: newAg } = await supabase.from('agendamentos').insert({
+    const token = crypto.randomUUID()
+    await supabase.from('agendamentos').insert({
       profissional_id: prof.id,
       cliente_nome: nome,
       cliente_telefone: tel,
@@ -134,8 +135,9 @@ export default function AgendarPage({ params }: { params: Promise<{ slug: string
       preco: selSvc?.preco || '',
       duracao: selSvc?.duracao || '',
       status: 'confirmado',
-    }).select('cancel_token').single()
-    if (newAg?.cancel_token) setCancelToken(newAg.cancel_token)
+      cancel_token: token,
+    })
+    setCancelToken(token)
     setSaving(false)
     setDone(true)
     if (prof?.telefone) {
