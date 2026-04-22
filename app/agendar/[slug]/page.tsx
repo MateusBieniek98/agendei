@@ -51,9 +51,15 @@ export default function AgendarPage({ params }: { params: Promise<{ slug: string
 
   async function loadProf() {
     try {
+      // 1. Busca por slug personalizado
+      const { data: bySlug } = await supabase.from('profiles').select('*').eq('slug', slug).single()
+      if (bySlug) { setProf(bySlug); await loadServicos(bySlug.id); setLoading(false); return }
+
+      // 2. Busca por ID
       const { data: byId } = await supabase.from('profiles').select('*').eq('id', slug).single()
       if (byId) { setProf(byId); await loadServicos(byId.id); setLoading(false); return }
 
+      // 3. Busca por nome (gerado automaticamente)
       const { data: todos } = await supabase.from('profiles').select('*')
       const found = (todos || []).find((p: any) => {
         const s = (p.nome || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'')
@@ -93,6 +99,14 @@ export default function AgendarPage({ params }: { params: Promise<{ slug: string
       status: 'confirmado',
     })
     setSaving(false); setDone(true)
+    // Redireciona para WhatsApp do profissional se tiver número cadastrado
+    if (prof?.telefone) {
+      const num = prof.telefone.replace(/\D/g,'')
+      const svcNome = selSvc?.nome || selSvc
+      const dataFmt = selDate ? `${selDate.getDate()}/${selDate.getMonth()+1}/${selDate.getFullYear()}` : ''
+      const msg = encodeURIComponent(`Olá ${prof.nome}! Acabei de agendar pelo agendei:\n\n✂️ Serviço: ${svcNome}\n📅 Data: ${dataFmt}\n🕐 Horário: ${selTime}\n👤 Nome: ${nome}\n\nAguardo confirmação! 😊`)
+      setTimeout(() => window.open(`https://wa.me/55${num}?text=${msg}`, '_blank'), 1500)
+    }
   }
 
   function fmtDate(d: Date) { return `${d.getDate()} de ${MESES[d.getMonth()]} de ${d.getFullYear()}` }
@@ -158,6 +172,17 @@ export default function AgendarPage({ params }: { params: Promise<{ slug: string
             <div style={{ fontSize:14, fontWeight:700, color:'#065f46', wordBreak:'break-all' }}>{prof.pix_key}</div>
           </div>
         )}
+        {prof?.telefone && (
+          <button onClick={()=>{
+            const num = prof.telefone.replace(/\D/g,'')
+            const svcNome = selSvc?.nome || selSvc
+            const dataFmt = selDate ? `${selDate.getDate()}/${selDate.getMonth()+1}/${selDate.getFullYear()}` : ''
+            const msg = encodeURIComponent(`Olá ${prof.nome}! Acabei de agendar pelo agendei:\n\n✂️ Serviço: ${svcNome}\n📅 Data: ${dataFmt}\n🕐 Horário: ${selTime}\n👤 Nome: ${nome}\n\nAguardo confirmação! 😊`)
+            window.open(`https://wa.me/55${num}?text=${msg}`, '_blank')
+          }} style={{ width:'100%', padding:12, border:'none', borderRadius:12, fontSize:14, fontWeight:700, background:'#25d366', color:'#fff', cursor:'pointer', fontFamily:'inherit', marginBottom:10 }}>
+            💬 Confirmar pelo WhatsApp
+          </button>
+        )}
         <button onClick={()=>{ setStep(1); setSelSvc(null); setSelDate(null); setSelTime(''); setNome(''); setTel(''); setDone(false) }}
           style={{ width:'100%', padding:12, border:'1.5px solid #e5e7eb', borderRadius:12, fontSize:14, fontWeight:500, background:'#fff', cursor:'pointer', fontFamily:'inherit' }}>
           Fazer outro agendamento
@@ -176,7 +201,9 @@ export default function AgendarPage({ params }: { params: Promise<{ slug: string
             {prof?.nome?.split(' ').map((n:string)=>n[0]).join('').toUpperCase().slice(0,2)}
           </div>
           <div style={{ fontSize:18, fontWeight:700 }}>{prof?.nome}</div>
-          <div style={{ fontSize:13, color:'#6b7280', marginTop:2 }}>Agende seu horário</div>
+          {prof?.descricao && <div style={{ fontSize:13, color:'#4b5563', marginTop:4, lineHeight:1.5, textAlign:'center' }}>{prof.descricao}</div>}
+          {prof?.endereco && <div style={{ fontSize:12, color:'#6b7280', marginTop:4 }}>📍 {prof.endereco}</div>}
+          {!prof?.descricao && !prof?.endereco && <div style={{ fontSize:13, color:'#6b7280', marginTop:2 }}>Agende seu horário</div>}
         </div>
 
         <div style={{ display:'flex', alignItems:'center', marginBottom:24, padding:'0 8px' }}>

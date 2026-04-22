@@ -56,6 +56,14 @@ export default function Home() {
   const [confirmDowngrade, setCD]     = useState(false)
   const [pixKey, setPixKey]           = useState('')
   const [savingPix, setSavingPix]     = useState(false)
+  const [telefone, setTelefone]       = useState('')
+  const [savingTel, setSavingTel]     = useState(false)
+  const [slug, setSlug]               = useState('')
+  const [savingSlug, setSavingSlug]   = useState(false)
+  const [descricao, setDescricao]     = useState('')
+  const [savingDesc, setSavingDesc]   = useState(false)
+  const [endereco, setEndereco]       = useState('')
+  const [savingEnd, setSavingEnd]     = useState(false)
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768)
@@ -84,7 +92,7 @@ export default function Home() {
 
   async function loadProfile(u: any) {
     const { data } = await supabase.from('profiles').select('*').eq('id', u.id).single()
-    if (data) { setProfile(data); setPixKey(data.pix_key || ''); return }
+    if (data) { setProfile(data); setPixKey(data.pix_key || ''); setTelefone(data.telefone || ''); setSlug(data.slug || ''); setDescricao(data.descricao || ''); setEndereco(data.endereco || ''); return }
     const nome = u.user_metadata?.nome || u.email?.split('@')[0] || 'Profissional'
     await supabase.from('profiles').insert({ id:u.id, nome, email:u.email, plano:'starter' })
     setProfile({ nome, email:u.email, plano:'starter' })
@@ -95,6 +103,37 @@ export default function Home() {
     await supabase.from('profiles').update({ pix_key: pixKey }).eq('id', user.id)
     setSavingPix(false)
     showToast('Chave Pix salva! ✓')
+  }
+
+  async function saveTelefone() {
+    setSavingTel(true)
+    await supabase.from('profiles').update({ telefone }).eq('id', user.id)
+    setSavingTel(false)
+    showToast('WhatsApp salvo! ✓')
+  }
+
+  async function saveSlug() {
+    const s = slug.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'')
+    setSlug(s)
+    setSavingSlug(true)
+    const { error } = await supabase.from('profiles').update({ slug: s }).eq('id', user.id)
+    setSavingSlug(false)
+    if (error) showToast('❌ Este link já está em uso. Tente outro.')
+    else showToast('🔗 Link personalizado salvo! ✓')
+  }
+
+  async function saveDescricao() {
+    setSavingDesc(true)
+    await supabase.from('profiles').update({ descricao }).eq('id', user.id)
+    setSavingDesc(false)
+    showToast('Descrição salva! ✓')
+  }
+
+  async function saveEndereco() {
+    setSavingEnd(true)
+    await supabase.from('profiles').update({ endereco }).eq('id', user.id)
+    setSavingEnd(false)
+    showToast('Endereço salvo! ✓')
   }
 
   async function loadAgendamentos(uid: string, date: string) {
@@ -867,20 +906,101 @@ export default function Home() {
         )}
       </div>
 
+      {/* Descrição e Endereço */}
+      <div style={card}>
+        <div style={{ fontSize:14, fontWeight:700, color:'#111827', marginBottom:14 }}>📝 Informações da página pública</div>
+        <div style={{ marginBottom:12 }}>
+          <label style={lbl}>Descrição (aparece no seu link de agendamento)</label>
+          <div style={{ display:'flex', gap:8 }}>
+            <textarea
+              placeholder="Ex: Especialista em manicure e pedicure com 5 anos de experiência..."
+              value={descricao}
+              onChange={e=>setDescricao(e.target.value)}
+              rows={3}
+              style={{ ...inp, flex:1, resize:'vertical' as const }}
+            />
+            <button onClick={saveDescricao} disabled={savingDesc}
+              style={{ padding:'9px 16px', border:'none', borderRadius:8, fontSize:13, fontWeight:600, background:'#0d1f17', color:'#fff', cursor:'pointer', fontFamily:'inherit', opacity:savingDesc?0.7:1, flexShrink:0, alignSelf:'flex-start' }}>
+              {savingDesc ? '...' : 'Salvar'}
+            </button>
+          </div>
+        </div>
+        <div>
+          <label style={lbl}>Endereço / Localização</label>
+          <div style={{ display:'flex', gap:8 }}>
+            <input
+              type="text"
+              placeholder="Ex: Rua das Flores, 123 - Centro, Campo Grande/MS"
+              value={endereco}
+              onChange={e=>setEndereco(e.target.value)}
+              style={{ ...inp, flex:1 }}
+            />
+            <button onClick={saveEndereco} disabled={savingEnd}
+              style={{ padding:'9px 16px', border:'none', borderRadius:8, fontSize:13, fontWeight:600, background:'#0d1f17', color:'#fff', cursor:'pointer', fontFamily:'inherit', opacity:savingEnd?0.7:1, flexShrink:0 }}>
+              {savingEnd ? '...' : 'Salvar'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* WhatsApp */}
+      <div style={card}>
+        <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
+          <div style={{ fontSize:14, fontWeight:700, color:'#111827' }}>📱 WhatsApp para notificações</div>
+        </div>
+        <div style={{ fontSize:13, color:'#4b5563', marginBottom:12 }}>
+          Seu número de WhatsApp. Os clientes serão redirecionados para confirmar o agendamento com você.
+        </div>
+        <div style={{ display:'flex', gap:8 }}>
+          <input
+            type="tel"
+            placeholder="Ex: 67999990000 (com DDD, sem espaços)"
+            value={telefone}
+            onChange={e=>setTelefone(e.target.value.replace(/\D/g,''))}
+            style={{ ...inp, flex:1 }}
+          />
+          <button onClick={saveTelefone} disabled={savingTel}
+            style={{ padding:'9px 16px', border:'none', borderRadius:8, fontSize:13, fontWeight:600, background:'#0d1f17', color:'#fff', cursor:'pointer', fontFamily:'inherit', opacity:savingTel?0.7:1, flexShrink:0 }}>
+            {savingTel ? '...' : 'Salvar'}
+          </button>
+        </div>
+      </div>
+
       {/* Link */}
       <div style={card}>
-        <div style={{ fontSize:14, fontWeight:600, marginBottom:4 }}>Link do seu agendamento</div>
-        <div style={{ fontSize:13, color:'#6b7280', marginBottom:12 }}>Compartilhe com seus clientes</div>
-        <div style={{ background:'#f9fafb', border:'1.5px solid #e5e7eb', borderRadius:8, padding:'10px 14px', fontSize:13, color:'#0d1f17', fontWeight:500, wordBreak:'break-all' }}>
-          {typeof window!=='undefined'?window.location.origin:'agendei-rho.vercel.app'}/agendar/{nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'')}
+        <div style={{ fontSize:14, fontWeight:700, color:'#111827', marginBottom:4 }}>🔗 Link do seu agendamento</div>
+        <div style={{ fontSize:13, color:'#4b5563', marginBottom:12 }}>Personalize o link que você compartilha com seus clientes</div>
+        <div style={{ marginBottom:12 }}>
+          <label style={lbl}>Link personalizado (ex: meu-nome)</label>
+          <div style={{ display:'flex', gap:8 }}>
+            <input
+              type="text"
+              placeholder={nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'')}
+              value={slug}
+              onChange={e=>setSlug(e.target.value)}
+              style={{ ...inp, flex:1 }}
+            />
+            <button onClick={saveSlug} disabled={savingSlug}
+              style={{ padding:'9px 16px', border:'none', borderRadius:8, fontSize:13, fontWeight:600, background:'#0d1f17', color:'#fff', cursor:'pointer', fontFamily:'inherit', opacity:savingSlug?0.7:1, flexShrink:0 }}>
+              {savingSlug ? '...' : 'Salvar'}
+            </button>
+          </div>
         </div>
-        <button onClick={()=>{
-          const link = `${window.location.origin}/agendar/${nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'')}`
-          navigator.clipboard.writeText(link)
-          showToast('🔗 Link copiado!')
-        }} style={{ marginTop:10, padding:'8px 16px', border:'1.5px solid #e5e7eb', borderRadius:8, fontSize:13, fontWeight:500, background:'#fff', cursor:'pointer', fontFamily:'inherit' }}>
-          Copiar link
-        </button>
+        {(() => {
+          const slugAtual = slug || nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'')
+          const link = `${typeof window!=='undefined'?window.location.origin:'agendei-rho.vercel.app'}/agendar/${slugAtual}`
+          return (
+            <>
+              <div style={{ background:'#f9fafb', border:'1.5px solid #e5e7eb', borderRadius:8, padding:'10px 14px', fontSize:13, color:'#0d1f17', fontWeight:500, wordBreak:'break-all' }}>
+                {link}
+              </div>
+              <button onClick={()=>{ navigator.clipboard.writeText(link); showToast('🔗 Link copiado!') }}
+                style={{ marginTop:10, padding:'8px 16px', border:'1.5px solid #e5e7eb', borderRadius:8, fontSize:13, fontWeight:500, background:'#fff', cursor:'pointer', fontFamily:'inherit' }}>
+                Copiar link
+              </button>
+            </>
+          )
+        })()}
       </div>
 
       <button onClick={handleLogout} style={{ padding:'12px', borderRadius:10, border:'1.5px solid #fee2e2', background:'#fee2e2', color:'#dc2626', fontSize:14, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>
@@ -953,7 +1073,7 @@ export default function Home() {
     const ok = await chamarAdminAPI('pro', meses)
     if (!ok) return
     const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-    if (data) { setProfile(data); setPixKey(data.pix_key || '') }
+    if (data) { setProfile(data); setPixKey(data.pix_key || ''); setTelefone(data.telefone || ''); setSlug(data.slug || ''); setDescricao(data.descricao || ''); setEndereco(data.endereco || '') }
     showToast(`✅ Plano Pro ativado${meses !== 'permanente' ? ` por ${meses} mês(es)` : ' permanentemente'}!`)
   }
 
@@ -961,7 +1081,7 @@ export default function Home() {
     const ok = await chamarAdminAPI('starter', 'permanente')
     if (!ok) return
     const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-    if (data) { setProfile(data); setPixKey(data.pix_key || '') }
+    if (data) { setProfile(data); setPixKey(data.pix_key || ''); setTelefone(data.telefone || ''); setSlug(data.slug || ''); setDescricao(data.descricao || ''); setEndereco(data.endereco || '') }
     showToast('↩ Voltou para Starter.')
   }
 
