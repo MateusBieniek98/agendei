@@ -1033,7 +1033,7 @@ export default function Home() {
         </div>
         {(() => {
           const slugAtual = slug || nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'')
-          const link = `${typeof window!=='undefined'?window.location.origin:'agendei-rho.vercel.app'}/agendar/${slugAtual}`
+          const link = `${typeof window!=='undefined'?window.location.origin:'marei.app'}/agendar/${slugAtual}`
           return (
             <>
               <div style={{ background:'#f9fafb', border:'1.5px solid #e5e7eb', borderRadius:8, padding:'10px 14px', fontSize:13, color:'#0d1f17', fontWeight:500, wordBreak:'break-all' }}>
