@@ -57,7 +57,7 @@ export default function CancelarPage({ params }: { params: Promise<{ token: stri
   if (loading) return (
     <div style={{ display:'flex', height:'100vh', alignItems:'center', justifyContent:'center', fontFamily:'system-ui', background:'#f2f1ec' }}>
       <div style={{ textAlign:'center' }}>
-        <div style={{ fontSize:28, fontWeight:700, color:'#0d1f17' }}>agen<span style={{ color:'#34d399' }}>dei</span></div>
+        <div style={{ fontSize:28, fontWeight:700, color:'#0d1f17' }}>ma<span style={{ color:'#34d399' }}>rei</span></div>
         <div style={{ color:'#6b7280', marginTop:8, fontSize:14 }}>Carregando...</div>
       </div>
     </div>

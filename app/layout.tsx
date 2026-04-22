@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "agendei — Gerencie seus agendamentos",
-  description: "Plataforma de agendamentos para profissionais autônomos",
+  title: "Marei — Agendamentos profissionais",
+  description: "Simplifique seus agendamentos com o Marei. Página personalizada, WhatsApp automático e muito mais.",
 };
 
 export default function RootLayout({

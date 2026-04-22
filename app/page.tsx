@@ -370,7 +370,7 @@ export default function Home() {
   if (loading) return (
     <div style={{ display:'flex', height:'100vh', alignItems:'center', justifyContent:'center', fontFamily:'system-ui', background:'#f2f1ec' }}>
       <div style={{ textAlign:'center' }}>
-        <div style={{ fontSize:32, fontWeight:700, color:'#0d1f17' }}>agen<span style={{ color:'#34d399' }}>dei</span></div>
+        <div style={{ fontSize:32, fontWeight:700, color:'#0d1f17' }}>ma<span style={{ color:'#34d399' }}>rei</span></div>
         <div style={{ color:'#6b7280', marginTop:8, fontSize:14 }}>Carregando...</div>
       </div>
     </div>
@@ -388,8 +388,8 @@ export default function Home() {
   const Sidebar = !isMobile ? (
     <div style={{ width:228, background:'#0d1f17', display:'flex', flexDirection:'column', padding:'24px 14px', flexShrink:0 }}>
       <div style={{ display:'flex', alignItems:'center', gap:9, padding:'0 8px', marginBottom:32 }}>
-        <div style={{ width:30, height:30, background:'#34d399', borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700, fontSize:16, color:'#0d1f17' }}>A</div>
-        <span style={{ fontSize:19, fontWeight:600, color:'#fff', letterSpacing:-0.5 }}>agen<span style={{ color:'#34d399' }}>dei</span></span>
+        <div style={{ width:30, height:30, background:'#34d399', borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700, fontSize:16, color:'#0d1f17' }}>M</div>
+        <span style={{ fontSize:19, fontWeight:600, color:'#fff', letterSpacing:-0.5 }}>ma<span style={{ color:'#34d399' }}>rei</span></span>
       </div>
       <nav style={{ flex:1, display:'flex', flexDirection:'column', gap:2 }}>
         {NAV_ITEMS.map(([ic,lb,val])=>(
