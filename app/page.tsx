@@ -926,26 +926,34 @@ export default function Home() {
     </div>
   )
 
+  async function chamarAdminAPI(plano: string, meses: number | 'permanente') {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) { showToast('❌ Sessão expirada. Faça login novamente.'); return false }
+
+    const res = await fetch('/api/admin/plano', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ userId: user.id, plano, meses }),
+    })
+    const data = await res.json()
+    if (!res.ok) { showToast('❌ Erro: ' + (data.error || res.statusText)); return false }
+    return true
+  }
+
   async function ativarPro(meses: number | 'permanente') {
-    const expira = meses === 'permanente' ? null
-      : new Date(Date.now() + (typeof meses === 'number' ? meses : 1) * 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-    const { error } = await supabase
-      .from('profiles')
-      .update({ plano: 'pro', plano_expira: expira, onboarded: true })
-      .eq('id', user.id)
-    if (error) { showToast('❌ Erro: ' + error.message); return }
-    // Força reload do profile direto do banco
+    const ok = await chamarAdminAPI('pro', meses)
+    if (!ok) return
     const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single()
     if (data) { setProfile(data); setPixKey(data.pix_key || '') }
     showToast(`✅ Plano Pro ativado${meses !== 'permanente' ? ` por ${meses} mês(es)` : ' permanentemente'}!`)
   }
 
   async function voltarStarter() {
-    const { error } = await supabase
-      .from('profiles')
-      .update({ plano: 'starter', plano_expira: null })
-      .eq('id', user.id)
-    if (error) { showToast('❌ Erro: ' + error.message); return }
+    const ok = await chamarAdminAPI('starter', 'permanente')
+    if (!ok) return
     const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single()
     if (data) { setProfile(data); setPixKey(data.pix_key || '') }
     showToast('↩ Voltou para Starter.')
@@ -1011,7 +1019,7 @@ export default function Home() {
             { label:'User ID',      val: user?.id },
             { label:'Plano no DB',  val: profile?.plano || 'starter' },
             { label:'Expira em',    val: profile?.plano_expira || '—' },
-            { label:'Onboarded',    val: profile?.onboarded ? 'Sim' : 'Não' },
+            { label:'Plano expira',  val: profile?.plano_expira || 'Nunca' },
             { label:'Chave Pix',    val: profile?.pix_key || '—' },
           ].map(r => (
             <div key={r.label} style={{ display:'flex', gap:12, fontSize:13, padding:'7px 0', borderBottom:'1px solid #f3f4f6' }}>

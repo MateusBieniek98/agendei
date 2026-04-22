@@ -38,7 +38,7 @@ export default function PagamentoSucesso() {
 
     const { error } = await supabase
       .from('profiles')
-      .update({ plano: 'pro', plano_expira: expira, onboarded: true })
+      .update({ plano: 'pro', plano_expira: expira })
       .eq('id', uid)
 
     if (error) {

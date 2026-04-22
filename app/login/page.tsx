@@ -22,10 +22,10 @@ export default function Login() {
     if (error) { setErro('E-mail ou senha incorretos.'); setLoading(false); return }
     const { data: profile } = await supabase
       .from('profiles')
-      .select('onboarded')
+      .select('plano')
       .eq('id', data.user.id)
       .maybeSingle()
-    if (!profile || !profile.onboarded) {
+    if (!profile || !profile.plano) {
       window.location.href = '/planos'
     } else {
       window.location.href = '/'
@@ -46,8 +46,6 @@ export default function Login() {
         id: data.user.id,
         email: data.user.email,
         nome: nome,
-        plano: 'starter',
-        onboarded: false,
       })
     }
     if (data.session) {

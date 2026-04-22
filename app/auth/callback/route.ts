@@ -25,26 +25,23 @@ export async function GET(request: NextRequest) {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('id, onboarded')
+    .select('id, plano')
     .eq('id', user.id)
     .maybeSingle()
 
   if (!profile) {
+    const nome = user.user_metadata?.full_name || user.user_metadata?.nome || user.email?.split('@')[0] || 'Profissional'
     await supabase.from('profiles').insert({
       id: user.id,
       email: user.email,
-      name: user.user_metadata?.full_name ?? '',
-      full_name: user.user_metadata?.full_name ?? '',
-      avatar_url: user.user_metadata?.avatar_url ?? '',
-      plan: 'free',
-      onboarded: false,
+      nome,
     })
     return NextResponse.redirect(new URL('/planos', requestUrl.origin))
   }
 
-  if (!profile.onboarded) {
+  if (!profile.plano) {
     return NextResponse.redirect(new URL('/planos', requestUrl.origin))
   }
 
-  return NextResponse.redirect(new URL('/dashboard', requestUrl.origin))
+  return NextResponse.redirect(new URL('/', requestUrl.origin))
 }
