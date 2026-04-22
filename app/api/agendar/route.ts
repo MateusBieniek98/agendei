@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
 
     const cancel_token = randomUUID()
 
-    const { data, error } = await supabaseAdmin
+    const { error } = await supabaseAdmin
       .from('agendamentos')
       .insert({
         profissional_id: body.profissional_id,
@@ -27,15 +27,13 @@ export async function POST(req: NextRequest) {
         status: 'confirmado',
         cancel_token,
       })
-      .select('id, cancel_token')
-      .single()
 
     if (error) {
       console.error('Supabase insert error:', error)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ id: data.id, cancel_token: data.cancel_token })
+    return NextResponse.json({ cancel_token })
   } catch (err: any) {
     console.error('API error:', err)
     return NextResponse.json({ error: err.message }, { status: 500 })
