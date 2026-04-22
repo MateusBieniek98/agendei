@@ -30,7 +30,9 @@ export default function AgendarPage({ params }: { params: Promise<{ slug: string
   const [selSvc, setSelSvc]     = useState<any>(null)
   const [selDate, setSelDate]   = useState<Date|null>(null)
   const [selTime, setSelTime]   = useState('')
-  const [ocupados, setOcupados] = useState<string[]>([])
+  const [ocupados, setOcupados]   = useState<string[]>([])
+  const [diasBloqueados, setDB]   = useState<string[]>([])
+  const [horasBloqueadas, setHB]  = useState<string[]>([])
   const [nome, setNome]         = useState('')
   const [tel, setTel]           = useState('')
   const [loading, setLoading]   = useState(true)
@@ -54,11 +56,11 @@ export default function AgendarPage({ params }: { params: Promise<{ slug: string
     try {
       // 1. Busca por slug personalizado
       const { data: bySlug } = await supabase.from('profiles').select('*').eq('slug', slug).single()
-      if (bySlug) { setProf(bySlug); await loadServicos(bySlug.id); setLoading(false); return }
+      if (bySlug) { setProf(bySlug); await loadServicos(bySlug.id); await loadBloqueios(bySlug.id); setLoading(false); return }
 
       // 2. Busca por ID
       const { data: byId } = await supabase.from('profiles').select('*').eq('id', slug).single()
-      if (byId) { setProf(byId); await loadServicos(byId.id); setLoading(false); return }
+      if (byId) { setProf(byId); await loadServicos(byId.id); await loadBloqueios(byId.id); setLoading(false); return }
 
       // 3. Busca por nome (gerado automaticamente)
       const { data: todos } = await supabase.from('profiles').select('*')
@@ -66,7 +68,7 @@ export default function AgendarPage({ params }: { params: Promise<{ slug: string
         const s = (p.nome || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'')
         return s === slug
       })
-      if (found) { setProf(found); await loadServicos(found.id); setLoading(false); return }
+      if (found) { setProf(found); await loadServicos(found.id); await loadBloqueios(found.id); setLoading(false); return }
 
       setNF(true); setLoading(false)
     } catch { setNF(true); setLoading(false) }
@@ -77,10 +79,19 @@ export default function AgendarPage({ params }: { params: Promise<{ slug: string
     setServicos(data || [])
   }
 
+  async function loadBloqueios(uid: string) {
+    const { data } = await supabase.from('bloqueios').select('*').eq('profissional_id', uid)
+    const diasInt = (data || []).filter((b:any) => b.dia_inteiro).map((b:any) => b.data)
+    setDB(diasInt)
+  }
+
   async function loadOcupados(date: Date) {
     const d = date.toISOString().split('T')[0]
-    const { data } = await supabase.from('agendamentos').select('horario').eq('profissional_id', prof.id).eq('data', d)
-    setOcupados((data || []).map((a: any) => a.horario?.slice(0,5)))
+    const { data: ags } = await supabase.from('agendamentos').select('horario').eq('profissional_id', prof.id).eq('data', d)
+    setOcupados((ags || []).map((a: any) => a.horario?.slice(0,5)))
+    // Carrega bloqueios de horário específico para este dia
+    const { data: bloqs } = await supabase.from('bloqueios').select('horario').eq('profissional_id', prof.id).eq('data', d).eq('dia_inteiro', false)
+    setHB((bloqs || []).filter((b:any) => b.horario).map((b:any) => b.horario.slice(0,5)))
   }
 
   function selectDate(d: Date) { setSelDate(d); setSelTime(''); loadOcupados(d); setStep(3) }
@@ -272,7 +283,8 @@ export default function AgendarPage({ params }: { params: Promise<{ slug: string
                   const isPast=d<hoje, isWeekend=d.getDay()===0||d.getDay()===6
                   const isToday=d.toDateString()===hoje.toDateString()
                   const isSel=selDate?.toDateString()===d.toDateString()
-                  const disabled=isPast||isWeekend
+                  const isBloqueado=diasBloqueados.includes(d.toISOString().split('T')[0])
+                  const disabled=isPast||isWeekend||isBloqueado
                   return (
                     <div key={i} onClick={()=>!disabled&&selectDate(d)}
                       style={{ height:36, borderRadius:9, display:'flex', alignItems:'center', justifyContent:'center', fontSize:13, cursor:disabled?'default':'pointer', position:'relative',
@@ -306,7 +318,7 @@ export default function AgendarPage({ params }: { params: Promise<{ slug: string
                 <>
                   <div style={{ display:'grid', gridTemplateColumns: isNarrow ? 'repeat(3,1fr)' : 'repeat(4,1fr)', gap:8 }}>
                     {HORAS.map(h => {
-                      const ocupado=ocupados.includes(h), sel=selTime===h
+                      const ocupado=ocupados.includes(h)||horasBloqueadas.includes(h), sel=selTime===h
                       return (
                         <div key={h} onClick={()=>!ocupado&&setSelTime(h)}
                           style={{ padding:'10px 4px', textAlign:'center', fontSize:13, fontWeight:500, borderRadius:10, cursor:ocupado?'default':'pointer',

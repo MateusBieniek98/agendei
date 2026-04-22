@@ -64,6 +64,9 @@ export default function Home() {
   const [savingDesc, setSavingDesc]   = useState(false)
   const [endereco, setEndereco]       = useState('')
   const [savingEnd, setSavingEnd]     = useState(false)
+  const [bloqueios, setBloqueios]     = useState<any[]>([])
+  const [bloqForm, setBloqForm]       = useState({ data:'', horario:'', motivo:'', dia_inteiro:true })
+  const [savingBloq, setSavingBloq]   = useState(false)
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768)
@@ -87,7 +90,35 @@ export default function Home() {
     await loadAgendamentos(u.id, new Date().toISOString().split('T')[0])
     await loadAllAg(u.id)
     await loadServices(u.id)
+    await loadBloqueios(u.id)
     setLoading(false)
+  }
+
+  async function loadBloqueios(uid: string) {
+    const { data } = await supabase.from('bloqueios').select('*').eq('profissional_id', uid).order('data')
+    setBloqueios(data || [])
+  }
+
+  async function addBloqueio() {
+    if (!bloqForm.data) { showToast('⚠️ Selecione uma data'); return }
+    setSavingBloq(true)
+    await supabase.from('bloqueios').insert({
+      profissional_id: user.id,
+      data: bloqForm.data,
+      horario: bloqForm.dia_inteiro ? null : bloqForm.horario || null,
+      motivo: bloqForm.motivo || null,
+      dia_inteiro: bloqForm.dia_inteiro,
+    })
+    await loadBloqueios(user.id)
+    setBloqForm({ data:'', horario:'', motivo:'', dia_inteiro:true })
+    setSavingBloq(false)
+    showToast('Bloqueio adicionado! ✓')
+  }
+
+  async function removeBloqueio(id: string) {
+    await supabase.from('bloqueios').delete().eq('id', id)
+    await loadBloqueios(user.id)
+    showToast('Bloqueio removido.')
   }
 
   async function loadProfile(u: any) {
@@ -1015,6 +1046,64 @@ export default function Home() {
             </>
           )
         })()}
+      </div>
+
+      {/* Bloqueios */}
+      <div style={card}>
+        <div style={{ fontSize:14, fontWeight:700, color:'#111827', marginBottom:4 }}>🚫 Bloqueio de horários</div>
+        <div style={{ fontSize:13, color:'#4b5563', marginBottom:16 }}>Bloqueie dias de folga, feriados ou horários específicos.</div>
+
+        <div style={{ display:'flex', flexDirection:'column', gap:10, marginBottom:16 }}>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+            <div>
+              <label style={lbl}>Data</label>
+              <input type="date" value={bloqForm.data} onChange={e=>setBloqForm({...bloqForm, data:e.target.value})} style={inp} />
+            </div>
+            <div>
+              <label style={lbl}>Tipo</label>
+              <select value={bloqForm.dia_inteiro?'dia':'hora'} onChange={e=>setBloqForm({...bloqForm, dia_inteiro:e.target.value==='dia'})}
+                style={{ ...inp }}>
+                <option value="dia">Dia inteiro</option>
+                <option value="hora">Horário específico</option>
+              </select>
+            </div>
+          </div>
+          {!bloqForm.dia_inteiro && (
+            <div>
+              <label style={lbl}>Horário</label>
+              <input type="time" value={bloqForm.horario} onChange={e=>setBloqForm({...bloqForm, horario:e.target.value})} style={inp} />
+            </div>
+          )}
+          <div>
+            <label style={lbl}>Motivo (opcional)</label>
+            <input type="text" placeholder="Ex: Feriado, Férias, Compromisso..." value={bloqForm.motivo} onChange={e=>setBloqForm({...bloqForm, motivo:e.target.value})} style={inp} />
+          </div>
+          <button onClick={addBloqueio} disabled={savingBloq}
+            style={{ padding:'10px', border:'none', borderRadius:9, fontSize:13, fontWeight:700, background:'#0d1f17', color:'#fff', cursor:'pointer', fontFamily:'inherit', opacity:savingBloq?0.7:1 }}>
+            {savingBloq ? '...' : '+ Adicionar bloqueio'}
+          </button>
+        </div>
+
+        {bloqueios.length > 0 && (
+          <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+            <div style={{ fontSize:12, fontWeight:600, color:'#6b7280', textTransform:'uppercase', letterSpacing:'0.04em', marginBottom:4 }}>Bloqueios ativos</div>
+            {bloqueios.map(b => (
+              <div key={b.id} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'8px 12px', background:'#fef2f2', borderRadius:8, border:'1px solid #fecaca' }}>
+                <div>
+                  <div style={{ fontSize:13, fontWeight:600, color:'#dc2626' }}>
+                    🚫 {new Date(b.data + 'T12:00:00').toLocaleDateString('pt-BR')}
+                    {!b.dia_inteiro && b.horario ? ` às ${b.horario.slice(0,5)}` : ' — dia inteiro'}
+                  </div>
+                  {b.motivo && <div style={{ fontSize:12, color:'#6b7280', marginTop:1 }}>{b.motivo}</div>}
+                </div>
+                <button onClick={()=>removeBloqueio(b.id)}
+                  style={{ padding:'4px 10px', border:'none', borderRadius:6, fontSize:12, fontWeight:600, background:'#fee2e2', color:'#dc2626', cursor:'pointer', fontFamily:'inherit' }}>
+                  Remover
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <button onClick={handleLogout} style={{ padding:'12px', borderRadius:10, border:'1.5px solid #fee2e2', background:'#fee2e2', color:'#dc2626', fontSize:14, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>
