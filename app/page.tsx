@@ -251,6 +251,7 @@ export default function Home() {
   const svcOptions   = services.length > 0 ? services.map(s => s.nome) : DEFAULT_SERVICES
   const planoAtual   = profile?.plano || 'starter'
   const isPro        = planoAtual !== 'starter'
+  const isAdmin      = user?.email === 'mateusbieniek9@gmail.com'
 
   const meses: Record<string,number> = {}
   allAg.filter(a=>a.status!=='cancelado').forEach(a => {
@@ -302,6 +303,7 @@ export default function Home() {
     ['✂️','Serviços','Serviços'],
     ['💰','Financeiro','Financeiro'],
     ['⚙️','Config','Configurações'],
+    ...(isAdmin ? [['🛠️','Admin','Admin'] as [string,string,string]] : []),
   ]
 
   const Sidebar = !isMobile ? (
@@ -924,6 +926,104 @@ export default function Home() {
     </div>
   )
 
+  async function ativarPro(meses: number | 'permanente') {
+    const expira = meses === 'permanente' ? null
+      : new Date(Date.now() + meses * 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+    await supabase.from('profiles').update({ plano: 'pro', plano_expira: expira, onboarded: true }).eq('id', user.id)
+    await loadProfile(user)
+    showToast(`✅ Plano Pro ativado${meses !== 'permanente' ? ` por ${meses} mês(es)` : ' permanentemente'}!`)
+  }
+
+  async function voltarStarter() {
+    await supabase.from('profiles').update({ plano: 'starter', plano_expira: null }).eq('id', user.id)
+    await loadProfile(user)
+    showToast('Voltou para Starter.')
+  }
+
+  const AdminView = isAdmin ? (
+    <div style={{ flex:1, overflowY:'auto', padding: isMobile ? '20px 16px 84px' : '28px 32px', display:'flex', flexDirection:'column', gap:20 }}>
+      <div>
+        <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:4 }}>
+          <h1 style={{ fontSize: isMobile ? 18 : 22, fontWeight:700, letterSpacing:-0.5, margin:0, color:'#0d1f17' }}>Painel Admin</h1>
+          <span style={{ fontSize:11, background:'#fef3c7', color:'#92400e', padding:'3px 10px', borderRadius:99, fontWeight:700 }}>SOMENTE VOCÊ VÊ ISSO</span>
+        </div>
+        <p style={{ fontSize:12.5, color:'#4b5563', marginTop:2 }}>Ferramentas internas para testar o app sem pagar.</p>
+      </div>
+
+      {/* Status atual */}
+      <div style={{ ...card, background: isPro ? '#0d1f17' : '#f9fafb', color: isPro ? '#fff' : '#111827' }}>
+        <div style={{ fontSize:13, fontWeight:600, color: isPro ? '#34d399' : '#4b5563', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:8 }}>Status atual da conta</div>
+        <div style={{ display:'flex', alignItems:'center', gap:14 }}>
+          <div style={{ fontSize:36 }}>{isPro ? '🚀' : '🌱'}</div>
+          <div>
+            <div style={{ fontSize:20, fontWeight:700 }}>{isPro ? 'Plano Pro ativo' : 'Plano Starter'}</div>
+            <div style={{ fontSize:13, color: isPro ? 'rgba(255,255,255,0.55)' : '#6b7280', marginTop:2 }}>
+              {isPro
+                ? (profile?.plano_expira ? `Expira em: ${fmtDate(profile.plano_expira)}` : 'Sem data de expiração')
+                : '20 agendamentos/mês · recursos limitados'}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Ativar Pro */}
+      <div style={card}>
+        <div style={{ fontSize:14, fontWeight:700, color:'#111827', marginBottom:4 }}>Ativar Plano Pro gratuitamente</div>
+        <div style={{ fontSize:13, color:'#4b5563', marginBottom:16 }}>Escolha por quanto tempo quer testar. Nenhum pagamento é cobrado.</div>
+        <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4,1fr)', gap:10, marginBottom:14 }}>
+          {([
+            { label:'7 dias',      meses: 7/30 as any },
+            { label:'1 mês',       meses: 1 },
+            { label:'3 meses',     meses: 3 },
+            { label:'Permanente',  meses: 'permanente' as const },
+          ]).map(op => (
+            <button key={op.label} onClick={()=>ativarPro(op.meses)}
+              style={{ padding:'12px 8px', border:'1.5px solid #e5e7eb', borderRadius:10, fontSize:13, fontWeight:600, background: op.meses==='permanente' ? '#0d1f17' : '#fff', color: op.meses==='permanente' ? '#34d399' : '#111827', cursor:'pointer', fontFamily:'inherit', textAlign:'center' }}>
+              {op.meses==='permanente' ? '♾️ ' : '⭐ '}{op.label}
+            </button>
+          ))}
+        </div>
+        {isPro && (
+          <button onClick={voltarStarter}
+            style={{ padding:'9px 18px', border:'1.5px solid #e5e7eb', borderRadius:9, fontSize:13, fontWeight:500, background:'#fff', color:'#6b7280', cursor:'pointer', fontFamily:'inherit' }}>
+            ↩ Voltar para Starter (testar limitações)
+          </button>
+        )}
+      </div>
+
+      {/* Info da conta */}
+      <div style={card}>
+        <div style={{ fontSize:14, fontWeight:700, color:'#111827', marginBottom:14 }}>Dados da sessão</div>
+        <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+          {[
+            { label:'E-mail',       val: user?.email },
+            { label:'User ID',      val: user?.id },
+            { label:'Plano no DB',  val: profile?.plano || 'starter' },
+            { label:'Expira em',    val: profile?.plano_expira || '—' },
+            { label:'Onboarded',    val: profile?.onboarded ? 'Sim' : 'Não' },
+            { label:'Chave Pix',    val: profile?.pix_key || '—' },
+          ].map(r => (
+            <div key={r.label} style={{ display:'flex', gap:12, fontSize:13, padding:'7px 0', borderBottom:'1px solid #f3f4f6' }}>
+              <span style={{ color:'#6b7280', fontWeight:500, minWidth:110, flexShrink:0 }}>{r.label}</span>
+              <span style={{ color:'#111827', fontWeight:600, wordBreak:'break-all' }}>{r.val}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Simular limite Starter */}
+      <div style={{ ...card, border:'1.5px solid #fde68a', background:'#fffbeb' }}>
+        <div style={{ fontSize:14, fontWeight:700, color:'#92400e', marginBottom:6 }}>⚠️ Testando o limite do Starter</div>
+        <div style={{ fontSize:13, color:'#78350f', lineHeight:1.6 }}>
+          Com o plano Starter, o app bloqueia a criação do 21º agendamento no mês. Para testar isso:
+          <br/>1. Clique em <strong>"↩ Voltar para Starter"</strong> acima
+          <br/>2. Tente criar mais de 20 agendamentos neste mês
+          <br/>3. No 21º, o modal mostrará a mensagem de limite e pedirá upgrade
+        </div>
+      </div>
+    </div>
+  ) : null
+
   return (
     <div style={{ display:'flex', height:'100vh', fontFamily:'system-ui, sans-serif', background:'#f2f1ec' }}>
       {Sidebar}
@@ -932,6 +1032,7 @@ export default function Home() {
       {nav==='Serviços'      && ServicosView}
       {nav==='Financeiro'    && FinanceiroView}
       {nav==='Configurações' && ConfigView}
+      {nav==='Admin'         && AdminView}
       {Modal}
       {BottomNav}
 
