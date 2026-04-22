@@ -3,13 +3,12 @@ import { createClient } from '@supabase/supabase-js'
 
 const ADMIN_EMAIL = 'mateusonepiece98@gmail.com'
 
-// Service role bypassa o RLS — nunca exponha esta key no client
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
-
 export async function POST(req: NextRequest) {
+  // Service role bypassa o RLS — inicializado dentro da função para evitar erro no build
+  const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
   try {
     const { userId, plano, meses } = await req.json()
 
