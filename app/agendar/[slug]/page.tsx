@@ -36,6 +36,7 @@ export default function AgendarPage({ params }: { params: Promise<{ slug: string
   const [loading, setLoading]   = useState(true)
   const [saving, setSaving]     = useState(false)
   const [done, setDone]         = useState(false)
+  const [cancelToken, setCancelToken] = useState('')
   const [notFound, setNF]       = useState(false)
   const [mes, setMes]           = useState(() => new Date())
   const [isNarrow, setIsNarrow] = useState(false)
@@ -87,7 +88,7 @@ export default function AgendarPage({ params }: { params: Promise<{ slug: string
   async function confirmar() {
     if (!nome || !tel) return alert('Preencha nome e WhatsApp!')
     setSaving(true)
-    await supabase.from('agendamentos').insert({
+    const { data: newAg } = await supabase.from('agendamentos').insert({
       profissional_id: prof.id,
       cliente_nome: nome,
       cliente_telefone: tel,
@@ -97,7 +98,8 @@ export default function AgendarPage({ params }: { params: Promise<{ slug: string
       preco: selSvc?.preco || '',
       duracao: selSvc?.duracao || '',
       status: 'confirmado',
-    })
+    }).select('cancel_token').single()
+    if (newAg?.cancel_token) setCancelToken(newAg.cancel_token)
     setSaving(false); setDone(true)
     // Redireciona para WhatsApp do profissional se tiver número cadastrado
     if (prof?.telefone) {
@@ -170,6 +172,15 @@ export default function AgendarPage({ params }: { params: Promise<{ slug: string
             <div style={{ fontSize:12, fontWeight:700, color:'#059669', marginBottom:6, textTransform:'uppercase', letterSpacing:'0.04em' }}>💳 Pagamento via Pix</div>
             <div style={{ fontSize:12, color:'#4b5563', marginBottom:4 }}>Chave Pix de {prof.nome}:</div>
             <div style={{ fontSize:14, fontWeight:700, color:'#065f46', wordBreak:'break-all' }}>{prof.pix_key}</div>
+          </div>
+        )}
+        {cancelToken && (
+          <div style={{ background:'#fef3c7', borderRadius:10, padding:'10px 14px', marginBottom:10, textAlign:'center' }}>
+            <div style={{ fontSize:11, color:'#92400e', fontWeight:600, marginBottom:4 }}>PRECISA CANCELAR?</div>
+            <a href={`${window.location.origin}/cancelar/${cancelToken}`}
+              style={{ fontSize:12, color:'#92400e', fontWeight:500 }}>
+              Clique aqui para cancelar este agendamento
+            </a>
           </div>
         )}
         {prof?.telefone && (
