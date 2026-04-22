@@ -251,7 +251,7 @@ export default function Home() {
   const svcOptions   = services.length > 0 ? services.map(s => s.nome) : DEFAULT_SERVICES
   const planoAtual   = profile?.plano || 'starter'
   const isPro        = planoAtual !== 'starter'
-  const isAdmin      = user?.email === 'mateusbieniek9@gmail.com'
+  const isAdmin      = user?.email === 'mateusonepiece98@gmail.com'
 
   const meses: Record<string,number> = {}
   allAg.filter(a=>a.status!=='cancelado').forEach(a => {
