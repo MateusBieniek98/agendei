@@ -150,6 +150,14 @@ export default function AgendarPage({ params }: { params: Promise<{ slug: string
             </div>
           ))}
         </div>
+        {/* Pix do profissional, se cadastrado */}
+        {prof?.pix_key && (
+          <div style={{ background:'#f0fdf4', borderRadius:12, padding:'14px 16px', textAlign:'left', marginBottom:20 }}>
+            <div style={{ fontSize:12, fontWeight:700, color:'#059669', marginBottom:6, textTransform:'uppercase', letterSpacing:'0.04em' }}>💳 Pagamento via Pix</div>
+            <div style={{ fontSize:12, color:'#4b5563', marginBottom:4 }}>Chave Pix de {prof.nome}:</div>
+            <div style={{ fontSize:14, fontWeight:700, color:'#065f46', wordBreak:'break-all' }}>{prof.pix_key}</div>
+          </div>
+        )}
         <button onClick={()=>{ setStep(1); setSelSvc(null); setSelDate(null); setSelTime(''); setNome(''); setTel(''); setDone(false) }}
           style={{ width:'100%', padding:12, border:'1.5px solid #e5e7eb', borderRadius:12, fontSize:14, fontWeight:500, background:'#fff', cursor:'pointer', fontFamily:'inherit' }}>
           Fazer outro agendamento

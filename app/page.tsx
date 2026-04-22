@@ -54,6 +54,8 @@ export default function Home() {
   const [anual, setAnual]             = useState(true)
   const [loadingPlano, setLP]         = useState<string|null>(null)
   const [confirmDowngrade, setCD]     = useState(false)
+  const [pixKey, setPixKey]           = useState('')
+  const [savingPix, setSavingPix]     = useState(false)
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768)
@@ -82,10 +84,17 @@ export default function Home() {
 
   async function loadProfile(u: any) {
     const { data } = await supabase.from('profiles').select('*').eq('id', u.id).single()
-    if (data) { setProfile(data); return }
+    if (data) { setProfile(data); setPixKey(data.pix_key || ''); return }
     const nome = u.user_metadata?.nome || u.email?.split('@')[0] || 'Profissional'
     await supabase.from('profiles').insert({ id:u.id, nome, email:u.email, plano:'starter' })
     setProfile({ nome, email:u.email, plano:'starter' })
+  }
+
+  async function savePixKey() {
+    setSavingPix(true)
+    await supabase.from('profiles').update({ pix_key: pixKey }).eq('id', user.id)
+    setSavingPix(false)
+    showToast('Chave Pix salva! ✓')
   }
 
   async function loadAgendamentos(uid: string, date: string) {
@@ -112,6 +121,15 @@ export default function Home() {
     if (!form.cliente || !form.data || !form.horario) {
       setFormError('Preencha nome, data e horário!')
       return
+    }
+    // Limite Starter: 20 agendamentos por mês
+    if (!isPro) {
+      const mes = new Date().toISOString().slice(0,7)
+      const countMes = allAg.filter(a => a.data?.startsWith(mes)).length
+      if (countMes >= 20) {
+        setFormError('Limite de 20 agendamentos/mês do plano Starter atingido. Faça upgrade para Pro!')
+        return
+      }
     }
     setFormError('')
     setSaving(true)
@@ -242,6 +260,33 @@ export default function Home() {
   const mesesArr = Object.entries(meses).sort().slice(-6)
   const maxVal   = Math.max(...mesesArr.map(m=>m[1]), 1)
 
+  // ── Dados Pro: receita por serviço ──
+  const receitaPorSvc: Record<string,number> = {}
+  allAg.filter(a=>a.status!=='cancelado').forEach(a => {
+    const s = a.servico || 'Outros'
+    receitaPorSvc[s] = (receitaPorSvc[s]||0) + (parseFloat(a.preco?.replace('R$','').replace(',','.').trim())||0)
+  })
+  const topServicos = Object.entries(receitaPorSvc).sort((a,b)=>b[1]-a[1]).slice(0,6)
+  const maxSvc = Math.max(...topServicos.map(s=>s[1]), 1)
+
+  // ── Dados Pro: top clientes ──
+  const receitaPorCliente: Record<string,number> = {}
+  allAg.filter(a=>a.status!=='cancelado').forEach(a => {
+    const n = a.cliente_nome || 'Desconhecido'
+    receitaPorCliente[n] = (receitaPorCliente[n]||0) + (parseFloat(a.preco?.replace('R$','').replace(',','.').trim())||0)
+  })
+  const topClientes = Object.entries(receitaPorCliente).sort((a,b)=>b[1]-a[1]).slice(0,5)
+
+  // ── Dados Pro: comparativo mês atual vs anterior ──
+  const now = new Date()
+  const mesAtualStr   = now.toISOString().slice(0,7)
+  const mesAnteriorStr = new Date(now.getFullYear(), now.getMonth()-1, 1).toISOString().slice(0,7)
+  const recMesAtual   = allAg.filter(a=>a.status!=='cancelado'&&a.data?.startsWith(mesAtualStr)).reduce((s,a)=>s+(parseFloat(a.preco?.replace('R$','').replace(',','.').trim())||0),0)
+  const recMesAnt     = allAg.filter(a=>a.status!=='cancelado'&&a.data?.startsWith(mesAnteriorStr)).reduce((s,a)=>s+(parseFloat(a.preco?.replace('R$','').replace(',','.').trim())||0),0)
+  const variacaoMes   = recMesAnt > 0 ? ((recMesAtual - recMesAnt) / recMesAnt) * 100 : 0
+  const agMesAtual    = allAg.filter(a=>a.data?.startsWith(mesAtualStr)).length
+  const taxaCancelamento = allAg.length > 0 ? (allAg.filter(a=>a.status==='cancelado').length / allAg.length) * 100 : 0
+
   if (loading) return (
     <div style={{ display:'flex', height:'100vh', alignItems:'center', justifyContent:'center', fontFamily:'system-ui', background:'#f2f1ec' }}>
       <div style={{ textAlign:'center' }}>
@@ -356,6 +401,13 @@ export default function Home() {
                   <div style={{ fontSize:13.5, fontWeight:600, color:'#111827', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{ap.cliente_nome}</div>
                   <div style={{ fontSize:12, color:'#4b5563', marginTop:1 }}>{ap.servico}</div>
                   {ap.duracao && <div style={{ fontSize:11, color:'#6b7280', marginTop:1 }}>⏱ {ap.duracao}</div>}
+                  {ap.cliente_telefone && (
+                    <a href={`https://wa.me/55${ap.cliente_telefone.replace(/\D/g,'')}?text=${encodeURIComponent(`Olá ${ap.cliente_nome}! Lembrando seu agendamento:\n\n✂️ *${ap.servico}*\n📅 ${fmtDate(ap.data)}\n🕐 ${ap.horario?.slice(0,5)}\n\nQualquer dúvida é só chamar! 😊`)}`}
+                      target="_blank" rel="noreferrer"
+                      style={{ display:'inline-flex', alignItems:'center', gap:4, marginTop:4, fontSize:11, fontWeight:600, color:'#059669', textDecoration:'none', background:'#f0fdf4', padding:'2px 8px', borderRadius:99 }}>
+                      📲 Enviar lembrete
+                    </a>
+                  )}
                 </div>
                 <div style={{ textAlign:'right', display:'flex', flexDirection:'column', alignItems:'flex-end', gap:4, flexShrink:0 }}>
                   {ap.preco && <div style={{ fontSize:14, fontWeight:700, color:'#0d1f17' }}>{ap.preco}</div>}
@@ -547,6 +599,82 @@ export default function Home() {
           </div>
         )}
       </div>
+      {/* ── RELATÓRIOS PRO ── */}
+      {isPro ? (
+        <>
+          {/* Comparativo mensal */}
+          <div style={card}>
+            <div style={{ fontSize:14, fontWeight:700, color:'#111827', marginBottom:14 }}>Este mês vs mês anterior</div>
+            <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(4,1fr)', gap:12 }}>
+              {[
+                { label:'Receita este mês', value:fmt(recMesAtual), delta: variacaoMes !== 0, pct: variacaoMes, up: variacaoMes >= 0 },
+                { label:'Receita mês anterior', value:fmt(recMesAnt), delta:false, pct:0, up:false },
+                { label:'Agendamentos este mês', value:agMesAtual.toString(), delta:false, pct:0, up:false },
+                { label:'Taxa de cancelamento', value:`${taxaCancelamento.toFixed(1)}%`, delta:false, pct:0, up:false },
+              ].map((s,i)=>(
+                <div key={i} style={{ background:'#f9fafb', borderRadius:10, padding:'12px 14px' }}>
+                  <div style={{ fontSize:10.5, color:'#4b5563', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:4 }}>{s.label}</div>
+                  <div style={{ fontSize:20, fontWeight:700, color:'#0d1f17' }}>{s.value}</div>
+                  {s.delta && (
+                    <div style={{ fontSize:11.5, fontWeight:600, color: s.up ? '#059669' : '#dc2626', marginTop:3 }}>
+                      {s.up ? '▲' : '▼'} {Math.abs(s.pct).toFixed(1)}% vs mês anterior
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Receita por serviço */}
+          {topServicos.length > 0 && (
+            <div style={card}>
+              <div style={{ fontSize:14, fontWeight:700, color:'#111827', marginBottom:14 }}>Receita por serviço</div>
+              <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+                {topServicos.map(([svc,val])=>(
+                  <div key={svc}>
+                    <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
+                      <span style={{ fontSize:13, fontWeight:500, color:'#111827' }}>{svc}</span>
+                      <span style={{ fontSize:13, fontWeight:700, color:'#0d1f17' }}>{fmt(val)}</span>
+                    </div>
+                    <div style={{ height:6, borderRadius:99, background:'#f3f4f6', overflow:'hidden' }}>
+                      <div style={{ height:'100%', borderRadius:99, background:'#34d399', width:`${(val/maxSvc)*100}%`, transition:'width 0.3s' }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Top clientes */}
+          {topClientes.length > 0 && (
+            <div style={card}>
+              <div style={{ fontSize:14, fontWeight:700, color:'#111827', marginBottom:14 }}>Top clientes por receita</div>
+              <div style={{ display:'flex', flexDirection:'column', gap:0 }}>
+                {topClientes.map(([nome,val],i)=>(
+                  <div key={nome} style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 0', borderBottom: i < topClientes.length-1 ? '1px solid #f3f4f6' : 'none' }}>
+                    <div style={{ width:26, height:26, borderRadius:'50%', background:'#0d1f17', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:700, flexShrink:0 }}>{i+1}</div>
+                    <div style={{ width:34, height:34, borderRadius:'50%', background:color(nome, BG), color:color(nome, TXT), display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:700, flexShrink:0 }}>{initials(nome)}</div>
+                    <div style={{ flex:1, fontSize:13.5, fontWeight:600, color:'#111827' }}>{nome}</div>
+                    <div style={{ fontSize:14, fontWeight:700, color:'#0d1f17' }}>{fmt(val)}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      ) : (
+        <div style={{ ...card, textAlign:'center', padding:'28px 24px', border:'1.5px dashed #e5e7eb' }}>
+          <div style={{ fontSize:28, marginBottom:8 }}>📊</div>
+          <div style={{ fontSize:15, fontWeight:700, color:'#111827', marginBottom:4 }}>Relatórios avançados</div>
+          <div style={{ fontSize:13, color:'#4b5563', marginBottom:16, lineHeight:1.6 }}>
+            Veja receita por serviço, top clientes, comparativo mensal e taxa de cancelamento.
+          </div>
+          <button onClick={()=>setNav('Configurações')} style={{ padding:'10px 22px', border:'none', borderRadius:9, fontSize:13.5, fontWeight:700, background:'#0d1f17', color:'#fff', cursor:'pointer', fontFamily:'inherit' }}>
+            ⭐ Fazer upgrade para Pro
+          </button>
+        </div>
+      )}
+
       <div style={card}>
         <div style={{ fontSize:14, fontWeight:700, color:'#111827', marginBottom:14 }}>Últimos atendimentos</div>
         {allAg.slice(0,10).map(a=>(
@@ -699,6 +827,36 @@ export default function Home() {
           </div>
 
         </div>
+      </div>
+
+      {/* Pix */}
+      <div style={card}>
+        <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
+          <div style={{ fontSize:14, fontWeight:700, color:'#111827' }}>Chave Pix</div>
+          {!isPro && <span style={{ fontSize:10.5, background:'#fef3c7', color:'#92400e', padding:'2px 8px', borderRadius:99, fontWeight:600 }}>PRO</span>}
+        </div>
+        <div style={{ fontSize:13, color:'#4b5563', marginBottom:12 }}>
+          {isPro ? 'Sua chave Pix aparece na confirmação de agendamento dos clientes.' : 'Upgrade para Pro para mostrar sua chave Pix na confirmação de agendamento.'}
+        </div>
+        {isPro ? (
+          <div style={{ display:'flex', gap:8 }}>
+            <input
+              type="text"
+              placeholder="CPF, e-mail, telefone ou chave aleatória"
+              value={pixKey}
+              onChange={e=>setPixKey(e.target.value)}
+              style={{ ...inp, flex:1 }}
+            />
+            <button onClick={savePixKey} disabled={savingPix}
+              style={{ padding:'9px 16px', border:'none', borderRadius:8, fontSize:13, fontWeight:600, background:'#0d1f17', color:'#fff', cursor:'pointer', fontFamily:'inherit', opacity:savingPix?0.7:1, flexShrink:0 }}>
+              {savingPix ? '...' : 'Salvar'}
+            </button>
+          </div>
+        ) : (
+          <button onClick={()=>{ setNav('Configurações') }} style={{ padding:'9px 18px', border:'none', borderRadius:9, fontSize:13, fontWeight:700, background:'#0d1f17', color:'#fff', cursor:'pointer', fontFamily:'inherit' }}>
+            ⭐ Upgrade para Pro
+          </button>
+        )}
       </div>
 
       {/* Link */}
