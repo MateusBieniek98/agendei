@@ -140,8 +140,10 @@ export default function AgendarPage({ params }: { params: Promise<{ slug: string
         }),
       })
       const newAg = await res.json()
+      if (newAg?.error) alert('ERRO API: ' + newAg.error)
       if (newAg?.cancel_token) setCancelToken(newAg.cancel_token)
-    } catch (e) {
+    } catch (e: any) {
+      alert('ERRO CATCH: ' + e.message)
       console.error('Erro ao confirmar:', e)
     }
     setSaving(false)
