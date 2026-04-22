@@ -46,11 +46,14 @@ export default function Home() {
   const [form, setForm]         = useState({ cliente:'', telefone:'', servico:'', data:'', horario:'09:00', preco:'', duracao:'1h', status:'confirmado' })
   const [svcForm, setSvcForm]   = useState({ nome:'', preco:'', duracao:'' })
   const [expandedClient, setExpandedClient] = useState<string|null>(null)
-  const [deleteId, setDeleteId]     = useState<string|null>(null)
-  const [formError, setFormError]   = useState('')
-  const [toast, setToast]           = useState<string|null>(null)
-  const [clientSearch, setSearch]   = useState('')
-  const [isMobile, setIsMobile]     = useState(false)
+  const [deleteId, setDeleteId]       = useState<string|null>(null)
+  const [formError, setFormError]     = useState('')
+  const [toast, setToast]             = useState<string|null>(null)
+  const [clientSearch, setSearch]     = useState('')
+  const [isMobile, setIsMobile]       = useState(false)
+  const [anual, setAnual]             = useState(true)
+  const [loadingPlano, setLP]         = useState<string|null>(null)
+  const [confirmDowngrade, setCD]     = useState(false)
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768)
@@ -154,6 +157,32 @@ export default function Home() {
   async function handleLogout() {
     await supabase.auth.signOut()
     window.location.href = '/login'
+  }
+
+  async function assinarPlano(plano: string) {
+    if (plano === 'starter') {
+      setCD(false)
+      setLP('starter')
+      await supabase.from('profiles').update({ plano: 'starter', plano_expira: null }).eq('id', user.id)
+      await loadProfile(user)
+      setLP(null)
+      showToast('Plano alterado para Starter.')
+      return
+    }
+    setLP(plano)
+    try {
+      const res = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plano, email: user.email, userId: user.id }),
+      })
+      const data = await res.json()
+      if (data.init_point) window.location.href = data.init_point
+      else { showToast('Erro ao iniciar pagamento. Tente novamente.'); setLP(null) }
+    } catch {
+      showToast('Erro de conexão. Tente novamente.')
+      setLP(null)
+    }
   }
 
   function showToast(msg: string) {
@@ -568,53 +597,107 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Plano atual */}
-      <div style={{ ...card, padding:0, overflow:'hidden' }}>
-        <div style={{ padding:'16px 18px', background: isPro ? '#0d1f17' : '#f9fafb' }}>
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-            <div>
-              <div style={{ fontSize:14, fontWeight:600, color: isPro ? '#34d399' : '#6b7280', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:4 }}>
-                {isPro ? '⭐ Plano Pro' : 'Plano Starter'}
-              </div>
-              <div style={{ fontSize:13, color: isPro ? 'rgba(255,255,255,0.6)' : '#9ca3af' }}>
-                {isPro
-                  ? profile?.plano_expira ? `Válido até ${fmtDate(profile.plano_expira)}` : 'Plano ativo'
-                  : 'Grátis — 20 agendamentos/mês'}
-              </div>
-            </div>
-            <div style={{ fontSize:22 }}>{isPro ? '🚀' : '🌱'}</div>
-          </div>
+      {/* Gerenciamento de plano */}
+      <div style={card}>
+        <div style={{ fontSize:14, fontWeight:700, color:'#111827', marginBottom:4 }}>Plano atual</div>
+        <div style={{ fontSize:13, color:'#4b5563', marginBottom:18 }}>
+          Você está no <strong>{isPro ? 'Plano Pro' : 'Plano Starter'}</strong>
+          {isPro && profile?.plano_expira ? ` — válido até ${fmtDate(profile.plano_expira)}` : ''}
         </div>
 
-        <div style={{ padding:'16px 18px' }}>
-          {isPro ? (
-            <div>
-              <div style={{ fontSize:13, color:'#6b7280', marginBottom:12 }}>Seu plano inclui:</div>
-              <div style={{ display:'flex', flexDirection:'column', gap:8, marginBottom:16 }}>
-                {['✓ Agendamentos ilimitados','✓ Notificações WhatsApp','✓ Relatórios completos','✓ Suporte prioritário'].map(f=>(
-                  <div key={f} style={{ fontSize:13, color:'#059669' }}>{f}</div>
-                ))}
-              </div>
-              <button onClick={()=>window.location.href='/planos'}
-                style={{ padding:'9px 18px', border:'1.5px solid #e5e7eb', borderRadius:8, fontSize:13, fontWeight:500, background:'#fff', cursor:'pointer', fontFamily:'inherit', color:'#6b7280' }}>
-                Gerenciar plano
-              </button>
+        {/* Toggle mensal/anual */}
+        <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:20 }}>
+          <span style={{ fontSize:13, color: anual?'#9ca3af':'#111827', fontWeight: anual?400:600 }}>Mensal</span>
+          <div onClick={()=>setAnual(!anual)}
+            style={{ width:44, height:24, borderRadius:99, background: anual?'#0d1f17':'#e5e7eb', cursor:'pointer', position:'relative', transition:'background .2s', flexShrink:0 }}>
+            <div style={{ position:'absolute', width:18, height:18, borderRadius:'50%', background:'#fff', top:3, left: anual?23:3, transition:'left .2s', boxShadow:'0 1px 3px rgba(0,0,0,.2)' }} />
+          </div>
+          <span style={{ fontSize:13, color: anual?'#111827':'#9ca3af', fontWeight: anual?600:400 }}>
+            Anual <span style={{ fontSize:10.5, background:'#dcfce7', color:'#166534', padding:'2px 7px', borderRadius:99, fontWeight:600, marginLeft:3 }}>−25%</span>
+          </span>
+        </div>
+
+        {/* Cards dos planos */}
+        <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap:12 }}>
+
+          {/* Starter */}
+          <div style={{ borderRadius:14, border: !isPro ? '2px solid #0d1f17' : '1.5px solid #e5e7eb', padding:'18px 16px', position:'relative', background: !isPro ? '#f9fafb' : '#fff' }}>
+            {!isPro && <div style={{ position:'absolute', top:-1, left:16, background:'#0d1f17', color:'#fff', fontSize:10, fontWeight:700, padding:'2px 10px', borderRadius:'0 0 8px 8px' }}>PLANO ATUAL</div>}
+            <div style={{ fontSize:12, fontWeight:700, color:'#6b7280', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:8, marginTop: !isPro ? 8 : 0 }}>Starter</div>
+            <div style={{ fontSize:28, fontWeight:700, color:'#111827', marginBottom:2 }}>Grátis</div>
+            <div style={{ fontSize:12, color:'#9ca3af', marginBottom:14 }}>para sempre</div>
+            <div style={{ display:'flex', flexDirection:'column', gap:6, marginBottom:16 }}>
+              {[
+                { ok:true,  txt:'Até 20 agendamentos/mês' },
+                { ok:true,  txt:'Página de agendamento' },
+                { ok:true,  txt:'Histórico de clientes' },
+                { ok:false, txt:'WhatsApp automático' },
+                { ok:false, txt:'Relatórios avançados' },
+              ].map((f,i)=>(
+                <div key={i} style={{ fontSize:12.5, color: f.ok?'#374151':'#9ca3af', display:'flex', gap:6 }}>
+                  <span>{f.ok?'✓':'✕'}</span>{f.txt}
+                </div>
+              ))}
             </div>
-          ) : (
-            <div>
-              <div style={{ fontSize:13, color:'#6b7280', marginBottom:12 }}>Faça upgrade para desbloquear:</div>
-              <div style={{ display:'flex', flexDirection:'column', gap:8, marginBottom:16 }}>
-                {['🔔 Notificações WhatsApp automáticas','📊 Relatórios financeiros avançados','💳 Pix integrado nos agendamentos','🎯 Agendamentos ilimitados'].map(f=>(
-                  <div key={f} style={{ fontSize:13, color:'#111827' }}>{f}</div>
-                ))}
+            {isPro ? (
+              confirmDowngrade ? (
+                <div>
+                  <div style={{ fontSize:12, color:'#dc2626', marginBottom:8, fontWeight:500 }}>⚠️ Você perderá os recursos Pro. Confirmar?</div>
+                  <div style={{ display:'flex', gap:8 }}>
+                    <button onClick={()=>assinarPlano('starter')} disabled={!!loadingPlano}
+                      style={{ flex:1, padding:'8px', border:'none', borderRadius:8, fontSize:12.5, fontWeight:600, background:'#dc2626', color:'#fff', cursor:'pointer', fontFamily:'inherit', opacity:loadingPlano?0.6:1 }}>
+                      {loadingPlano==='starter'?'Alterando...':'Confirmar downgrade'}
+                    </button>
+                    <button onClick={()=>setCD(false)}
+                      style={{ flex:1, padding:'8px', border:'1.5px solid #e5e7eb', borderRadius:8, fontSize:12.5, fontWeight:500, background:'#fff', cursor:'pointer', fontFamily:'inherit', color:'#6b7280' }}>
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button onClick={()=>setCD(true)}
+                  style={{ width:'100%', padding:'9px', border:'1.5px solid #e5e7eb', borderRadius:9, fontSize:13, fontWeight:500, background:'#fff', cursor:'pointer', fontFamily:'inherit', color:'#6b7280' }}>
+                  Mudar para Starter
+                </button>
+              )
+            ) : (
+              <div style={{ padding:'9px', borderRadius:9, background:'#f3f4f6', fontSize:13, fontWeight:600, color:'#6b7280', textAlign:'center' }}>
+                Plano atual
               </div>
-              <button onClick={()=>window.location.href='/planos'}
-                style={{ padding:'11px 24px', border:'none', borderRadius:10, fontSize:14, fontWeight:700, background:'#0d1f17', color:'#fff', cursor:'pointer', fontFamily:'inherit' }}>
-                ⭐ Fazer upgrade para Pro →
-              </button>
-              <div style={{ fontSize:11.5, color:'#9ca3af', marginTop:8 }}>A partir de R$ 29/mês · 7 dias grátis</div>
+            )}
+          </div>
+
+          {/* Pro */}
+          <div style={{ borderRadius:14, border: isPro ? '2px solid #0d1f17' : '1.5px solid #e5e7eb', padding:'18px 16px', background: isPro ? '#0d1f17' : '#fff', position:'relative' }}>
+            {isPro && <div style={{ position:'absolute', top:-1, left:16, background:'#34d399', color:'#0d1f17', fontSize:10, fontWeight:700, padding:'2px 10px', borderRadius:'0 0 8px 8px' }}>PLANO ATUAL</div>}
+            <div style={{ fontSize:12, fontWeight:700, color: isPro?'#34d399':'#6b7280', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:8, marginTop: isPro ? 8 : 0 }}>Pro</div>
+            <div style={{ display:'flex', alignItems:'baseline', gap:3, marginBottom:2 }}>
+              <span style={{ fontSize:14, fontWeight:500, color: isPro?'rgba(255,255,255,0.5)':'#9ca3af' }}>R$</span>
+              <span style={{ fontSize:28, fontWeight:700, color: isPro?'#fff':'#111827' }}>{anual?29:39}</span>
+              <span style={{ fontSize:12, color: isPro?'rgba(255,255,255,0.4)':'#9ca3af' }}>/mês</span>
             </div>
-          )}
+            <div style={{ fontSize:12, color: isPro?'rgba(255,255,255,0.4)':'#9ca3af', marginBottom:14 }}>
+              {anual ? `R$ 348/ano · 2 meses grátis` : 'Cobrado mensalmente'}
+            </div>
+            <div style={{ display:'flex', flexDirection:'column', gap:6, marginBottom:16 }}>
+              {['Agendamentos ilimitados','WhatsApp automático','Relatórios financeiros','Pix integrado','Suporte prioritário'].map((f,i)=>(
+                <div key={i} style={{ fontSize:12.5, color: isPro?'rgba(255,255,255,0.8)':'#374151', display:'flex', gap:6 }}>
+                  <span style={{ color: isPro?'#34d399':'#059669' }}>✓</span>{f}
+                </div>
+              ))}
+            </div>
+            {isPro ? (
+              <div style={{ padding:'9px', borderRadius:9, background:'rgba(52,211,153,0.15)', fontSize:13, fontWeight:600, color:'#34d399', textAlign:'center' }}>
+                ✓ Plano ativo
+              </div>
+            ) : (
+              <button onClick={()=>assinarPlano(anual?'anual':'mensal')} disabled={!!loadingPlano}
+                style={{ width:'100%', padding:'11px', border:'none', borderRadius:9, fontSize:13.5, fontWeight:700, background:'#0d1f17', color:'#fff', cursor: loadingPlano?'default':'pointer', fontFamily:'inherit', opacity: loadingPlano?0.7:1 }}>
+                {loadingPlano?'Aguarde...':'⭐ Assinar Pro → 7 dias grátis'}
+              </button>
+            )}
+          </div>
+
         </div>
       </div>
 
@@ -628,7 +711,7 @@ export default function Home() {
         <button onClick={()=>{
           const link = `${window.location.origin}/agendar/${nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'')}`
           navigator.clipboard.writeText(link)
-          alert('Link copiado!')
+          showToast('🔗 Link copiado!')
         }} style={{ marginTop:10, padding:'8px 16px', border:'1.5px solid #e5e7eb', borderRadius:8, fontSize:13, fontWeight:500, background:'#fff', cursor:'pointer', fontFamily:'inherit' }}>
           Copiar link
         </button>
