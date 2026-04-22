@@ -200,14 +200,14 @@ export default function AgendarPage({ params }: { params: Promise<{ slug: string
               <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
                 {svcList.map((s:any) => (
                   <div key={s.id||s.nome} onClick={()=>{ setSelSvc(s); setStep(2) }}
-                    style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'13px 16px', border:'1.5px solid #e5e7eb', borderRadius:12, cursor:'pointer' }}>
+                    style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'13px 16px', border:'2px solid #111827', borderRadius:12, cursor:'pointer' }}>
                     <div>
-                      <div style={{ fontSize:14, fontWeight:500 }}>{s.nome}</div>
-                      {s.duracao && <div style={{ fontSize:12, color:'#6b7280', marginTop:2 }}>⏱ {s.duracao}</div>}
+                      <div style={{ fontSize:14, fontWeight:700, color:'#111827' }}>{s.nome}</div>
+                      {s.duracao && <div style={{ fontSize:12, color:'#374151', fontWeight:500, marginTop:2 }}>⏱ {s.duracao}</div>}
                     </div>
                     <div style={{ textAlign:'right' }}>
-                      {s.preco && <div style={{ fontSize:15, fontWeight:700 }}>{s.preco}</div>}
-                      <span style={{ color:'#9ca3af', fontSize:14 }}>→</span>
+                      {s.preco && <div style={{ fontSize:15, fontWeight:700, color:'#111827' }}>{s.preco}</div>}
+                      <span style={{ color:'#111827', fontSize:14 }}>→</span>
                     </div>
                   </div>
                 ))}
