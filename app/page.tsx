@@ -511,7 +511,7 @@ export default function Home() {
                         </div>
                         <div style={{ display:'flex', alignItems:'center', gap:10 }}>
                           {a.preco && <div style={{ fontSize:13, fontWeight:700 }}>{a.preco}</div>}
-                          <select value={a.status} onChange={e=>{ e.stopPropagation(); updateStatus(a.id, e.target.value) }}
+                          <select value={a.status} onClick={e=>e.stopPropagation()} onChange={e=>{ e.stopPropagation(); updateStatus(a.id, e.target.value) }}
                             style={{ ...(STATUS_STYLE[a.status]||STATUS_STYLE.confirmado), fontSize:10.5, padding:'3px 6px', borderRadius:99, fontWeight:600, border:'none', cursor:'pointer', fontFamily:'inherit' }}>
                             <option value="confirmado">Confirmado</option>
                             <option value="concluido">Concluído</option>
