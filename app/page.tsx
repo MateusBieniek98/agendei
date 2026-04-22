@@ -928,16 +928,27 @@ export default function Home() {
 
   async function ativarPro(meses: number | 'permanente') {
     const expira = meses === 'permanente' ? null
-      : new Date(Date.now() + meses * 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-    await supabase.from('profiles').update({ plano: 'pro', plano_expira: expira, onboarded: true }).eq('id', user.id)
-    await loadProfile(user)
+      : new Date(Date.now() + (typeof meses === 'number' ? meses : 1) * 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+    const { error } = await supabase
+      .from('profiles')
+      .update({ plano: 'pro', plano_expira: expira, onboarded: true })
+      .eq('id', user.id)
+    if (error) { showToast('❌ Erro: ' + error.message); return }
+    // Força reload do profile direto do banco
+    const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+    if (data) { setProfile(data); setPixKey(data.pix_key || '') }
     showToast(`✅ Plano Pro ativado${meses !== 'permanente' ? ` por ${meses} mês(es)` : ' permanentemente'}!`)
   }
 
   async function voltarStarter() {
-    await supabase.from('profiles').update({ plano: 'starter', plano_expira: null }).eq('id', user.id)
-    await loadProfile(user)
-    showToast('Voltou para Starter.')
+    const { error } = await supabase
+      .from('profiles')
+      .update({ plano: 'starter', plano_expira: null })
+      .eq('id', user.id)
+    if (error) { showToast('❌ Erro: ' + error.message); return }
+    const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+    if (data) { setProfile(data); setPixKey(data.pix_key || '') }
+    showToast('↩ Voltou para Starter.')
   }
 
   const AdminView = isAdmin ? (
