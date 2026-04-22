@@ -28,7 +28,7 @@ export default function Login() {
     if (!profile || !profile.onboarded) {
       window.location.href = '/planos'
     } else {
-      window.location.href = '/dashboard'
+      window.location.href = '/'
     }
   }
 
@@ -45,9 +45,8 @@ export default function Login() {
       await supabase.from('profiles').upsert({
         id: data.user.id,
         email: data.user.email,
-        name: nome,
-        full_name: nome,
-        plan: 'free',
+        nome: nome,
+        plano: 'starter',
         onboarded: false,
       })
     }

@@ -46,6 +46,18 @@ export default function Home() {
   const [form, setForm]         = useState({ cliente:'', telefone:'', servico:'', data:'', horario:'09:00', preco:'', duracao:'1h', status:'confirmado' })
   const [svcForm, setSvcForm]   = useState({ nome:'', preco:'', duracao:'' })
   const [expandedClient, setExpandedClient] = useState<string|null>(null)
+  const [deleteId, setDeleteId]     = useState<string|null>(null)
+  const [formError, setFormError]   = useState('')
+  const [toast, setToast]           = useState<string|null>(null)
+  const [clientSearch, setSearch]   = useState('')
+  const [isMobile, setIsMobile]     = useState(false)
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
 
   const today = new Date().toLocaleDateString('pt-BR',{ weekday:'long', day:'numeric', month:'long', year:'numeric' })
 
@@ -94,7 +106,11 @@ export default function Home() {
   }
 
   async function handleSave() {
-    if (!form.cliente || !form.data || !form.horario) return alert('Preencha nome, data e horário!')
+    if (!form.cliente || !form.data || !form.horario) {
+      setFormError('Preencha nome, data e horário!')
+      return
+    }
+    setFormError('')
     setSaving(true)
     await supabase.from('agendamentos').insert({
       profissional_id: user.id, cliente_nome: form.cliente, cliente_telefone: form.telefone,
@@ -105,6 +121,7 @@ export default function Home() {
     await loadAllAg(user.id)
     setModal(false); setSaving(false)
     setForm({ cliente:'', telefone:'', servico: services.length>0?services[0].nome:DEFAULT_SERVICES[0], data:'', horario:'09:00', preco: services.length>0?services[0].preco||'':'', duracao: services.length>0?services[0].duracao||'1h':'1h', status:'confirmado' })
+    showToast('Agendamento criado com sucesso! ✓')
   }
 
   async function updateStatus(id: string, status: string) {
@@ -114,17 +131,19 @@ export default function Home() {
   }
 
   async function deleteAg(id: string) {
-    if (!confirm('Cancelar este agendamento?')) return
     await supabase.from('agendamentos').delete().eq('id', id)
+    setDeleteId(null)
     await loadAgendamentos(user.id, filterDate)
     await loadAllAg(user.id)
+    showToast('Agendamento removido.')
   }
 
   async function saveSvc() {
-    if (!svcForm.nome) return alert('Preencha o nome do serviço!')
+    if (!svcForm.nome) { showToast('⚠️ Preencha o nome do serviço!'); return }
     await supabase.from('servicos').insert({ profissional_id:user.id, ...svcForm })
     await loadServices(user.id)
     setSvcForm({ nome:'', preco:'', duracao:'' })
+    showToast('Serviço adicionado! ✓')
   }
 
   async function deleteSvc(id: string) {
@@ -137,9 +156,30 @@ export default function Home() {
     window.location.href = '/login'
   }
 
+  function showToast(msg: string) {
+    setToast(msg)
+    setTimeout(() => setToast(null), 3000)
+  }
+
   function changeDate(d: string) {
     setFD(d)
     loadAgendamentos(user.id, d)
+  }
+
+  function prevDay() {
+    const dt = new Date(filterDate + 'T12:00:00')
+    dt.setDate(dt.getDate() - 1)
+    changeDate(dt.toISOString().split('T')[0])
+  }
+
+  function nextDay() {
+    const dt = new Date(filterDate + 'T12:00:00')
+    dt.setDate(dt.getDate() + 1)
+    changeDate(dt.toISOString().split('T')[0])
+  }
+
+  function goToday() {
+    changeDate(new Date().toISOString().split('T')[0])
   }
 
   function onServiceChange(nome: string) {
@@ -149,7 +189,17 @@ export default function Home() {
 
   const receita      = agendamentos.filter(a=>a.status!=='cancelado').reduce((s,a)=>s+(parseFloat(a.preco?.replace('R$','').replace(',','.').trim())||0),0)
   const receitaTotal = allAg.filter(a=>a.status!=='cancelado').reduce((s,a)=>s+(parseFloat(a.preco?.replace('R$','').replace(',','.').trim())||0),0)
-  const clientes     = [...new Map(allAg.map(a=>[a.cliente_nome, a])).values()]
+  // Deduplica clientes por nome, ordenados pelo agendamento mais recente
+  const clienteMap = new Map<string, any>()
+  for (const a of allAg) {
+    if (!clienteMap.has(a.cliente_nome) || a.data > clienteMap.get(a.cliente_nome).data) {
+      clienteMap.set(a.cliente_nome, a)
+    }
+  }
+  const clientes = [...clienteMap.values()].sort((a,b) => (b.data > a.data ? 1 : -1))
+  const clientesFiltrados = clientSearch.trim()
+    ? clientes.filter(c => c.cliente_nome?.toLowerCase().includes(clientSearch.toLowerCase()))
+    : clientes
   const nome         = profile?.nome || user?.email?.split('@')[0] || 'Profissional'
   const svcOptions   = services.length > 0 ? services.map(s => s.nome) : DEFAULT_SERVICES
   const planoAtual   = profile?.plano || 'starter'
@@ -172,42 +222,68 @@ export default function Home() {
     </div>
   )
 
-  const Sidebar = (
+  const NAV_ITEMS: [string, string, string][] = [
+    ['📅','Agenda','Agenda'],
+    ['👥','Clientes','Clientes'],
+    ['✂️','Serviços','Serviços'],
+    ['💰','Financeiro','Financeiro'],
+    ['⚙️','Config','Configurações'],
+  ]
+
+  const Sidebar = !isMobile ? (
     <div style={{ width:228, background:'#0d1f17', display:'flex', flexDirection:'column', padding:'24px 14px', flexShrink:0 }}>
       <div style={{ display:'flex', alignItems:'center', gap:9, padding:'0 8px', marginBottom:32 }}>
         <div style={{ width:30, height:30, background:'#34d399', borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700, fontSize:16, color:'#0d1f17' }}>A</div>
         <span style={{ fontSize:19, fontWeight:600, color:'#fff', letterSpacing:-0.5 }}>agen<span style={{ color:'#34d399' }}>dei</span></span>
       </div>
       <nav style={{ flex:1, display:'flex', flexDirection:'column', gap:2 }}>
-        {[['📅','Agenda'],['👥','Clientes'],['✂️','Serviços'],['💰','Financeiro'],['⚙️','Configurações']].map(([ic,lb])=>(
-          <div key={lb} onClick={()=>setNav(lb)} style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 12px', borderRadius:8, cursor:'pointer', fontSize:13.5, background:nav===lb?'rgba(52,211,153,0.14)':'transparent', color:nav===lb?'#34d399':'rgba(255,255,255,0.45)', fontWeight:nav===lb?500:400 }}>
-            <span style={{ width:18, textAlign:'center' }}>{ic}</span>{lb}
+        {NAV_ITEMS.map(([ic,lb,val])=>(
+          <div key={val} onClick={()=>setNav(val)} style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 12px', borderRadius:8, cursor:'pointer', fontSize:13.5, background:nav===val?'rgba(52,211,153,0.14)':'transparent', color:nav===val?'#34d399':'rgba(255,255,255,0.65)', fontWeight:nav===val?600:400, transition:'color 0.15s' }}>
+            <span style={{ width:18, textAlign:'center' }}>{ic}</span>{val}
           </div>
         ))}
       </nav>
-      <div style={{ borderTop:'1px solid rgba(255,255,255,0.08)', paddingTop:14 }}>
+      <div style={{ borderTop:'1px solid rgba(255,255,255,0.1)', paddingTop:14 }}>
         <div style={{ display:'flex', alignItems:'center', gap:10, paddingLeft:4, marginBottom:10 }}>
           <div style={{ width:33, height:33, borderRadius:'50%', background:'linear-gradient(135deg,#059669,#34d399)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:700, color:'#fff', flexShrink:0 }}>{initials(nome)}</div>
           <div>
-            <div style={{ fontSize:13, fontWeight:500, color:'rgba(255,255,255,0.75)', maxWidth:120, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{nome}</div>
-            <div style={{ fontSize:11, color: isPro ? '#34d399' : 'rgba(255,255,255,0.3)' }}>{isPro ? '⭐ Plano Pro' : 'Plano Starter'}</div>
+            <div style={{ fontSize:13, fontWeight:600, color:'rgba(255,255,255,0.9)', maxWidth:120, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{nome}</div>
+            <div style={{ fontSize:11, color: isPro ? '#34d399' : 'rgba(255,255,255,0.45)' }}>{isPro ? '⭐ Plano Pro' : 'Plano Starter'}</div>
           </div>
         </div>
-        <button onClick={handleLogout} style={{ width:'100%', padding:'7px', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)', background:'transparent', color:'rgba(255,255,255,0.4)', fontSize:12, cursor:'pointer', fontFamily:'inherit' }}>Sair</button>
+        <button onClick={handleLogout} style={{ width:'100%', padding:'7px', borderRadius:8, border:'1px solid rgba(255,255,255,0.12)', background:'transparent', color:'rgba(255,255,255,0.55)', fontSize:12, cursor:'pointer', fontFamily:'inherit' }}>Sair</button>
       </div>
     </div>
-  )
+  ) : null
+
+  const BottomNav = isMobile ? (
+    <div style={{ position:'fixed', bottom:0, left:0, right:0, background:'#0d1f17', display:'flex', borderTop:'1px solid rgba(255,255,255,0.1)', zIndex:40, paddingBottom:'env(safe-area-inset-bottom,0px)' }}>
+      {NAV_ITEMS.map(([ic,lb,val])=>{
+        const active = nav === val
+        return (
+          <div key={val} onClick={()=>setNav(val)}
+            style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'9px 0 10px', cursor:'pointer', gap:3,
+              color: active ? '#34d399' : 'rgba(255,255,255,0.5)' }}>
+            <span style={{ fontSize:20 }}>{ic}</span>
+            <span style={{ fontSize:10, fontWeight: active ? 600 : 400 }}>{lb}</span>
+          </div>
+        )
+      })}
+    </div>
+  ) : null
 
   const AgendaView = (
-    <div style={{ flex:1, overflowY:'auto', padding:'28px 32px', display:'flex', flexDirection:'column', gap:22 }}>
-      <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between' }}>
+    <div style={{ flex:1, overflowY:'auto', padding: isMobile ? '20px 16px 84px' : '28px 32px', display:'flex', flexDirection:'column', gap:18 }}>
+      <div style={{ display:'flex', alignItems: isMobile ? 'center' : 'flex-start', justifyContent:'space-between', gap:8 }}>
         <div>
-          <h1 style={{ fontSize:22, fontWeight:600, letterSpacing:-0.5, margin:0 }}>Olá, {nome.split(' ')[0]}! ☀️</h1>
-          <p style={{ fontSize:13, color:'#6b7280', marginTop:2, textTransform:'capitalize' }}>{today}</p>
+          <h1 style={{ fontSize: isMobile ? 18 : 22, fontWeight:700, letterSpacing:-0.5, margin:0, color:'#0d1f17' }}>Olá, {nome.split(' ')[0]}! ☀️</h1>
+          <p style={{ fontSize:12.5, color:'#4b5563', marginTop:2, textTransform:'capitalize' }}>{today}</p>
         </div>
-        <button onClick={()=>setModal(true)} style={{ background:'#0d1f17', color:'#fff', border:'none', padding:'9px 16px', borderRadius:9, fontSize:13, fontWeight:600, cursor:'pointer' }}>＋ Novo agendamento</button>
+        <button onClick={()=>setModal(true)} style={{ background:'#0d1f17', color:'#fff', border:'none', padding: isMobile ? '8px 12px' : '9px 16px', borderRadius:9, fontSize: isMobile ? 12 : 13, fontWeight:600, cursor:'pointer', flexShrink:0 }}>
+          {isMobile ? '＋ Agendar' : '＋ Novo agendamento'}
+        </button>
       </div>
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12 }}>
+      <div style={{ display:'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(4,1fr)', gap:10 }}>
         {[
           { label:'Hoje', value:agendamentos.length.toString(), sub:'agendamentos' },
           { label:'Receita do dia', value:fmt(receita), sub:'previsto' },
@@ -215,38 +291,45 @@ export default function Home() {
           { label:'Concluídos', value:agendamentos.filter(a=>a.status==='concluido').length.toString(), sub:'hoje' },
         ].map(s=>(
           <div key={s.label} style={card}>
-            <div style={{ fontSize:11, color:'#6b7280', fontWeight:500, textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:6 }}>{s.label}</div>
-            <div style={{ fontSize:22, fontWeight:700, letterSpacing:-0.5 }}>{s.value}</div>
-            <div style={{ fontSize:11.5, color:'#6b7280', marginTop:4 }}>{s.sub}</div>
+            <div style={{ fontSize:10.5, color:'#4b5563', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:5 }}>{s.label}</div>
+            <div style={{ fontSize: isMobile ? 20 : 22, fontWeight:700, letterSpacing:-0.5, color:'#0d1f17' }}>{s.value}</div>
+            <div style={{ fontSize:11, color:'#6b7280', marginTop:3 }}>{s.sub}</div>
           </div>
         ))}
       </div>
       <div>
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
-          <span style={{ fontSize:15, fontWeight:600 }}>Agenda</span>
-          <input type="date" value={filterDate} onChange={e=>changeDate(e.target.value)}
-            style={{ padding:'6px 10px', border:'1.5px solid #e5e7eb', borderRadius:8, fontSize:13, fontFamily:'inherit', outline:'none' }} />
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12, flexWrap:'wrap', gap:8 }}>
+          <span style={{ fontSize:15, fontWeight:700, color:'#0d1f17' }}>Agenda do dia</span>
+          <div style={{ display:'flex', alignItems:'center', gap:5 }}>
+            {filterDate !== new Date().toISOString().split('T')[0] && (
+              <button onClick={goToday} style={{ padding:'5px 9px', border:'1.5px solid #e5e7eb', borderRadius:7, fontSize:11.5, fontWeight:600, fontFamily:'inherit', background:'#f0fdf4', color:'#059669', cursor:'pointer' }}>Hoje</button>
+            )}
+            <button onClick={prevDay} style={{ width:30, height:30, border:'1.5px solid #e5e7eb', borderRadius:8, background:'#fff', cursor:'pointer', fontSize:15, display:'flex', alignItems:'center', justifyContent:'center', color:'#374151' }}>‹</button>
+            <input type="date" value={filterDate} onChange={e=>changeDate(e.target.value)}
+              style={{ padding:'5px 8px', border:'1.5px solid #e5e7eb', borderRadius:8, fontSize:12.5, fontFamily:'inherit', outline:'none', color:'#111827' }} />
+            <button onClick={nextDay} style={{ width:30, height:30, border:'1.5px solid #e5e7eb', borderRadius:8, background:'#fff', cursor:'pointer', fontSize:15, display:'flex', alignItems:'center', justifyContent:'center', color:'#374151' }}>›</button>
+          </div>
         </div>
         {agendamentos.length === 0 ? (
-          <div style={{ ...card, padding:'40px', textAlign:'center' }}>
-            <div style={{ fontSize:32, marginBottom:10 }}>📅</div>
-            <div style={{ fontSize:15, fontWeight:500 }}>Nenhum agendamento nesta data</div>
-            <div style={{ fontSize:13, color:'#6b7280', marginTop:4 }}>Clique em "+ Novo agendamento" para adicionar</div>
+          <div style={{ ...card, padding:'40px 24px', textAlign:'center' }}>
+            <div style={{ fontSize:36, marginBottom:10 }}>📅</div>
+            <div style={{ fontSize:15, fontWeight:600, color:'#111827' }}>Nenhum agendamento nesta data</div>
+            <div style={{ fontSize:13, color:'#4b5563', marginTop:4 }}>Toque em "+ Agendar" para adicionar</div>
           </div>
         ) : (
           <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
             {agendamentos.map(ap=>(
-              <div key={ap.id} style={{ ...card, display:'flex', alignItems:'center', gap:14 }}>
-                <div style={{ fontSize:12.5, fontWeight:600, color:'#9ca3af', minWidth:44 }}>{ap.horario?.slice(0,5)}</div>
+              <div key={ap.id} style={{ ...card, display:'flex', alignItems:'center', gap: isMobile ? 10 : 14 }}>
+                <div style={{ fontSize:12, fontWeight:700, color:'#374151', minWidth:40 }}>{ap.horario?.slice(0,5)}</div>
                 <div style={{ width:3, height:40, borderRadius:99, background:color(ap.cliente_nome, BAR), flexShrink:0 }} />
                 <div style={{ width:36, height:36, borderRadius:'50%', background:color(ap.cliente_nome, BG), color:color(ap.cliente_nome, TXT), display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:700, flexShrink:0 }}>{initials(ap.cliente_nome)}</div>
-                <div style={{ flex:1 }}>
-                  <div style={{ fontSize:13.5, fontWeight:500 }}>{ap.cliente_nome}</div>
-                  <div style={{ fontSize:12, color:'#6b7280', marginTop:1 }}>{ap.servico}</div>
-                  {ap.duracao && <div style={{ fontSize:11, color:'#9ca3af', marginTop:1 }}>⏱ {ap.duracao}</div>}
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontSize:13.5, fontWeight:600, color:'#111827', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{ap.cliente_nome}</div>
+                  <div style={{ fontSize:12, color:'#4b5563', marginTop:1 }}>{ap.servico}</div>
+                  {ap.duracao && <div style={{ fontSize:11, color:'#6b7280', marginTop:1 }}>⏱ {ap.duracao}</div>}
                 </div>
-                <div style={{ textAlign:'right', display:'flex', flexDirection:'column', alignItems:'flex-end', gap:4 }}>
-                  {ap.preco && <div style={{ fontSize:14, fontWeight:700 }}>{ap.preco}</div>}
+                <div style={{ textAlign:'right', display:'flex', flexDirection:'column', alignItems:'flex-end', gap:4, flexShrink:0 }}>
+                  {ap.preco && <div style={{ fontSize:14, fontWeight:700, color:'#0d1f17' }}>{ap.preco}</div>}
                   <select value={ap.status} onChange={e=>updateStatus(ap.id, e.target.value)}
                     style={{ ...(STATUS_STYLE[ap.status]||STATUS_STYLE.confirmado), fontSize:10.5, padding:'3px 6px', borderRadius:99, fontWeight:600, border:'none', cursor:'pointer', fontFamily:'inherit' }}>
                     <option value="confirmado">Confirmado</option>
@@ -254,7 +337,14 @@ export default function Home() {
                     <option value="pendente">Aguardando</option>
                     <option value="cancelado">Cancelado</option>
                   </select>
-                  <button onClick={()=>deleteAg(ap.id)} style={{ fontSize:11, color:'#dc2626', background:'none', border:'none', cursor:'pointer', padding:0 }}>remover</button>
+                  {deleteId === ap.id ? (
+                    <div style={{ display:'flex', gap:5 }}>
+                      <button onClick={()=>deleteAg(ap.id)} style={{ fontSize:11, color:'#fff', background:'#dc2626', border:'none', cursor:'pointer', padding:'3px 8px', borderRadius:6 }}>Confirmar</button>
+                      <button onClick={()=>setDeleteId(null)} style={{ fontSize:11, color:'#6b7280', background:'#f3f4f6', border:'none', cursor:'pointer', padding:'3px 8px', borderRadius:6 }}>Cancelar</button>
+                    </div>
+                  ) : (
+                    <button onClick={()=>setDeleteId(ap.id)} style={{ fontSize:11, color:'#dc2626', background:'none', border:'none', cursor:'pointer', padding:0 }}>remover</button>
+                  )}
                 </div>
               </div>
             ))}
@@ -265,21 +355,32 @@ export default function Home() {
   )
 
   const ClientesView = (
-    <div style={{ flex:1, overflowY:'auto', padding:'28px 32px', display:'flex', flexDirection:'column', gap:22 }}>
-      <div>
-        <h1 style={{ fontSize:22, fontWeight:600, letterSpacing:-0.5, margin:0 }}>Clientes</h1>
-        <p style={{ fontSize:13, color:'#6b7280', marginTop:2 }}>{clientes.length} clientes na base</p>
+    <div style={{ flex:1, overflowY:'auto', padding: isMobile ? '20px 16px 84px' : '28px 32px', display:'flex', flexDirection:'column', gap:18 }}>
+      <div style={{ display:'flex', alignItems: isMobile ? 'center' : 'flex-start', justifyContent:'space-between', gap:8, flexWrap:'wrap' }}>
+        <div>
+          <h1 style={{ fontSize: isMobile ? 18 : 22, fontWeight:700, letterSpacing:-0.5, margin:0, color:'#0d1f17' }}>Clientes</h1>
+          <p style={{ fontSize:12.5, color:'#4b5563', marginTop:2 }}>{clientes.length} clientes na base</p>
+        </div>
+        <input
+          type="text"
+          placeholder="🔍 Buscar..."
+          value={clientSearch}
+          onChange={e=>setSearch(e.target.value)}
+          style={{ padding:'8px 12px', border:'1.5px solid #e5e7eb', borderRadius:9, fontSize:13, fontFamily:'inherit', outline:'none', width: isMobile ? '100%' : 200 }}
+        />
       </div>
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12 }}>
+      <div style={{ display:'grid', gridTemplateColumns: isMobile ? 'repeat(1,1fr)' : 'repeat(3,1fr)', gap:10 }}>
         {[
           { label:'Total de clientes', value:clientes.length.toString(), sub:'cadastrados' },
           { label:'Atendimentos', value:allAg.length.toString(), sub:'histórico total' },
           { label:'Receita total', value:fmt(receitaTotal), sub:'desde o início' },
         ].map(s=>(
-          <div key={s.label} style={card}>
-            <div style={{ fontSize:11, color:'#6b7280', fontWeight:500, textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:6 }}>{s.label}</div>
-            <div style={{ fontSize:22, fontWeight:700, letterSpacing:-0.5 }}>{s.value}</div>
-            <div style={{ fontSize:11.5, color:'#6b7280', marginTop:4 }}>{s.sub}</div>
+          <div key={s.label} style={{ ...card, display: isMobile ? 'flex' : 'block', alignItems:'center', justifyContent:'space-between', gap:10 }}>
+            <div style={{ fontSize:10.5, color:'#4b5563', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.05em', marginBottom: isMobile ? 0 : 5 }}>{s.label}</div>
+            <div>
+              <div style={{ fontSize:20, fontWeight:700, letterSpacing:-0.5, color:'#0d1f17' }}>{s.value}</div>
+              <div style={{ fontSize:11, color:'#6b7280', marginTop:2 }}>{s.sub}</div>
+            </div>
           </div>
         ))}
       </div>
@@ -289,9 +390,14 @@ export default function Home() {
           <div style={{ fontSize:15, fontWeight:500 }}>Nenhum cliente ainda</div>
           <div style={{ fontSize:13, color:'#6b7280', marginTop:4 }}>Crie agendamentos para ver seus clientes aqui</div>
         </div>
+      ) : clientesFiltrados.length === 0 ? (
+        <div style={{ ...card, padding:'32px', textAlign:'center' }}>
+          <div style={{ fontSize:24, marginBottom:8 }}>🔍</div>
+          <div style={{ fontSize:14, fontWeight:500 }}>Nenhum cliente encontrado para "{clientSearch}"</div>
+        </div>
       ) : (
         <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-          {clientes.map(c => {
+          {clientesFiltrados.map(c => {
             const ags = allAg.filter(a=>a.cliente_nome===c.cliente_nome).sort((a,b)=>a.data>b.data?1:-1)
             const total = ags.filter(a=>a.status!=='cancelado').reduce((s,a)=>s+(parseFloat(a.preco?.replace('R$','').replace(',','.').trim())||0),0)
             const isExpanded = expandedClient === c.cliente_nome
@@ -337,14 +443,14 @@ export default function Home() {
   )
 
   const ServicosView = (
-    <div style={{ flex:1, overflowY:'auto', padding:'28px 32px', display:'flex', flexDirection:'column', gap:22 }}>
+    <div style={{ flex:1, overflowY:'auto', padding: isMobile ? '20px 16px 84px' : '28px 32px', display:'flex', flexDirection:'column', gap:18 }}>
       <div>
-        <h1 style={{ fontSize:22, fontWeight:600, letterSpacing:-0.5, margin:0 }}>Serviços</h1>
-        <p style={{ fontSize:13, color:'#6b7280', marginTop:2 }}>Estes serviços aparecem para os clientes ao agendar</p>
+        <h1 style={{ fontSize: isMobile ? 18 : 22, fontWeight:700, letterSpacing:-0.5, margin:0, color:'#0d1f17' }}>Serviços</h1>
+        <p style={{ fontSize:12.5, color:'#4b5563', marginTop:2 }}>Estes serviços aparecem para os clientes ao agendar</p>
       </div>
       <div style={card}>
-        <div style={{ fontSize:14, fontWeight:600, marginBottom:14 }}>Adicionar serviço</div>
-        <div style={{ display:'grid', gridTemplateColumns:'2fr 1fr 1fr', gap:10, marginBottom:12 }}>
+        <div style={{ fontSize:14, fontWeight:700, color:'#111827', marginBottom:14 }}>Adicionar serviço</div>
+        <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '2fr 1fr 1fr', gap:10, marginBottom:12 }}>
           <div><label style={lbl}>Nome</label><input style={inp} placeholder="Ex: Manicure" value={svcForm.nome} onChange={e=>setSvcForm({...svcForm, nome:e.target.value})} /></div>
           <div><label style={lbl}>Preço</label><input style={inp} placeholder="R$ 60" value={svcForm.preco} onChange={e=>setSvcForm({...svcForm, preco:e.target.value})} /></div>
           <div><label style={lbl}>Duração</label><input style={inp} placeholder="45 min" value={svcForm.duracao} onChange={e=>setSvcForm({...svcForm, duracao:e.target.value})} /></div>
@@ -376,26 +482,28 @@ export default function Home() {
   )
 
   const FinanceiroView = (
-    <div style={{ flex:1, overflowY:'auto', padding:'28px 32px', display:'flex', flexDirection:'column', gap:22 }}>
+    <div style={{ flex:1, overflowY:'auto', padding: isMobile ? '20px 16px 84px' : '28px 32px', display:'flex', flexDirection:'column', gap:18 }}>
       <div>
-        <h1 style={{ fontSize:22, fontWeight:600, letterSpacing:-0.5, margin:0 }}>Financeiro</h1>
-        <p style={{ fontSize:13, color:'#6b7280', marginTop:2 }}>Visão geral das suas receitas</p>
+        <h1 style={{ fontSize: isMobile ? 18 : 22, fontWeight:700, letterSpacing:-0.5, margin:0, color:'#0d1f17' }}>Financeiro</h1>
+        <p style={{ fontSize:12.5, color:'#4b5563', marginTop:2 }}>Visão geral das suas receitas</p>
       </div>
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12 }}>
+      <div style={{ display:'grid', gridTemplateColumns: isMobile ? 'repeat(1,1fr)' : 'repeat(3,1fr)', gap:10 }}>
         {[
           { label:'Receita total', value:fmt(receitaTotal), sub:'todos os períodos' },
           { label:'Concluídos', value:allAg.filter(a=>a.status==='concluido').length.toString(), sub:'atendimentos' },
           { label:'Ticket médio', value: allAg.filter(a=>a.status==='concluido').length ? fmt(receitaTotal/allAg.filter(a=>a.status==='concluido').length) : 'R$ 0,00', sub:'por atendimento' },
         ].map(s=>(
-          <div key={s.label} style={card}>
-            <div style={{ fontSize:11, color:'#6b7280', fontWeight:500, textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:6 }}>{s.label}</div>
-            <div style={{ fontSize:22, fontWeight:700, letterSpacing:-0.5 }}>{s.value}</div>
-            <div style={{ fontSize:11.5, color:'#6b7280', marginTop:4 }}>{s.sub}</div>
+          <div key={s.label} style={{ ...card, display: isMobile ? 'flex' : 'block', alignItems:'center', justifyContent:'space-between' }}>
+            <div style={{ fontSize:10.5, color:'#4b5563', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.05em', marginBottom: isMobile ? 0 : 5 }}>{s.label}</div>
+            <div>
+              <div style={{ fontSize:20, fontWeight:700, letterSpacing:-0.5, color:'#0d1f17' }}>{s.value}</div>
+              <div style={{ fontSize:11, color:'#6b7280', marginTop:2 }}>{s.sub}</div>
+            </div>
           </div>
         ))}
       </div>
       <div style={card}>
-        <div style={{ fontSize:14, fontWeight:600, marginBottom:16 }}>Receita por mês</div>
+        <div style={{ fontSize:14, fontWeight:700, color:'#111827', marginBottom:16 }}>Receita por mês</div>
         {mesesArr.length === 0 ? (
           <div style={{ textAlign:'center', padding:'20px', color:'#9ca3af', fontSize:13 }}>Sem dados ainda</div>
         ) : (
@@ -411,12 +519,12 @@ export default function Home() {
         )}
       </div>
       <div style={card}>
-        <div style={{ fontSize:14, fontWeight:600, marginBottom:14 }}>Últimos atendimentos</div>
+        <div style={{ fontSize:14, fontWeight:700, color:'#111827', marginBottom:14 }}>Últimos atendimentos</div>
         {allAg.slice(0,10).map(a=>(
           <div key={a.id} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 0', borderBottom:'1px solid #f3f4f6' }}>
             <div>
-              <div style={{ fontSize:13.5, fontWeight:500 }}>{a.cliente_nome}</div>
-              <div style={{ fontSize:12, color:'#6b7280' }}>{a.servico} · {fmtDate(a.data)}</div>
+              <div style={{ fontSize:13.5, fontWeight:600, color:'#111827' }}>{a.cliente_nome}</div>
+              <div style={{ fontSize:12, color:'#4b5563' }}>{a.servico} · {fmtDate(a.data)}</div>
             </div>
             <div style={{ display:'flex', alignItems:'center', gap:10 }}>
               <span style={{ fontSize:14, fontWeight:700 }}>{a.preco||'—'}</span>
@@ -429,10 +537,10 @@ export default function Home() {
   )
 
   const ConfigView = (
-    <div style={{ flex:1, overflowY:'auto', padding:'28px 32px', display:'flex', flexDirection:'column', gap:22 }}>
+    <div style={{ flex:1, overflowY:'auto', padding: isMobile ? '20px 16px 84px' : '28px 32px', display:'flex', flexDirection:'column', gap:18 }}>
       <div>
-        <h1 style={{ fontSize:22, fontWeight:600, letterSpacing:-0.5, margin:0 }}>Configurações</h1>
-        <p style={{ fontSize:13, color:'#6b7280', marginTop:2 }}>Gerencie seu perfil e plano</p>
+        <h1 style={{ fontSize: isMobile ? 18 : 22, fontWeight:700, letterSpacing:-0.5, margin:0, color:'#0d1f17' }}>Configurações</h1>
+        <p style={{ fontSize:12.5, color:'#4b5563', marginTop:2 }}>Gerencie seu perfil e plano</p>
       </div>
 
       {/* Perfil */}
@@ -533,10 +641,15 @@ export default function Home() {
   )
 
   const Modal = modal && (
-    <div onClick={e=>e.target===e.currentTarget&&setModal(false)}
+    <div onClick={e=>{ if(e.target===e.currentTarget){ setModal(false); setFormError('') } }}
       style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:50 }}>
       <div style={{ background:'#fff', borderRadius:16, padding:26, width:420, maxWidth:'94vw', maxHeight:'90vh', overflowY:'auto' }}>
         <h2 style={{ fontSize:17, fontWeight:600, margin:'0 0 18px' }}>Novo agendamento</h2>
+        {formError && (
+          <div style={{ background:'#fee2e2', color:'#dc2626', padding:'9px 13px', borderRadius:9, fontSize:13, marginBottom:14 }}>
+            ⚠️ {formError}
+          </div>
+        )}
         {[
           { label:'Nome do cliente', key:'cliente', type:'text', ph:'Ex: Ana Santos' },
           { label:'WhatsApp', key:'telefone', type:'tel', ph:'(67) 99999-0000' },
@@ -579,6 +692,14 @@ export default function Home() {
       {nav==='Financeiro'    && FinanceiroView}
       {nav==='Configurações' && ConfigView}
       {Modal}
+      {BottomNav}
+
+      {/* Toast de notificação */}
+      {toast && (
+        <div style={{ position:'fixed', bottom: isMobile ? 72 : 28, left:'50%', transform:'translateX(-50%)', background:'#0d1f17', color:'#fff', padding:'12px 22px', borderRadius:12, fontSize:13.5, fontWeight:500, boxShadow:'0 4px 20px rgba(0,0,0,0.25)', zIndex:100, whiteSpace:'nowrap' }}>
+          {toast}
+        </div>
+      )}
     </div>
   )
 }

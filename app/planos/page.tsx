@@ -25,6 +25,9 @@ export default function Planos() {
 
   async function assinar(plano: string) {
     if (plano === 'starter') {
+      if (user?.id) {
+        await supabase.from('profiles').update({ onboarded: true, plano: 'starter' }).eq('id', user.id)
+      }
       window.location.href = '/'
       return
     }

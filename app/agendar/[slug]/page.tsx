@@ -10,7 +10,12 @@ const supabase = createClient(
 
 const DIAS  = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb']
 const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
-const HORAS = ['08:00','08:30','09:00','09:30','10:00','10:30','11:00','11:30','13:00','13:30','14:00','14:30','15:00','15:30','16:00','16:30','17:00','17:30','18:00']
+const HORAS = [
+  '07:00','07:30','08:00','08:30','09:00','09:30',
+  '10:00','10:30','11:00','11:30','12:00','12:30',
+  '13:00','13:30','14:00','14:30','15:00','15:30',
+  '16:00','16:30','17:00','17:30','18:00','18:30','19:00',
+]
 const DEFAULT_SERVICES = ['Manicure','Pedicure','Corte','Barba','Massagem','Consulta','Outro']
 
 const inp: React.CSSProperties = { width:'100%', padding:'10px 13px', border:'1.5px solid #e5e7eb', borderRadius:10, fontSize:14, fontFamily:'inherit', outline:'none', color:'#111827', boxSizing:'border-box' }
@@ -33,6 +38,14 @@ export default function AgendarPage({ params }: { params: Promise<{ slug: string
   const [done, setDone]         = useState(false)
   const [notFound, setNF]       = useState(false)
   const [mes, setMes]           = useState(() => new Date())
+  const [isNarrow, setIsNarrow] = useState(false)
+
+  useEffect(() => {
+    const check = () => setIsNarrow(window.innerWidth < 380)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
 
   useEffect(() => { if (slug) loadProf() }, [slug])
 
@@ -236,24 +249,40 @@ export default function AgendarPage({ params }: { params: Promise<{ slug: string
                 📅 {selDate&&fmtDate(selDate)}
               </div>
               <div style={{ fontSize:16, fontWeight:600, marginBottom:16 }}>Escolha o horário</div>
-              <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8 }}>
-                {HORAS.map(h => {
-                  const ocupado=ocupados.includes(h), sel=selTime===h
-                  return (
-                    <div key={h} onClick={()=>!ocupado&&setSelTime(h)}
-                      style={{ padding:'10px 4px', textAlign:'center', fontSize:13, fontWeight:500, borderRadius:10, cursor:ocupado?'default':'pointer',
-                        border:`1.5px solid ${sel?'#0d1f17':ocupado?'#f3f4f6':'#e5e7eb'}`,
-                        background:sel?'#0d1f17':ocupado?'#f9f9f9':'#fff',
-                        color:sel?'#fff':ocupado?'#d1d5db':'#111827' }}>
-                      {h}
-                    </div>
-                  )
-                })}
-              </div>
-              {selTime && (
-                <button onClick={()=>setStep(4)} style={{ width:'100%', marginTop:20, padding:13, border:'none', borderRadius:12, fontSize:15, fontWeight:700, background:'#0d1f17', color:'#fff', cursor:'pointer', fontFamily:'inherit' }}>
-                  Continuar →
-                </button>
+              {HORAS.every(h=>ocupados.includes(h)) ? (
+                <div style={{ textAlign:'center', padding:'24px 0', color:'#9ca3af' }}>
+                  <div style={{ fontSize:28, marginBottom:8 }}>😕</div>
+                  <div style={{ fontSize:14, fontWeight:500, color:'#374151' }}>Sem horários disponíveis neste dia</div>
+                  <div style={{ fontSize:13, marginTop:4 }}>Escolha outra data</div>
+                  <button onClick={()=>setStep(2)} style={{ marginTop:16, padding:'9px 20px', border:'1.5px solid #e5e7eb', borderRadius:10, fontSize:13, fontWeight:500, background:'#fff', cursor:'pointer', fontFamily:'inherit' }}>← Escolher outra data</button>
+                </div>
+              ) : (
+                <>
+                  <div style={{ display:'grid', gridTemplateColumns: isNarrow ? 'repeat(3,1fr)' : 'repeat(4,1fr)', gap:8 }}>
+                    {HORAS.map(h => {
+                      const ocupado=ocupados.includes(h), sel=selTime===h
+                      return (
+                        <div key={h} onClick={()=>!ocupado&&setSelTime(h)}
+                          style={{ padding:'10px 4px', textAlign:'center', fontSize:13, fontWeight:500, borderRadius:10, cursor:ocupado?'default':'pointer',
+                            border:`1.5px solid ${sel?'#0d1f17':ocupado?'#f3f4f6':'#e5e7eb'}`,
+                            background:sel?'#0d1f17':ocupado?'#f9f9f9':'#fff',
+                            color:sel?'#fff':ocupado?'#d1d5db':'#111827',
+                            position:'relative' as const }}>
+                          {h}
+                          {ocupado && <span style={{ position:'absolute', top:2, right:4, fontSize:8, color:'#d1d5db' }}>✕</span>}
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <div style={{ marginTop:8, fontSize:11.5, color:'#9ca3af' }}>
+                    {ocupados.length > 0 && `${ocupados.length} horário${ocupados.length!==1?'s':''} já reservado${ocupados.length!==1?'s':''}`}
+                  </div>
+                  {selTime && (
+                    <button onClick={()=>setStep(4)} style={{ width:'100%', marginTop:16, padding:13, border:'none', borderRadius:12, fontSize:15, fontWeight:700, background:'#0d1f17', color:'#fff', cursor:'pointer', fontFamily:'inherit' }}>
+                      Continuar →
+                    </button>
+                  )}
+                </>
               )}
             </div>
           )}
