@@ -124,20 +124,22 @@ export default function AgendarPage({ params }: { params: Promise<{ slug: string
   async function confirmar() {
     if (!nome.trim() || !tel.trim()) return
     setSaving(true)
-    const token = crypto.randomUUID()
-    await supabase.from('agendamentos').insert({
-      profissional_id: prof.id,
-      cliente_nome: nome,
-      cliente_telefone: tel,
-      servico: selSvc?.nome || selSvc,
-      data: selDate!.toISOString().split('T')[0],
-      horario: selTime,
-      preco: selSvc?.preco || '',
-      duracao: selSvc?.duracao || '',
-      status: 'confirmado',
-      cancel_token: token,
+    const res = await fetch('/api/agendar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        profissional_id: prof.id,
+        cliente_nome: nome,
+        cliente_telefone: tel,
+        servico: selSvc?.nome || selSvc,
+        data: selDate!.toISOString().split('T')[0],
+        horario: selTime,
+        preco: selSvc?.preco || '',
+        duracao: selSvc?.duracao || '',
+      }),
     })
-    setCancelToken(token)
+    const newAg = await res.json()
+    if (newAg?.cancel_token) setCancelToken(newAg.cancel_token)
     setSaving(false)
     setDone(true)
     if (prof?.telefone) {
