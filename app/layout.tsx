@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 const baseUrl = 'https://www.appdamarei.com'
-const ogImage = `${baseUrl}/api/og?nome=Marei&desc=Crie+sua+p%C3%A1gina+de+agendamentos+em+minutos`
+const ogImage = `${baseUrl}/og-image.png`
 
 export const metadata: Metadata = {
   title: "Marei — Agendamentos profissionais",
