@@ -43,10 +43,16 @@ export async function GET(req: NextRequest) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  // Data de amanhã
-  const amanha = new Date()
-  amanha.setDate(amanha.getDate() + 1)
-  const dataAmanha = amanha.toISOString().split('T')[0]
+  // Data de amanhã (permite override via ?date= para testes)
+  const dateParam = req.nextUrl.searchParams.get('date')
+  let dataAmanha: string
+  if (dateParam) {
+    dataAmanha = dateParam
+  } else {
+    const amanha = new Date()
+    amanha.setDate(amanha.getDate() + 1)
+    dataAmanha = amanha.toISOString().split('T')[0]
+  }
 
   // DEBUG: busca todos agendamentos recentes para verificar
   const { data: debug } = await supabase
