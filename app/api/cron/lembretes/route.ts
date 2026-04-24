@@ -47,6 +47,13 @@ export async function GET(req: NextRequest) {
   amanha.setDate(amanha.getDate() + 1)
   const dataAmanha = amanha.toISOString().split('T')[0]
 
+  // DEBUG: busca todos agendamentos recentes para verificar
+  const { data: debug } = await supabase
+    .from('agendamentos')
+    .select('id, data, status, lembrete_enviado, cliente_nome')
+    .order('created_at', { ascending: false })
+    .limit(5)
+
   // Busca agendamentos de amanhã que ainda não receberam lembrete
   const { data: agendamentos, error } = await supabase
     .from('agendamentos')
@@ -61,7 +68,7 @@ export async function GET(req: NextRequest) {
   }
 
   if (!agendamentos || agendamentos.length === 0) {
-    return NextResponse.json({ ok: true, enviados: 0, msg: 'Nenhum lembrete para enviar' })
+    return NextResponse.json({ ok: true, enviados: 0, msg: 'Nenhum lembrete para enviar', debug: { dataAmanha, ultimos5: debug } })
   }
 
   // Busca nomes dos profissionais
