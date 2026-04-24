@@ -31,9 +31,10 @@ async function enviarWhatsApp(telefone: string, mensagem: string) {
 }
 
 export async function GET(req: NextRequest) {
-  // Verifica segurança do cron
+  // Verifica segurança do cron (permite acesso com ?secret= para debug)
   const auth = req.headers.get('authorization')
-  if (CRON_SECRET && auth !== `Bearer ${CRON_SECRET}`) {
+  const secretParam = req.nextUrl.searchParams.get('secret')
+  if (CRON_SECRET && auth !== `Bearer ${CRON_SECRET}` && secretParam !== CRON_SECRET) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
