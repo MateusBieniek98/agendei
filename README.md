@@ -1,36 +1,171 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# GN — Gestão de Produção em Silvicultura
 
-## Getting Started
+Web app responsivo (mobile-first) para a operação de silvicultura da **GN**:
+lançamento diário de produção em campo, acompanhamento gerencial e visão
+estratégica para tomada de decisão.
 
-First, run the development server:
+## Stack
+
+| Camada              | Escolha                                |
+| ------------------- | -------------------------------------- |
+| Frontend            | Next.js 16 (App Router) + React 19     |
+| Estilo              | Tailwind CSS v4                        |
+| Backend / API       | Next.js Route Handlers (`app/api/*`)   |
+| Banco               | PostgreSQL (Supabase) com RLS          |
+| Auth                | Supabase Auth (email + senha)          |
+| Gráficos            | Recharts                               |
+| Exportação          | ExcelJS (XLSX) + CSV                   |
+| Deploy sugerido     | Vercel + Supabase Cloud                |
+
+## Estrutura
+
+```
+app/
+  login/                  Tela de login
+  (field)/                Encarregado: lançamento, máquinas, histórico do dia
+    lancamento/
+    maquinas/
+    historico/
+  admin/                  Admin: dashboard + CRUDs
+    lancamentos/
+    atividades/
+    equipes/
+    maquinas/
+    metas/
+    usuarios/
+  gestor/                 Gestor: visão executiva única
+  api/
+    producao/             GET/POST + [id] PATCH/DELETE
+    atividades/           CRUD
+    equipes/              CRUD
+    maquinas/             CRUD
+    manutencoes/          GET/POST + [id] PATCH
+    metas/                GET / upsert
+    usuarios/             GET / PATCH
+    dashboard/            agregações
+    export/xlsx           XLSX (ExcelJS)
+    export/csv            CSV (Power BI / Sheets)
+
+components/
+  branding/Logo.tsx       Logo SVG GN inline
+  ui/                     Button, Input, Select, Card, Badge, Toast
+  nav/                    BottomNav, Sidebar, TopBar, LogoutButton
+
+lib/
+  db/schema.sql           DDL completo (tabelas, RLS, views, triggers)
+  db/seed.sql             Dados mockados para dev
+  supabase/client.ts      Browser client
+  supabase/server.ts      Server client (cookies)
+  auth.ts                 requireSession / requireRole
+  format.ts               BRL, datas, helpers
+  integrations/           Google Sheets, Power BI, webhooks
+  types.ts                Tipos compartilhados
+
+proxy.ts                  Proxy do Next.js 16 (refresh sessão + guard)
+```
+
+## Pré-requisitos
+
+- Node 20+
+- Conta Supabase (gratuita — 500 MB Postgres já basta)
+
+## Como rodar local
+
+### 1. Clone e instale
+
+```bash
+npm install
+cp .env.local.example .env.local
+```
+
+Preencha as variáveis com seu projeto Supabase
+(Project Settings → API → URL + anon public).
+
+### 2. Crie o schema no Supabase
+
+No painel do Supabase → **SQL Editor** → cole e rode:
+
+```
+lib/db/schema.sql
+```
+
+(idempotente — pode rodar várias vezes)
+
+### 3. Crie os 3 usuários de teste
+
+Em **Authentication → Users → Add user** crie:
+
+| E-mail                    | Senha       | Papel        |
+| ------------------------- | ----------- | ------------ |
+| `encarregado@gn.local`    | `gn123456`  | encarregado  |
+| `admin@gn.local`          | `gn123456`  | admin        |
+| `gestor@gn.local`         | `gn123456`  | gestor       |
+
+> *Authentication → Users → Add user → "Auto Confirm User" marcado.*
+
+### 4. Carregue os dados mockados
+
+No SQL Editor, rode:
+
+```
+lib/db/seed.sql
+```
+
+O seed associa os usuários do passo 3 aos seus papéis e cria 4 equipes,
+8 atividades de silvicultura, 6 máquinas, 2 manutenções abertas, meta
+do mês corrente e ~36 lançamentos dos últimos 12 dias.
+
+### 5. Suba o app
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Abra http://localhost:3000 → faça login com qualquer um dos 3 usuários.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Papéis e telas
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Papel        | Home          | O que vê                                                   |
+| ------------ | ------------- | ---------------------------------------------------------- |
+| Encarregado  | `/lancamento` | Form rápido de produção, problemas mecânicos, hoje         |
+| Admin        | `/admin`      | Dashboard + CRUDs (lançamentos, atividades, equipes, máquinas, metas, usuários) |
+| Gestor       | `/gestor`     | Visão executiva única (faturamento, % meta, frota, ranking) |
 
-## Learn More
+## Regras de negócio implementadas
 
-To learn more about Next.js, take a look at the following resources:
+- **Faturamento** = `Σ (quantidade × valor_unitario_snapshot)` — o valor é
+  capturado **no momento do lançamento**, então alterar a tabela de
+  atividades depois não afeta o histórico.
+- **% da meta** = `produção do mês ÷ meta mensal × 100`
+- **Meta do próximo dia** = `(meta − faturado) ÷ dias restantes no mês`
+- **RLS por papel**:
+  - encarregado: lê tudo do app, escreve só os próprios lançamentos e
+    abre manutenções
+  - admin: leitura/escrita total
+  - gestor: leitura
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Auditoria
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Todas as mutações em `producao`, `atividades`, `maquinas` e `metas` são
+registradas na tabela `audit_log` (com `usuario_id` e diff em JSONB).
+Visível só pelo papel admin.
 
-## Deploy on Vercel
+## Exportações
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- `GET /api/export/xlsx?escopo=mes|semana|hoje&data_de=&data_ate=`
+- `GET /api/export/csv?...`  (formato amigável a Power BI / Sheets)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Os adapters de integração ficam em `lib/integrations/`.
+
+## Deploy
+
+```bash
+vercel --prod
+```
+
+No painel Vercel, configure as 3 variáveis de ambiente do `.env.local`.
+Aponte o domínio na DNS da GN.
+
+## Licença
+
+Propriedade da GN.

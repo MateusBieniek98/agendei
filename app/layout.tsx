@@ -1,52 +1,37 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-const baseUrl = 'https://www.appdamarei.com'
-const ogImage = `${baseUrl}/og-image.png`
-
 export const metadata: Metadata = {
-  title: "Marei — Agendamentos profissionais",
-  description: "Crie sua página de agendamentos personalizada, receba pelo WhatsApp automático e gerencie seus clientes com facilidade.",
-  metadataBase: new URL(baseUrl),
-  openGraph: {
-    title: "Marei — Agendamentos profissionais",
-    description: "Crie sua página de agendamentos personalizada, receba pelo WhatsApp automático e gerencie seus clientes com facilidade.",
-    url: baseUrl,
-    siteName: "Marei",
-    images: [{ url: ogImage, width: 1200, height: 630, alt: "Marei — Agendamentos profissionais" }],
-    type: "website",
-    locale: "pt_BR",
+  title: {
+    default: "GN — Gestão de Produção",
+    template: "%s · GN",
   },
-  twitter: {
-    card: "summary_large_image",
-    title: "Marei — Agendamentos profissionais",
-    description: "Crie sua página de agendamentos personalizada, receba pelo WhatsApp automático e gerencie seus clientes com facilidade.",
-    images: [ogImage],
+  description:
+    "App de gestão de produção em silvicultura para a GN. Lançamentos diários, " +
+    "controle de máquinas, metas e dashboards em tempo real.",
+  applicationName: "GN Silvicultura",
+  manifest: "/manifest.webmanifest",
+  icons: {
+    icon: "/favicon.ico",
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#2f80ed",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+}: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html
-      lang="pt-BR"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col">{children}</body>
+    <html lang="pt-BR">
+      <body className="min-h-screen bg-[var(--color-ink-50)] text-[var(--color-ink-900)]">
+        {children}
+      </body>
     </html>
   );
 }

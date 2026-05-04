@@ -1,14 +1,9 @@
 import type { NextConfig } from "next";
 
-const nextConfig: NextConfig = {
-  eslint: {
-    // ESLint é rodado separadamente no CI; não bloqueia o build de produção
-    ignoreDuringBuilds: true,
-  },
-  typescript: {
-    // TypeScript já é verificado com tsc --noEmit; não bloqueia o build
-    ignoreBuildErrors: true,
-  },
-};
+// Configuração mínima. Em Next.js 16 a opção `eslint` foi removida
+// daqui — lint agora roda separadamente via `npm run lint`.
+const nextConfig = {
+  typescript: { ignoreBuildErrors: true },
+} as NextConfig;
 
 export default nextConfig;

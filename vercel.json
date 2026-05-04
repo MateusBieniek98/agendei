@@ -1,8 +1,18 @@
 {
-  "crons": [
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "regions": ["gru1"],
+  "headers": [
     {
-      "path": "/api/cron/lembretes",
-      "schedule": "0 12 * * *"
+      "source": "/manifest.webmanifest",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=3600" }
+      ]
+    },
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "X-Robots-Tag", "value": "noindex" }
+      ]
     }
   ]
 }
