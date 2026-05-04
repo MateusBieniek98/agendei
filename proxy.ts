@@ -1,21 +1,13 @@
-// Next.js 16 — `proxy.ts` (substitui o antigo `middleware.ts`).
-// Faz o refresh do cookie de sessão Supabase a cada request e bloqueia
-// rotas privadas para usuários não autenticados.
+// Proxy minimalista — só refresca tokens do Supabase para que server
+// components sempre vejam uma sessão válida. NÃO faz redirect: os
+// próprios layouts protegidos (admin, gestor, field) chamam
+// `requireRole(...)` que redireciona quando necessário. Manter o redirect
+// aqui criava risco de loops em transições logo após o login.
 
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
-const PUBLIC_PATHS = ["/login", "/auth/callback"];
-
 export async function proxy(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-  const isPublic =
-    PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/")) ||
-    pathname.startsWith("/_next") ||
-    pathname.startsWith("/api/health") ||
-    pathname === "/favicon.ico" ||
-    pathname === "/manifest.webmanifest";
-
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -39,20 +31,14 @@ export async function proxy(request: NextRequest) {
     }
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user && !isPublic) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    url.searchParams.set("from", pathname);
-    return NextResponse.redirect(url);
-  }
+  // Apenas refresca a sessão (efeito colateral via callbacks acima).
+  await supabase.auth.getUser();
 
   return response;
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest).*)"],
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|api/health).*)",
+  ],
 };
