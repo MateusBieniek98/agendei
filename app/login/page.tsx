@@ -1,88 +1,43 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useActionState } from "react";
 import { useSearchParams } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import Logo from "@/components/branding/Logo";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
-import { ROLE_HOME, type UserRole } from "@/lib/types";
+import { loginAction } from "./actions";
 
 // Wrapper com Suspense — exigência do Next.js 16 para qualquer
 // componente que use useSearchParams() (caso contrário falha no build).
 export default function LoginPage() {
   return (
-    <Suspense fallback={<LoginShell loading />}>
+    <Suspense fallback={<LoginShell />}>
       <LoginForm />
     </Suspense>
   );
 }
 
 function LoginForm() {
-  const [email, setEmail] = useState("");
-  const [senha, setSenha] = useState("");
-  const [erro, setErro] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
   const params = useSearchParams();
-  const from = params.get("from");
+  const from = params.get("from") ?? "";
+  const [state, formAction, pending] = useActionState(loginAction, {
+    error: null as string | null,
+  });
 
-  async function handleLogin(e: React.FormEvent) {
-    e.preventDefault();
-    setErro(null);
-    setPending(true);
-    const supabase = createClient();
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password: senha,
-    });
-    if (error || !data.user) {
-      setErro("E-mail ou senha incorretos.");
-      setPending(false);
-      return;
-    }
-
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", data.user.id)
-      .maybeSingle();
-
-    const role = (profile?.role as UserRole) ?? "encarregado";
-    const target = from && from !== "/login" ? from : ROLE_HOME[role];
-
-    // IMPORTANTE: navegação completa (não router.replace) para garantir
-    // que o cookie de sessão Supabase chegue ao servidor já no primeiro
-    // request da rota protegida — evita o "pisca e volta pro login".
-    window.location.href = target;
-  }
-
-  return (
-    <LoginShell
-      email={email}
-      setEmail={setEmail}
-      senha={senha}
-      setSenha={setSenha}
-      erro={erro}
-      pending={pending}
-      onSubmit={handleLogin}
-    />
-  );
+  return <LoginShell error={state.error} pending={pending} action={formAction} from={from} />;
 }
 
-type ShellProps =
-  | { loading: true }
-  | {
-      loading?: false;
-      email: string;
-      setEmail: (v: string) => void;
-      senha: string;
-      setSenha: (v: string) => void;
-      erro: string | null;
-      pending: boolean;
-      onSubmit: (e: React.FormEvent) => void;
-    };
-
-function LoginShell(props: ShellProps) {
+function LoginShell({
+  error,
+  pending,
+  action,
+  from,
+}: {
+  error?: string | null;
+  pending?: boolean;
+  action?: (formData: FormData) => void;
+  from?: string;
+} = {}) {
   return (
     <main className="min-h-screen grid md:grid-cols-2">
       <section className="hidden md:flex bg-[var(--color-gn-700)] text-white p-10 flex-col justify-between">
@@ -110,38 +65,33 @@ function LoginShell(props: ShellProps) {
             Acesse com seu e-mail corporativo.
           </p>
 
-          {"loading" in props && props.loading ? (
-            <div className="mt-6 h-10 rounded-xl bg-[var(--color-ink-100)] animate-pulse" />
-          ) : (
-            <form onSubmit={props.onSubmit} className="mt-6 flex flex-col gap-4">
-              <Input
-                label="E-mail"
-                type="email"
-                autoComplete="email"
-                required
-                value={props.email}
-                onChange={(e) => props.setEmail(e.target.value)}
-                placeholder="seu.nome@gn.local"
-              />
-              <Input
-                label="Senha"
-                type="password"
-                autoComplete="current-password"
-                required
-                value={props.senha}
-                onChange={(e) => props.setSenha(e.target.value)}
-                placeholder="••••••••"
-              />
-              {props.erro && (
-                <p className="text-sm text-[var(--color-danger-500)]">
-                  {props.erro}
-                </p>
-              )}
-              <Button type="submit" loading={props.pending} size="md">
-                Entrar
-              </Button>
-            </form>
-          )}
+          <form action={action} className="mt-6 flex flex-col gap-4">
+            {from && <input type="hidden" name="from" value={from} />}
+            <Input
+              label="E-mail"
+              name="email"
+              type="email"
+              autoComplete="email"
+              required
+              placeholder="seu.nome@gn.local"
+              disabled={!action || pending}
+            />
+            <Input
+              label="Senha"
+              name="senha"
+              type="password"
+              autoComplete="current-password"
+              required
+              placeholder="••••••••"
+              disabled={!action || pending}
+            />
+            {error && (
+              <p className="text-sm text-[var(--color-danger-500)]">{error}</p>
+            )}
+            <Button type="submit" loading={pending} size="md" disabled={!action}>
+              Entrar
+            </Button>
+          </form>
 
           <details className="mt-6 text-xs text-[var(--color-ink-500)]">
             <summary className="cursor-pointer">Credenciais de teste</summary>
