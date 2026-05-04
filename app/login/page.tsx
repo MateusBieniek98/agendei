@@ -1,25 +1,35 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Logo from "@/components/branding/Logo";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import { ROLE_HOME, type UserRole } from "@/lib/types";
 
+// Wrapper com Suspense — exigência do Next.js 16 para qualquer
+// componente que use useSearchParams() (caso contrário falha no build).
 export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginShell loading />}>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [erro, setErro] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
-  const router = useRouter();
+  const [pending, setPending] = useState(false);
   const params = useSearchParams();
   const from = params.get("from");
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setErro(null);
+    setPending(true);
     const supabase = createClient();
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
@@ -27,9 +37,10 @@ export default function LoginPage() {
     });
     if (error || !data.user) {
       setErro("E-mail ou senha incorretos.");
+      setPending(false);
       return;
     }
-    // descobre o role e redireciona
+
     const { data: profile } = await supabase
       .from("profiles")
       .select("role")
@@ -38,15 +49,42 @@ export default function LoginPage() {
 
     const role = (profile?.role as UserRole) ?? "encarregado";
     const target = from && from !== "/login" ? from : ROLE_HOME[role];
-    startTransition(() => {
-      router.replace(target);
-      router.refresh();
-    });
+
+    // IMPORTANTE: navegação completa (não router.replace) para garantir
+    // que o cookie de sessão Supabase chegue ao servidor já no primeiro
+    // request da rota protegida — evita o "pisca e volta pro login".
+    window.location.href = target;
   }
 
   return (
+    <LoginShell
+      email={email}
+      setEmail={setEmail}
+      senha={senha}
+      setSenha={setSenha}
+      erro={erro}
+      pending={pending}
+      onSubmit={handleLogin}
+    />
+  );
+}
+
+type ShellProps =
+  | { loading: true }
+  | {
+      loading?: false;
+      email: string;
+      setEmail: (v: string) => void;
+      senha: string;
+      setSenha: (v: string) => void;
+      erro: string | null;
+      pending: boolean;
+      onSubmit: (e: React.FormEvent) => void;
+    };
+
+function LoginShell(props: ShellProps) {
+  return (
     <main className="min-h-screen grid md:grid-cols-2">
-      {/* lado esquerdo — branding */}
       <section className="hidden md:flex bg-[var(--color-gn-700)] text-white p-10 flex-col justify-between">
         <Logo size={56} variant="mono-light" withWordmark />
         <div>
@@ -62,7 +100,6 @@ export default function LoginPage() {
         <p className="text-xs text-white/60">© GN — todos os direitos reservados.</p>
       </section>
 
-      {/* lado direito — formulário */}
       <section className="flex items-center justify-center p-6 md:p-10">
         <div className="w-full max-w-sm">
           <div className="md:hidden mb-6 flex justify-center">
@@ -73,32 +110,38 @@ export default function LoginPage() {
             Acesse com seu e-mail corporativo.
           </p>
 
-          <form onSubmit={handleLogin} className="mt-6 flex flex-col gap-4">
-            <Input
-              label="E-mail"
-              type="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="seu.nome@gn.local"
-            />
-            <Input
-              label="Senha"
-              type="password"
-              autoComplete="current-password"
-              required
-              value={senha}
-              onChange={(e) => setSenha(e.target.value)}
-              placeholder="••••••••"
-            />
-            {erro && (
-              <p className="text-sm text-[var(--color-danger-500)]">{erro}</p>
-            )}
-            <Button type="submit" loading={pending} size="md">
-              Entrar
-            </Button>
-          </form>
+          {"loading" in props && props.loading ? (
+            <div className="mt-6 h-10 rounded-xl bg-[var(--color-ink-100)] animate-pulse" />
+          ) : (
+            <form onSubmit={props.onSubmit} className="mt-6 flex flex-col gap-4">
+              <Input
+                label="E-mail"
+                type="email"
+                autoComplete="email"
+                required
+                value={props.email}
+                onChange={(e) => props.setEmail(e.target.value)}
+                placeholder="seu.nome@gn.local"
+              />
+              <Input
+                label="Senha"
+                type="password"
+                autoComplete="current-password"
+                required
+                value={props.senha}
+                onChange={(e) => props.setSenha(e.target.value)}
+                placeholder="••••••••"
+              />
+              {props.erro && (
+                <p className="text-sm text-[var(--color-danger-500)]">
+                  {props.erro}
+                </p>
+              )}
+              <Button type="submit" loading={props.pending} size="md">
+                Entrar
+              </Button>
+            </form>
+          )}
 
           <details className="mt-6 text-xs text-[var(--color-ink-500)]">
             <summary className="cursor-pointer">Credenciais de teste</summary>
