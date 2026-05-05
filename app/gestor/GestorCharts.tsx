@@ -11,7 +11,11 @@ import {
 } from "recharts";
 import { brl, ddmmyyyy } from "@/lib/format";
 
-function Linha({ serie }: { serie: { data: string; faturamento: number }[] }) {
+export function LinhaChart({
+  serie,
+}: {
+  serie: { data: string; faturamento: number }[];
+}) {
   const data = serie.map((s) => ({
     ...s,
     label: ddmmyyyy(s.data).slice(0, 5), // dd/mm
@@ -48,6 +52,3 @@ function Linha({ serie }: { serie: { data: string; faturamento: number }[] }) {
     </div>
   );
 }
-
-const GestorCharts = { Linha };
-export default GestorCharts;

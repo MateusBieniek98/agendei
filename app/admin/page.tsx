@@ -3,7 +3,7 @@ import { Card, StatCard } from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import { brl, ddmmyyyy } from "@/lib/format";
 import { createSupabaseServer } from "@/lib/supabase/server";
-import GestorCharts from "@/app/gestor/GestorCharts";
+import { LinhaChart } from "@/app/gestor/GestorCharts";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -90,7 +90,7 @@ export default async function AdminDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="p-5 md:col-span-2">
           <h3 className="font-semibold">Produção diária — mês corrente</h3>
-          <GestorCharts.Linha serie={rows} />
+          <LinhaChart serie={rows} />
         </Card>
         <Card className="p-5">
           <h3 className="font-semibold">Produção por atividade</h3>
