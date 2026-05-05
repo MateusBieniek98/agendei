@@ -39,7 +39,14 @@ export async function loginAction(
     .eq("id", data.user.id)
     .maybeSingle();
 
-  const role = (profile?.role as UserRole) ?? "encarregado";
+  if (!profile?.role) {
+    return {
+      error:
+        "Login válido, mas o perfil do usuário não existe no banco. Rode o script de correção de perfis.",
+    };
+  }
+
+  const role = profile.role as UserRole;
   const target = from && from !== "/login" ? from : ROLE_HOME[role];
 
   // redirect() em Server Action emite a resposta com Set-Cookie + Location.

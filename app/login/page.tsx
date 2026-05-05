@@ -1,11 +1,10 @@
 "use client";
 
-import { Suspense, useActionState } from "react";
+import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Logo from "@/components/branding/Logo";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
-import { loginAction } from "./actions";
 
 // Wrapper com Suspense — exigência do Next.js 16 para qualquer
 // componente que use useSearchParams() (caso contrário falha no build).
@@ -20,22 +19,24 @@ export default function LoginPage() {
 function LoginForm() {
   const params = useSearchParams();
   const from = params.get("from") ?? "";
-  const [state, formAction, pending] = useActionState(loginAction, {
-    error: null as string | null,
-  });
+  const erro = params.get("erro");
+  const error =
+    erro === "credenciais"
+      ? "E-mail ou senha incorretos."
+      : erro === "campos"
+        ? "Informe e-mail e senha."
+        : erro === "perfil"
+          ? "Login válido, mas o perfil do usuário não existe no banco. Rode o script de correção de perfis."
+        : null;
 
-  return <LoginShell error={state.error} pending={pending} action={formAction} from={from} />;
+  return <LoginShell error={error} from={from} />;
 }
 
 function LoginShell({
   error,
-  pending,
-  action,
   from,
 }: {
   error?: string | null;
-  pending?: boolean;
-  action?: (formData: FormData) => void;
   from?: string;
 } = {}) {
   return (
@@ -65,7 +66,11 @@ function LoginShell({
             Acesse com seu e-mail corporativo.
           </p>
 
-          <form action={action} className="mt-6 flex flex-col gap-4">
+          <form
+            action="/api/auth/login"
+            method="post"
+            className="mt-6 flex flex-col gap-4"
+          >
             {from && <input type="hidden" name="from" value={from} />}
             <Input
               label="E-mail"
@@ -74,7 +79,6 @@ function LoginShell({
               autoComplete="email"
               required
               placeholder="seu.nome@gn.local"
-              disabled={!action || pending}
             />
             <Input
               label="Senha"
@@ -83,12 +87,11 @@ function LoginShell({
               autoComplete="current-password"
               required
               placeholder="••••••••"
-              disabled={!action || pending}
             />
             {error && (
               <p className="text-sm text-[var(--color-danger-500)]">{error}</p>
             )}
-            <Button type="submit" loading={pending} size="md" disabled={!action}>
+            <Button type="submit" size="md">
               Entrar
             </Button>
           </form>
