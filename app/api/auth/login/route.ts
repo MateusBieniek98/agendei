@@ -33,10 +33,9 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Nao buscamos o profile aqui. Neste mesmo POST o cookie acabou de ser
-  // criado; deixar a pagina raiz decidir o papel na proxima requisicao evita
-  // corrida entre auth, cookie e RLS.
-  const target = from && from !== "/login" ? from : "/";
+  const target = from && from !== "/login" ? from : "";
+  const completeUrl = new URL("/api/auth/complete", req.url);
+  if (target) completeUrl.searchParams.set("from", target);
 
-  return NextResponse.redirect(new URL(target, req.url), { status: 303 });
+  return NextResponse.redirect(completeUrl, { status: 303 });
 }

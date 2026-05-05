@@ -18,6 +18,24 @@ export async function getCurrentProfile(): Promise<Profile | null> {
   return (data as Profile) ?? null;
 }
 
+/** Carrega sessão e profile separadamente para diagnosticar redirects. */
+export async function getCurrentAuthContext(): Promise<{
+  hasUser: boolean;
+  profile: Profile | null;
+}> {
+  const supabase = await createSupabaseServer();
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) return { hasUser: false, profile: null };
+
+  const { data } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", auth.user.id)
+    .maybeSingle();
+
+  return { hasUser: true, profile: (data as Profile) ?? null };
+}
+
 /** Garante que existe sessão. Se não, redireciona para /login. */
 export async function requireSession(): Promise<Profile> {
   const profile = await getCurrentProfile();
