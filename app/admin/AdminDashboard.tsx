@@ -56,19 +56,29 @@ export default function AdminDashboard() {
   const [periodo, setPeriodo] = useState<PeriodoState>({ preset: "ciclo_atual" });
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [erro, setErro] = useState<string | null>(null);
 
   async function carregar() {
     setLoading(true);
-    const sp = new URLSearchParams();
-    sp.set("preset", periodo.preset);
-    if (periodo.preset === "custom" && periodo.de && periodo.ate) {
-      sp.set("de", periodo.de);
-      sp.set("ate", periodo.ate);
+    setErro(null);
+    try {
+      const sp = new URLSearchParams();
+      sp.set("preset", periodo.preset);
+      if (periodo.preset === "custom" && periodo.de && periodo.ate) {
+        sp.set("de", periodo.de);
+        sp.set("ate", periodo.ate);
+      }
+      const r = await fetch(`/api/dashboard?${sp.toString()}`);
+      const j = (await r.json()) as DashboardData & { error?: string };
+      if (!r.ok || j.error) throw new Error(j.error ?? r.statusText);
+      if (!j.periodo) throw new Error("resposta inválida do dashboard");
+      setData(j);
+    } catch (err) {
+      setData(null);
+      setErro((err as Error).message);
+    } finally {
+      setLoading(false);
     }
-    const r = await fetch(`/api/dashboard?${sp.toString()}`);
-    const j = (await r.json()) as DashboardData;
-    setData(j);
-    setLoading(false);
   }
 
   useEffect(() => {
@@ -114,7 +124,9 @@ export default function AdminDashboard() {
       <PeriodoFiltro value={periodo} onChange={setPeriodo} loading={loading} />
 
       {!data ? (
-        <p className="text-sm text-[var(--color-ink-500)]">Carregando…</p>
+        <p className="text-sm text-[var(--color-ink-500)]">
+          {erro ? `Erro ao carregar dashboard: ${erro}` : "Carregando…"}
+        </p>
       ) : (
         <>
           {/* KPIs */}
@@ -283,7 +295,7 @@ export default function AdminDashboard() {
                               : "neutral"
                         }
                       >
-                        {m.status.replace("_", " ")}
+                        {(m.status ?? "sem_status").replaceAll("_", " ")}
                       </Badge>
                     </div>
                     <p className="mt-2 text-sm text-[var(--color-ink-700)] italic">

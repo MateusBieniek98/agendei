@@ -20,6 +20,10 @@ const STATUS_OPTS: { value: MachineStatus; label: string }[] = [
   { value: "manutencao_urgente", label: "Manutenção urgente" },
 ];
 
+function statusTexto(status: string | null | undefined) {
+  return (status ?? "sem_status").replaceAll("_", " ");
+}
+
 export default function MaquinasAdminPage() {
   const { toast } = useToast();
   const [maquinas, setMaquinas] = useState<Maquina[]>([]);
@@ -27,15 +31,22 @@ export default function MaquinasAdminPage() {
   const [editing, setEditing] = useState<Partial<Maquina> | null>(null);
 
   async function carregar() {
-    const [mr, mn] = await Promise.all([
-      fetch("/api/maquinas").then((r) => r.json()),
-      fetch("/api/manutencoes").then((r) => r.json()),
-    ]);
-    setMaquinas((mr.items ?? []) as Maquina[]);
-    setManuts((mn.items ?? []) as ManutComMaquina[]);
+    try {
+      const [mr, mn] = await Promise.all([
+        fetch("/api/maquinas").then((r) => r.json()),
+        fetch("/api/manutencoes").then((r) => r.json()),
+      ]);
+      setMaquinas(Array.isArray(mr.items) ? (mr.items as Maquina[]) : []);
+      setManuts(Array.isArray(mn.items) ? (mn.items as ManutComMaquina[]) : []);
+    } catch (err) {
+      setMaquinas([]);
+      setManuts([]);
+      toast(`Erro ao carregar máquinas: ${(err as Error).message}`, "error");
+    }
   }
   useEffect(() => {
     carregar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function salvar() {
@@ -163,7 +174,7 @@ export default function MaquinasAdminPage() {
               </div>
               <div className="text-right shrink-0 space-y-2">
                 <Badge tone={m.status === "resolvido" ? "success" : m.status === "aberto" ? "danger" : "warning"}>
-                  {m.status.replace("_", " ")}
+                  {statusTexto(m.status)}
                 </Badge>
                 {m.status !== "resolvido" && (
                   <button

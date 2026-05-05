@@ -39,15 +39,22 @@ export default function LancamentosTable({
 
   async function carregar() {
     setLoading(true);
-    const sp = new URLSearchParams();
-    if (equipe) sp.set("equipe_id", equipe);
-    if (atividade) sp.set("atividade_id", atividade);
-    if (de) sp.set("data_de", de);
-    if (ate) sp.set("data_ate", ate);
-    const r = await fetch(`/api/producao?${sp.toString()}`);
-    const j = await r.json();
-    setItems((j.items ?? []) as Linha[]);
-    setLoading(false);
+    try {
+      const sp = new URLSearchParams();
+      if (equipe) sp.set("equipe_id", equipe);
+      if (atividade) sp.set("atividade_id", atividade);
+      if (de) sp.set("data_de", de);
+      if (ate) sp.set("data_ate", ate);
+      const r = await fetch(`/api/producao?${sp.toString()}`);
+      const j = await r.json();
+      if (!r.ok || j.error) throw new Error(j.error ?? r.statusText);
+      setItems(Array.isArray(j.items) ? (j.items as Linha[]) : []);
+    } catch (err) {
+      setItems([]);
+      toast(`Erro ao carregar lançamentos: ${(err as Error).message}`, "error");
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {

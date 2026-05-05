@@ -14,12 +14,19 @@ export default function EquipesPage() {
   const [editing, setEditing] = useState<Partial<Equipe> | null>(null);
 
   async function carregar() {
-    const r = await fetch("/api/equipes");
-    const j = await r.json();
-    setItems((j.items ?? []) as Equipe[]);
+    try {
+      const r = await fetch("/api/equipes");
+      const j = await r.json();
+      if (!r.ok || j.error) throw new Error(j.error ?? r.statusText);
+      setItems(Array.isArray(j.items) ? (j.items as Equipe[]) : []);
+    } catch (err) {
+      setItems([]);
+      toast(`Erro ao carregar equipes: ${(err as Error).message}`, "error");
+    }
   }
   useEffect(() => {
     carregar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function salvar() {

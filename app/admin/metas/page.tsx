@@ -23,12 +23,19 @@ export default function MetasPage() {
   const [obs, setObs] = useState("");
 
   async function carregar() {
-    const r = await fetch("/api/metas");
-    const j = await r.json();
-    setItems((j.items ?? []) as Meta[]);
+    try {
+      const r = await fetch("/api/metas");
+      const j = await r.json();
+      if (!r.ok || j.error) throw new Error(j.error ?? r.statusText);
+      setItems(Array.isArray(j.items) ? (j.items as Meta[]) : []);
+    } catch (err) {
+      setItems([]);
+      toast(`Erro ao carregar metas: ${(err as Error).message}`, "error");
+    }
   }
   useEffect(() => {
     carregar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function salvar(e: React.FormEvent) {

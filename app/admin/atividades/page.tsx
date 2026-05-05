@@ -15,12 +15,19 @@ export default function AtividadesPage() {
   const [editing, setEditing] = useState<Partial<Atividade> | null>(null);
 
   async function carregar() {
-    const r = await fetch("/api/atividades");
-    const j = await r.json();
-    setItems((j.items ?? []) as Atividade[]);
+    try {
+      const r = await fetch("/api/atividades");
+      const j = await r.json();
+      if (!r.ok || j.error) throw new Error(j.error ?? r.statusText);
+      setItems(Array.isArray(j.items) ? (j.items as Atividade[]) : []);
+    } catch (err) {
+      setItems([]);
+      toast(`Erro ao carregar atividades: ${(err as Error).message}`, "error");
+    }
   }
   useEffect(() => {
     carregar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function salvar() {

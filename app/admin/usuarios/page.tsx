@@ -44,15 +44,22 @@ export default function UsuariosPage() {
   const [novaSenha, setNovaSenha] = useState("");
 
   async function carregar() {
-    const [u, e] = await Promise.all([
-      fetch("/api/usuarios").then((r) => r.json()),
-      fetch("/api/equipes").then((r) => r.json()),
-    ]);
-    setItems((u.items ?? []) as ProfileWithEquipe[]);
-    setEquipes((e.items ?? []) as Equipe[]);
+    try {
+      const [u, e] = await Promise.all([
+        fetch("/api/usuarios").then((r) => r.json()),
+        fetch("/api/equipes").then((r) => r.json()),
+      ]);
+      setItems(Array.isArray(u.items) ? (u.items as ProfileWithEquipe[]) : []);
+      setEquipes(Array.isArray(e.items) ? (e.items as Equipe[]) : []);
+    } catch (err) {
+      setItems([]);
+      setEquipes([]);
+      toast(`Erro ao carregar usuários: ${(err as Error).message}`, "error");
+    }
   }
   useEffect(() => {
     carregar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function patch(id: string, body: Partial<Profile>) {
