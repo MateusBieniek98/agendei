@@ -172,7 +172,7 @@ export default function UsuariosPage() {
                     <select
                       value={u.role}
                       onChange={(e) => patch(u.id, { role: e.target.value as UserRole })}
-                      className="border border-[var(--color-ink-300)] rounded-md text-sm px-2 py-1"
+                      className="rounded-md border-2 border-[var(--color-ink-300)] bg-white px-2 py-1 text-sm font-semibold text-[var(--color-ink-900)] shadow-sm"
                     >
                       {ROLES.map((r) => (
                         <option key={r.value} value={r.value}>{r.label}</option>
@@ -187,7 +187,7 @@ export default function UsuariosPage() {
                           equipe_id: e.target.value ? e.target.value : null,
                         })
                       }
-                      className="border border-[var(--color-ink-300)] rounded-md text-sm px-2 py-1"
+                      className="rounded-md border-2 border-[var(--color-ink-300)] bg-white px-2 py-1 text-sm font-semibold text-[var(--color-ink-900)] shadow-sm"
                     >
                       <option value="">—</option>
                       {equipes.map((eq) => (

@@ -39,12 +39,13 @@
 :root {
   --bg: #ffffff;
   --fg: #0f172a;
+  color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0b1220;
-    --fg: #e2e8f0;
+    --bg: #ffffff;
+    --fg: #0f172a;
   }
 }
 
@@ -66,6 +67,17 @@ html, body {
 :where(button, input, select, textarea, a):focus-visible {
   outline: 3px solid var(--color-gn-400);
   outline-offset: 2px;
+}
+
+:where(input, select, textarea) {
+  color: var(--color-ink-900);
+  background-color: #ffffff;
+  font-weight: 600;
+}
+
+:where(input, select, textarea)::placeholder {
+  color: var(--color-ink-500);
+  opacity: 1;
 }
 
 /* tipografia tabular pra colunas numéricas */

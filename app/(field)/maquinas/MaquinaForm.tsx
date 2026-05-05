@@ -54,14 +54,14 @@ export default function MaquinaForm({ maquinas }: { maquinas: Maquina[] }) {
       />
 
       <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-medium text-[var(--color-ink-700)]">
+        <label className="text-sm font-bold text-[var(--color-ink-900)]">
           Descrição do problema
         </label>
         <textarea
           rows={4}
           value={descricao}
           onChange={(e) => setDescricao(e.target.value)}
-          className="rounded-xl border border-[var(--color-ink-300)] bg-white px-3 py-2 text-base focus:border-[var(--color-gn-500)] outline-none"
+          className="rounded-xl border-2 border-[var(--color-ink-300)] bg-white px-3 py-2 text-base font-semibold text-[var(--color-ink-900)] shadow-sm placeholder:font-semibold placeholder:text-[var(--color-ink-500)] focus:border-[var(--color-gn-500)] outline-none"
           placeholder="Ex.: motor desligando em alta rotação, vazamento de óleo…"
         />
       </div>
@@ -71,7 +71,7 @@ export default function MaquinaForm({ maquinas }: { maquinas: Maquina[] }) {
       </Button>
 
       <div className="pt-2">
-        <h3 className="text-sm font-semibold text-[var(--color-ink-700)]">
+        <h3 className="text-sm font-bold text-[var(--color-ink-900)]">
           Status atual da frota
         </h3>
         <div className="mt-2 grid grid-cols-1 gap-2">

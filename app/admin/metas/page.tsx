@@ -75,11 +75,11 @@ export default function MetasPage() {
         <form onSubmit={salvar} className="grid grid-cols-1 md:grid-cols-5 gap-3">
           <Input label="Ano" type="number" value={ano} onChange={(e) => setAno(e.target.value)} />
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-[var(--color-ink-700)]">Mês</label>
+            <label className="text-sm font-bold text-[var(--color-ink-900)]">Mês</label>
             <select
               value={mes}
               onChange={(e) => setMes(e.target.value)}
-              className="h-12 rounded-xl border border-[var(--color-ink-300)] bg-white px-3"
+              className="h-13 min-h-12 rounded-xl border-2 border-[var(--color-ink-300)] bg-white px-3 font-semibold text-[var(--color-ink-900)] shadow-sm"
             >
               {MESES.map((m, i) => (
                 <option key={i} value={i + 1}>{m}</option>

@@ -133,7 +133,7 @@ export default function MaquinasAdminPage() {
                     <select
                       value={m.status}
                       onChange={(e) => alterarStatus(m.id, e.target.value as MachineStatus)}
-                      className="border border-[var(--color-ink-300)] rounded-md text-sm px-2 py-1"
+                      className="rounded-md border-2 border-[var(--color-ink-300)] bg-white px-2 py-1 text-sm font-semibold text-[var(--color-ink-900)] shadow-sm"
                     >
                       {STATUS_OPTS.map((s) => (
                         <option key={s.value} value={s.value}>{s.label}</option>

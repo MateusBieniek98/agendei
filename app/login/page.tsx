@@ -40,7 +40,7 @@ function LoginShell({
   from?: string;
 } = {}) {
   return (
-    <main className="min-h-screen grid md:grid-cols-2">
+    <main className="min-h-screen grid bg-[var(--color-ink-50)] text-[var(--color-ink-900)] md:grid-cols-2">
       <section className="hidden md:flex bg-[var(--color-gn-700)] text-white p-10 flex-col justify-between">
         <Logo size={56} variant="mono-light" withWordmark />
         <div>
@@ -56,13 +56,13 @@ function LoginShell({
         <p className="text-xs text-white/60">© GN — todos os direitos reservados.</p>
       </section>
 
-      <section className="flex items-center justify-center p-6 md:p-10">
-        <div className="w-full max-w-sm">
+      <section className="flex items-center justify-center px-6 py-10 md:p-10">
+        <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-sm ring-1 ring-[var(--color-ink-100)] md:bg-transparent md:p-0 md:shadow-none md:ring-0">
           <div className="md:hidden mb-6 flex justify-center">
             <Logo size={48} withWordmark />
           </div>
           <h2 className="text-2xl font-bold">Entrar</h2>
-          <p className="text-sm text-[var(--color-ink-500)] mt-1">
+          <p className="text-sm font-semibold text-[var(--color-ink-700)] mt-1">
             Acesse com seu e-mail corporativo.
           </p>
 
@@ -89,14 +89,14 @@ function LoginShell({
               placeholder="••••••••"
             />
             {error && (
-              <p className="text-sm text-[var(--color-danger-500)]">{error}</p>
+              <p className="text-sm font-bold text-[var(--color-danger-500)]">{error}</p>
             )}
             <Button type="submit" size="md">
               Entrar
             </Button>
           </form>
 
-          <details className="mt-6 text-xs text-[var(--color-ink-500)]">
+          <details className="mt-6 text-xs font-semibold text-[var(--color-ink-700)]">
             <summary className="cursor-pointer">Credenciais de teste</summary>
             <ul className="mt-2 space-y-1">
               <li>encarregado@gn.local · gn123456</li>

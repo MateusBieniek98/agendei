@@ -40,7 +40,7 @@ export default function PeriodoFiltro({
   return (
     <div className="bg-white border border-[var(--color-ink-300)] rounded-2xl p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between shadow-sm">
       <div className="flex flex-col md:flex-row md:items-center gap-3 flex-wrap">
-        <label className="text-sm font-medium text-[var(--color-ink-700)]">
+        <label className="text-sm font-bold text-[var(--color-ink-900)]">
           Período:
         </label>
         <select
@@ -48,7 +48,7 @@ export default function PeriodoFiltro({
           onChange={(e) =>
             onChange({ ...value, preset: e.target.value as PeriodoPreset })
           }
-          className="h-10 rounded-lg border border-[var(--color-ink-300)] bg-white px-3 text-sm"
+          className="h-11 rounded-lg border-2 border-[var(--color-ink-300)] bg-white px-3 text-sm font-semibold text-[var(--color-ink-900)] shadow-sm"
         >
           {Object.entries(PRESETS).map(([k, label]) => (
             <option key={k} value={k}>
@@ -68,7 +68,7 @@ export default function PeriodoFiltro({
                   onChange({ preset: "custom", de: customDe, ate: customAte });
                 }
               }}
-              className="h-10 rounded-lg border border-[var(--color-ink-300)] bg-white px-3 text-sm"
+              className="h-11 rounded-lg border-2 border-[var(--color-ink-300)] bg-white px-3 text-sm font-semibold text-[var(--color-ink-900)] shadow-sm"
             />
             <span className="text-[var(--color-ink-500)]">→</span>
             <input
@@ -80,7 +80,7 @@ export default function PeriodoFiltro({
                   onChange({ preset: "custom", de: customDe, ate: customAte });
                 }
               }}
-              className="h-10 rounded-lg border border-[var(--color-ink-300)] bg-white px-3 text-sm"
+              className="h-11 rounded-lg border-2 border-[var(--color-ink-300)] bg-white px-3 text-sm font-semibold text-[var(--color-ink-900)] shadow-sm"
             />
           </div>
         )}

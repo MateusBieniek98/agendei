@@ -23,7 +23,7 @@ export default function Input({
       {label && (
         <label
           htmlFor={finalId}
-          className="text-sm font-medium text-[var(--color-ink-700)]"
+          className="text-sm font-bold text-[var(--color-ink-900)]"
         >
           {label}
         </label>
@@ -31,10 +31,10 @@ export default function Input({
       <input
         id={finalId}
         className={
-          "h-12 rounded-xl border border-[var(--color-ink-300)] bg-white px-3 text-base " +
-          "placeholder:text-[var(--color-ink-500)] focus:border-[var(--color-gn-500)] " +
-          "outline-none transition " +
-          (error ? "border-[var(--color-danger-500)] " : "") +
+          "h-13 min-h-12 rounded-xl border-2 bg-white px-3 text-base font-semibold " +
+          "text-[var(--color-ink-900)] shadow-sm placeholder:font-semibold placeholder:text-[var(--color-ink-500)] " +
+          "focus:border-[var(--color-gn-500)] outline-none transition " +
+          (error ? "border-[var(--color-danger-500)] " : "border-[var(--color-ink-300)] ") +
           (className ?? "")
         }
         {...rest}
@@ -44,8 +44,8 @@ export default function Input({
           className={
             "text-xs " +
             (error
-              ? "text-[var(--color-danger-500)]"
-              : "text-[var(--color-ink-500)]")
+              ? "font-bold text-[var(--color-danger-500)]"
+              : "font-semibold text-[var(--color-ink-700)]")
           }
         >
           {error ?? hint}
