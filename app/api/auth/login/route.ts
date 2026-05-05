@@ -4,7 +4,6 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
-import { ROLE_HOME, type UserRole } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -34,21 +33,10 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", data.user.id)
-    .maybeSingle();
-
-  if (!profile?.role) {
-    return NextResponse.redirect(
-      new URL("/login?erro=perfil", req.url),
-      { status: 303 }
-    );
-  }
-
-  const role = profile.role as UserRole;
-  const target = from && from !== "/login" ? from : ROLE_HOME[role];
+  // Nao buscamos o profile aqui. Neste mesmo POST o cookie acabou de ser
+  // criado; deixar a pagina raiz decidir o papel na proxima requisicao evita
+  // corrida entre auth, cookie e RLS.
+  const target = from && from !== "/login" ? from : "/";
 
   return NextResponse.redirect(new URL(target, req.url), { status: 303 });
 }
