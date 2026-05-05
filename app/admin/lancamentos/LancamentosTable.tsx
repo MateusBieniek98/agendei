@@ -150,6 +150,7 @@ export default function LancamentosTable({
                 <th className="px-4 py-2 font-medium">Data</th>
                 <th className="px-4 py-2 font-medium">Equipe</th>
                 <th className="px-4 py-2 font-medium">Atividade</th>
+                <th className="px-4 py-2 font-medium">Detalhes</th>
                 <th className="px-4 py-2 font-medium text-right">Qtd</th>
                 <th className="px-4 py-2 font-medium text-right">Valor</th>
                 <th className="px-4 py-2 font-medium text-right">Total</th>
@@ -162,6 +163,9 @@ export default function LancamentosTable({
                   <td className="px-4 py-2 whitespace-nowrap">{ddmmyyyy(l.data)}</td>
                   <td className="px-4 py-2">{l.equipes?.nome}</td>
                   <td className="px-4 py-2">{l.atividades?.nome}</td>
+                  <td className="px-4 py-2 max-w-xs whitespace-pre-line text-xs text-[var(--color-ink-500)]">
+                    {l.observacoes ?? "—"}
+                  </td>
                   <td className="px-4 py-2 text-right tabular">
                     {num(l.quantidade)} {l.atividades?.unidade}
                   </td>
@@ -187,7 +191,7 @@ export default function LancamentosTable({
               ))}
               {items.length === 0 && !loading && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-6 text-center text-[var(--color-ink-500)]">
+                  <td colSpan={8} className="px-4 py-6 text-center text-[var(--color-ink-500)]">
                     Nenhum lançamento encontrado.
                   </td>
                 </tr>

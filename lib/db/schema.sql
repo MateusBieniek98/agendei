@@ -175,9 +175,16 @@ create trigger trg_audit_metas      after insert or update or delete on public.m
 
 -- ───── helpers RLS ─────────────────────────────────────────────────────
 create or replace function public.current_role() returns user_role
-  language sql stable as $$
-    select role from public.profiles where id = auth.uid();
+  language sql
+  stable
+  security definer
+  set search_path = public
+as $$
+  select role from public.profiles where id = auth.uid();
 $$;
+
+revoke all on function public.current_role() from public;
+grant execute on function public.current_role() to anon, authenticated, service_role;
 
 -- ═══ RLS ════════════════════════════════════════════════════════════════
 alter table public.profiles    enable row level security;
