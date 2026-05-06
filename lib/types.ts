@@ -109,6 +109,19 @@ export type Meta = {
   created_at: string;
 };
 
+export type MetaAtividade = {
+  id: string;
+  ano: number;
+  mes: number;
+  atividade_id: string;
+  equipe_id: string | null;
+  profile_id: string | null;
+  quantidade_meta: number;
+  observacoes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 // rota inicial por papel (login → redirect)
 export const ROLE_HOME: Record<UserRole, string> = {
   encarregado: "/lancamento",

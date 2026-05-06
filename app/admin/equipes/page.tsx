@@ -113,7 +113,7 @@ export default function EquipesPage() {
             </div>
           </ListControls>
         </div>
-        <div className="divide-y divide-[var(--color-ink-100)] md:hidden">
+        <div className="divide-y divide-[var(--color-ink-100)] lg:hidden">
           {visiveis.map((e) => (
             <div key={e.id} className="p-4">
               <div className="flex items-start justify-between gap-3">
@@ -150,7 +150,7 @@ export default function EquipesPage() {
           )}
         </div>
 
-        <div className="hidden overflow-x-auto md:block">
+        <div className="hidden overflow-x-auto lg:block">
           <table className="w-full text-sm">
             <thead className="bg-[var(--color-ink-50)] text-[var(--color-ink-500)] text-left">
               <tr>

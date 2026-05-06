@@ -169,6 +169,40 @@ create table if not exists public.metas (
   unique(ano, mes)
 );
 
+-- ═══ metas por atividade/acesso/frente ═════════════════════════════════
+-- Quando profile_id é informado, a meta vale para aquele acesso.
+-- Quando equipe_id é informado e profile_id é nulo, vale para a frente.
+-- Quando ambos são nulos, vale como meta geral daquela atividade.
+create table if not exists public.metas_atividades (
+  id              uuid primary key default gen_random_uuid(),
+  ano             int not null check (ano between 2000 and 2100),
+  mes             int not null check (mes between 1 and 12),
+  atividade_id    uuid not null references public.atividades(id) on delete cascade,
+  equipe_id       uuid references public.equipes(id) on delete set null,
+  profile_id      uuid references public.profiles(id) on delete set null,
+  quantidade_meta numeric(12,3) not null check (quantidade_meta >= 0),
+  observacoes     text,
+  created_at      timestamptz not null default now(),
+  updated_at      timestamptz not null default now()
+);
+create index if not exists idx_metas_atividades_periodo
+  on public.metas_atividades(ano, mes);
+create index if not exists idx_metas_atividades_atividade
+  on public.metas_atividades(atividade_id);
+create index if not exists idx_metas_atividades_equipe
+  on public.metas_atividades(equipe_id);
+create index if not exists idx_metas_atividades_profile
+  on public.metas_atividades(profile_id);
+create unique index if not exists idx_metas_atividades_global_unica
+  on public.metas_atividades(ano, mes, atividade_id)
+  where equipe_id is null and profile_id is null;
+create unique index if not exists idx_metas_atividades_equipe_unica
+  on public.metas_atividades(ano, mes, atividade_id, equipe_id)
+  where equipe_id is not null and profile_id is null;
+create unique index if not exists idx_metas_atividades_profile_unica
+  on public.metas_atividades(ano, mes, atividade_id, profile_id)
+  where profile_id is not null;
+
 -- ═══ audit log ══════════════════════════════════════════════════════════
 create table if not exists public.audit_log (
   id          uuid primary key default gen_random_uuid(),
@@ -199,6 +233,10 @@ drop trigger if exists trg_planejamento_touch on public.planejamento;
 create trigger trg_planejamento_touch before update on public.planejamento
   for each row execute function public.touch_updated_at();
 
+drop trigger if exists trg_metas_atividades_touch on public.metas_atividades;
+create trigger trg_metas_atividades_touch before update on public.metas_atividades
+  for each row execute function public.touch_updated_at();
+
 -- ───── trigger de auditoria ────────────────────────────────────────────
 create or replace function public.fn_audit() returns trigger as $$
 declare
@@ -225,6 +263,7 @@ drop trigger if exists trg_audit_producao   on public.producao;
 drop trigger if exists trg_audit_maquinas   on public.maquinas;
 drop trigger if exists trg_audit_atividades on public.atividades;
 drop trigger if exists trg_audit_metas      on public.metas;
+drop trigger if exists trg_audit_metas_atividades on public.metas_atividades;
 drop trigger if exists trg_audit_planejamento on public.planejamento;
 create trigger trg_audit_producao   after insert or update or delete on public.producao
   for each row execute function public.fn_audit();
@@ -233,6 +272,8 @@ create trigger trg_audit_maquinas   after insert or update or delete on public.m
 create trigger trg_audit_atividades after insert or update or delete on public.atividades
   for each row execute function public.fn_audit();
 create trigger trg_audit_metas      after insert or update or delete on public.metas
+  for each row execute function public.fn_audit();
+create trigger trg_audit_metas_atividades after insert or update or delete on public.metas_atividades
   for each row execute function public.fn_audit();
 create trigger trg_audit_planejamento after insert or update or delete on public.planejamento
   for each row execute function public.fn_audit();
@@ -482,6 +523,7 @@ alter table public.planejamento enable row level security;
 alter table public.maquinas    enable row level security;
 alter table public.manutencoes enable row level security;
 alter table public.metas       enable row level security;
+alter table public.metas_atividades enable row level security;
 alter table public.audit_log   enable row level security;
 
 -- profiles
@@ -498,7 +540,7 @@ create policy profiles_admin_write on public.profiles
 do $$
 declare t text;
 begin
-  for t in select unnest(array['equipes','atividades','projetos','metas','maquinas','planejamento']) loop
+  for t in select unnest(array['equipes','atividades','projetos','metas','metas_atividades','maquinas','planejamento']) loop
     execute format('drop policy if exists %I_read on public.%I', t, t);
     execute format('drop policy if exists %I_admin_write on public.%I', t, t);
     execute format('create policy %I_read on public.%I for select using (auth.uid() is not null)', t, t);

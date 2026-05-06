@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
@@ -17,6 +17,16 @@ const ROLES: { value: UserRole; label: string }[] = [
   { value: "admin", label: "Admin" },
   { value: "gestor", label: "Gestor" },
 ];
+
+function roleLabel(role: UserRole) {
+  return ROLES.find((item) => item.value === role)?.label ?? role;
+}
+
+function roleTone(role: UserRole) {
+  if (role === "admin") return "danger" as const;
+  if (role === "gestor") return "info" as const;
+  return "success" as const;
+}
 
 type NovoUsuario = {
   email: string;
@@ -153,6 +163,15 @@ export default function UsuariosPage() {
     [(u) => u.nome, (u) => u.email, (u) => u.role, (u) => u.equipes?.nome]
   );
   const visiveis = visibleItems(filtrados, expandida, 20);
+  const contadores = useMemo(
+    () => ({
+      total: items.length,
+      admin: items.filter((u) => u.role === "admin").length,
+      gestor: items.filter((u) => u.role === "gestor").length,
+      encarregado: items.filter((u) => u.role === "encarregado").length,
+    }),
+    [items]
+  );
 
   return (
     <div className="space-y-4">
@@ -167,6 +186,33 @@ export default function UsuariosPage() {
         <Button className="w-full sm:w-auto" onClick={() => setCriando(true)}>
           + Novo usuário
         </Button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Card className="p-4">
+          <p className="text-xs font-bold uppercase text-[var(--color-ink-500)]">
+            Total
+          </p>
+          <p className="mt-1 text-2xl font-bold tabular">{contadores.total}</p>
+        </Card>
+        <Card className="p-4">
+          <p className="text-xs font-bold uppercase text-[var(--color-ink-500)]">
+            Admin
+          </p>
+          <p className="mt-1 text-2xl font-bold tabular">{contadores.admin}</p>
+        </Card>
+        <Card className="p-4">
+          <p className="text-xs font-bold uppercase text-[var(--color-ink-500)]">
+            Gestor
+          </p>
+          <p className="mt-1 text-2xl font-bold tabular">{contadores.gestor}</p>
+        </Card>
+        <Card className="p-4">
+          <p className="text-xs font-bold uppercase text-[var(--color-ink-500)]">
+            Encarregado
+          </p>
+          <p className="mt-1 text-2xl font-bold tabular">{contadores.encarregado}</p>
+        </Card>
       </div>
 
       <Card>
@@ -204,7 +250,7 @@ export default function UsuariosPage() {
             </div>
           </ListControls>
         </div>
-        <div className="divide-y divide-[var(--color-ink-100)] md:hidden">
+        <div className="divide-y divide-[var(--color-ink-100)] lg:hidden">
           {visiveis.map((u) => (
             <div key={u.id} className="p-4">
               <div className="flex items-start justify-between gap-3">
@@ -218,6 +264,9 @@ export default function UsuariosPage() {
                   <p className="mt-1 text-sm font-semibold text-[var(--color-ink-700)]">
                     Equipe: {u.equipes?.nome ?? "sem equipe"}
                   </p>
+                  <div className="mt-2">
+                    <Badge tone={roleTone(u.role)}>{roleLabel(u.role)}</Badge>
+                  </div>
                 </div>
                 {u.ativo ? (
                   <Badge tone="success">ativo</Badge>
@@ -280,7 +329,7 @@ export default function UsuariosPage() {
           )}
         </div>
 
-        <div className="hidden overflow-x-auto md:block">
+        <div className="hidden overflow-x-auto lg:block">
           <table className="w-full text-sm">
             <thead className="bg-[var(--color-ink-50)] text-[var(--color-ink-500)] text-left">
               <tr>

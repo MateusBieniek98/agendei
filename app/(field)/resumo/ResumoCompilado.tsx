@@ -92,7 +92,7 @@ export default function ResumoCompilado({
             </Card>
           ) : (
             <>
-              <div className="space-y-3 lg:hidden">
+              <div className="space-y-3 xl:hidden">
                 {visiveis.map((linha) => {
                   const total =
                     Number(linha.quantidade ?? 0) *
@@ -144,7 +144,7 @@ export default function ResumoCompilado({
                 })}
               </div>
 
-              <Card className="hidden overflow-hidden lg:block">
+              <Card className="hidden overflow-hidden xl:block">
                 <div className="overflow-x-auto">
                   <table className="min-w-full text-left text-sm">
                     <thead className="bg-[var(--color-ink-50)] text-xs uppercase text-[var(--color-ink-600)]">

@@ -20,13 +20,17 @@ type ProducaoResumoLinha = {
   atividades: { nome: string; unidade: string } | null;
 };
 
-type PlanejamentoResumoLinha = {
+type MetaAtividadeResumoLinha = {
   id: string;
-  quantidade_prevista: number | string | null;
-  status: string;
-  talhao: string;
+  ano: number;
+  mes: number;
+  atividade_id: string;
+  equipe_id: string | null;
+  profile_id: string | null;
+  quantidade_meta: number | string;
+  observacoes: string | null;
   equipes: { nome: string } | null;
-  projetos: { nome: string } | null;
+  profiles: { nome: string; email: string } | null;
   atividades: { nome: string; unidade: string; valor_unitario: number | string } | null;
 };
 
@@ -84,7 +88,7 @@ export default async function ResumoFieldPage() {
   const mes = hoje.getMonth() + 1;
   const inicioMes = isoDate(new Date(ano, mes - 1, 1));
   const fimMes = isoDate(new Date(ano, mes, 0));
-  const escopoEquipe = profile?.role !== "admin" && profile?.equipe_id;
+  const isAdmin = profile?.role === "admin";
 
   let producaoQuery = supabase
     .from("producao")
@@ -97,43 +101,68 @@ export default async function ResumoFieldPage() {
     .order("data", { ascending: false })
     .order("created_at", { ascending: false });
 
-  if (escopoEquipe) {
-    producaoQuery = producaoQuery.eq("equipe_id", profile.equipe_id!);
-  } else if (profile?.role !== "admin") {
-    producaoQuery = producaoQuery.eq("registrado_por", profile!.id);
+  if (!isAdmin && profile) {
+    producaoQuery = producaoQuery.eq("registrado_por", profile.id);
   }
 
-  let planejamentoQuery = supabase
-    .from("planejamento")
+  const metasAtividadesQuery = supabase
+    .from("metas_atividades")
     .select(
-      "id, quantidade_prevista, status, talhao, equipes(nome), projetos(nome), " +
-        "atividades(nome, unidade, valor_unitario)"
+      "id, ano, mes, atividade_id, equipe_id, profile_id, quantidade_meta, observacoes, " +
+        "equipes(nome), profiles(nome, email), atividades(nome, unidade, valor_unitario)"
     )
     .eq("ano", ano)
-    .eq("mes", mes)
-    .neq("status", "cancelado");
+    .eq("mes", mes);
 
-  if (escopoEquipe) {
-    planejamentoQuery = planejamentoQuery.eq("equipe_id", profile.equipe_id!);
-  }
-
-  const [{ data: producaoData }, { data: planejamentoData }] = await Promise.all([
-    producaoQuery,
-    planejamentoQuery,
-  ]);
+  const [{ data: producaoData }, { data: metasData, error: metasError }] =
+    await Promise.all([producaoQuery, metasAtividadesQuery]);
 
   const linhas = (producaoData ?? []) as unknown as ProducaoResumoLinha[];
-  const planejamentos = (planejamentoData ?? []) as unknown as PlanejamentoResumoLinha[];
+  const metasAtividades = metasError
+    ? []
+    : ((metasData ?? []) as unknown as MetaAtividadeResumoLinha[]);
   const porAtividade = new Map<string, AtividadeResumo>();
 
-  for (const item of planejamentos) {
-    const nome = item.atividades?.nome ?? "Atividade sem nome";
-    const unidade = item.atividades?.unidade ?? "ha";
-    const resumo = ensureAtividade(porAtividade, nome, unidade);
-    const prevista = Number(item.quantidade_prevista ?? 0);
-    const tarifa = Number(item.atividades?.valor_unitario ?? 0);
-    resumo.meta += prevista;
-    resumo.faturamentoPlanejado += prevista * tarifa;
+  const metasEscolhidas = new Map<
+    string,
+    { prioridade: number; linhas: MetaAtividadeResumoLinha[] }
+  >();
+
+  for (const meta of metasAtividades) {
+    const nome = meta.atividades?.nome ?? "Atividade sem nome";
+    const key = atividadeKey(nome);
+    let prioridade = 0;
+
+    if (isAdmin) {
+      prioridade = 1;
+    } else if (profile && meta.profile_id === profile.id) {
+      prioridade = 3;
+    } else if (profile && !meta.profile_id && meta.equipe_id === profile.equipe_id) {
+      prioridade = 2;
+    } else if (!meta.profile_id && !meta.equipe_id) {
+      prioridade = 1;
+    }
+
+    if (!prioridade) continue;
+
+    const existente = metasEscolhidas.get(key);
+    if (!existente || prioridade > existente.prioridade) {
+      metasEscolhidas.set(key, { prioridade, linhas: [meta] });
+    } else if (prioridade === existente.prioridade) {
+      existente.linhas.push(meta);
+    }
+  }
+
+  for (const { linhas: metas } of metasEscolhidas.values()) {
+    for (const meta of metas) {
+      const nome = meta.atividades?.nome ?? "Atividade sem nome";
+      const unidade = meta.atividades?.unidade ?? "ha";
+      const resumo = ensureAtividade(porAtividade, nome, unidade);
+      const quantidadeMeta = Number(meta.quantidade_meta ?? 0);
+      const tarifa = Number(meta.atividades?.valor_unitario ?? 0);
+      resumo.meta += quantidadeMeta;
+      resumo.faturamentoPlanejado += quantidadeMeta * tarifa;
+    }
   }
 
   for (const linha of linhas) {
@@ -159,9 +188,7 @@ export default async function ResumoFieldPage() {
   const diasComApontamento = new Set(linhas.map((l) => l.data)).size;
   const mediaDiaria = diasComApontamento > 0 ? totalQuantidade / diasComApontamento : 0;
   const pctGeral = totalMeta > 0 ? (totalQuantidade / totalMeta) * 100 : 0;
-  const equipeNome = escopoEquipe
-    ? linhas[0]?.equipes?.nome ?? planejamentos[0]?.equipes?.nome ?? "sua frente"
-    : "todas as frentes";
+  const escopoNome = isAdmin ? "todos os acessos" : profile?.nome ?? "seu acesso";
 
   return (
     <div className="space-y-5">
@@ -170,7 +197,7 @@ export default async function ResumoFieldPage() {
           Resumo da produção
         </h2>
         <p className="mt-1 text-sm font-semibold text-[var(--color-ink-600)]">
-          {equipeNome} · {ddmmyyyy(inicioMes)} até {ddmmyyyy(fimMes)}
+          {escopoNome} · {ddmmyyyy(inicioMes)} até {ddmmyyyy(fimMes)}
         </p>
       </div>
 
@@ -184,12 +211,12 @@ export default async function ResumoFieldPage() {
         <StatCard
           label="Produção apontada"
           value={`${num(totalQuantidade)} ha`}
-          hint="Soma dos apontamentos do mês"
+          hint="Soma dos seus apontamentos no mês"
         />
         <StatCard
           label="Meta da atividade"
           value={`${num(totalMeta)} ha`}
-          hint={`${num(pctGeral, 1)}% realizado`}
+          hint={`${num(pctGeral, 1)}% realizado pelas metas do admin`}
           tone={pctGeral >= 100 ? "positive" : "warning"}
         />
         <StatCard
@@ -203,7 +230,7 @@ export default async function ResumoFieldPage() {
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h3 className="text-lg font-bold text-[var(--color-ink-900)]">
-              Meta geral do mês
+              Meta definida no mês
             </h3>
             <p className="text-sm font-semibold text-[var(--color-ink-600)]">
               Realizado {num(totalQuantidade)} de {num(totalMeta)} ha
@@ -227,14 +254,14 @@ export default async function ResumoFieldPage() {
             Meta por atividade
           </h3>
           <p className="text-sm font-semibold text-[var(--color-ink-600)]">
-            Produção, faturamento e média por serviço apontado.
+            Produção, faturamento e média por serviço apontado pelo seu acesso.
           </p>
         </div>
 
         {atividades.length === 0 ? (
           <Card className="p-6 text-center">
             <p className="font-semibold text-[var(--color-ink-600)]">
-              Ainda não há planejamento ou apontamentos para este mês.
+              Ainda não há metas ou apontamentos para este mês.
             </p>
           </Card>
         ) : (
@@ -276,7 +303,7 @@ export default async function ResumoFieldPage() {
                   </div>
                   <div className="mt-2 flex items-center justify-between text-xs font-bold text-[var(--color-ink-600)]">
                     <span>{num(pct, 1)}% realizado</span>
-                    <span>planejado {brl(atividade.faturamentoPlanejado)}</span>
+                    <span>meta {brl(atividade.faturamentoPlanejado)}</span>
                   </div>
                 </Card>
               );
