@@ -7,19 +7,23 @@ import Select from "@/components/ui/Select";
 import { Card } from "@/components/ui/Card";
 import { useToast } from "@/components/ui/Toast";
 import { brl, todayISO } from "@/lib/format";
-import type { Atividade, Equipe } from "@/lib/types";
+import type { Atividade, Equipe, Projeto } from "@/lib/types";
 
 export default function LancamentoForm({
   equipes,
   atividades,
+  projetos,
 }: {
   equipes: Equipe[];
   atividades: Atividade[];
+  projetos: Projeto[];
 }) {
   const { toast } = useToast();
   const [data, setData] = useState(todayISO());
   const [equipeId, setEquipeId] = useState(equipes[0]?.id ?? "");
   const [atividadeId, setAtividadeId] = useState(atividades[0]?.id ?? "");
+  const [projetoId, setProjetoId] = useState(projetos[0]?.id ?? "");
+  const [talhao, setTalhao] = useState("");
   const [qtd, setQtd] = useState("");
   const [obs, setObs] = useState("");
   const [enviando, setEnviando] = useState(false);
@@ -33,8 +37,8 @@ export default function LancamentoForm({
 
   async function salvar(e: React.FormEvent) {
     e.preventDefault();
-    if (!equipeId || !atividadeId || !qtd || Number(qtd) <= 0) {
-      toast("Preencha equipe, atividade e quantidade.", "error");
+    if (!equipeId || !atividadeId || !projetoId || !talhao.trim() || !qtd || Number(qtd) <= 0) {
+      toast("Preencha equipe, atividade, projeto, talhão e quantidade.", "error");
       return;
     }
     setEnviando(true);
@@ -46,6 +50,8 @@ export default function LancamentoForm({
           data,
           equipe_id: equipeId,
           atividade_id: atividadeId,
+          projeto_id: projetoId,
+          talhao: talhao.trim(),
           quantidade: Number(qtd),
           observacoes: obs || null,
         }),
@@ -56,6 +62,7 @@ export default function LancamentoForm({
       }
       toast("Produção registrada!", "success");
       setQtd("");
+      setTalhao("");
       setObs("");
     } catch (err) {
       // fallback offline: guarda no localStorage para reenvio depois
@@ -65,6 +72,8 @@ export default function LancamentoForm({
           data,
           equipe_id: equipeId,
           atividade_id: atividadeId,
+          projeto_id: projetoId,
+          talhao: talhao.trim(),
           quantidade: Number(qtd),
           observacoes: obs || null,
           ts: Date.now(),
@@ -72,6 +81,7 @@ export default function LancamentoForm({
         localStorage.setItem("gn:pendentes", JSON.stringify(pend));
         toast("Sem conexão — salvo offline. Reenviaremos depois.", "info");
         setQtd("");
+        setTalhao("");
         setObs("");
       } catch {
         toast(`Erro: ${(err as Error).message}`, "error");
@@ -107,6 +117,21 @@ export default function LancamentoForm({
           label: `${a.nome} · ${brl(a.valor_unitario)}/${a.unidade}`,
         }))}
         placeholder="Selecione…"
+      />
+
+      <Select
+        label="Projeto"
+        value={projetoId}
+        onChange={(e) => setProjetoId(e.target.value)}
+        options={projetos.map((p) => ({ value: p.id, label: p.nome }))}
+        placeholder="Selecione…"
+      />
+
+      <Input
+        label="Talhão"
+        value={talhao}
+        onChange={(e) => setTalhao(e.target.value)}
+        placeholder="Ex.: 017-01"
       />
 
       <Input

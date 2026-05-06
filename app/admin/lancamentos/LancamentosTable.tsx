@@ -7,32 +7,39 @@ import Input from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
 import { useToast } from "@/components/ui/Toast";
 import { brl, ddmmyyyy, num } from "@/lib/format";
-import type { Atividade, Equipe } from "@/lib/types";
+import type { Atividade, Equipe, Projeto } from "@/lib/types";
 
 type Linha = {
   id: string;
   data: string;
   equipe_id: string;
   atividade_id: string;
+  projeto_id: string | null;
+  talhao: string | null;
   quantidade: number;
   observacoes: string | null;
   valor_unitario_snapshot: number;
   equipes: { nome: string } | null;
   atividades: { nome: string; unidade: string } | null;
+  projetos: { nome: string } | null;
 };
 
 export default function LancamentosTable({
   equipes,
   atividades,
+  projetos,
 }: {
   equipes: Equipe[];
   atividades: Atividade[];
+  projetos: Projeto[];
 }) {
   const { toast } = useToast();
   const [items, setItems] = useState<Linha[]>([]);
   const [loading, setLoading] = useState(true);
   const [equipe, setEquipe] = useState("");
   const [atividade, setAtividade] = useState("");
+  const [projeto, setProjeto] = useState("");
+  const [talhao, setTalhao] = useState("");
   const [de, setDe] = useState("");
   const [ate, setAte] = useState("");
   const [editing, setEditing] = useState<Linha | null>(null);
@@ -43,6 +50,8 @@ export default function LancamentosTable({
       const sp = new URLSearchParams();
       if (equipe) sp.set("equipe_id", equipe);
       if (atividade) sp.set("atividade_id", atividade);
+      if (projeto) sp.set("projeto_id", projeto);
+      if (talhao) sp.set("talhao", talhao);
       if (de) sp.set("data_de", de);
       if (ate) sp.set("data_ate", ate);
       const r = await fetch(`/api/producao?${sp.toString()}`);
@@ -80,6 +89,8 @@ export default function LancamentosTable({
         data: editing.data,
         equipe_id: editing.equipe_id,
         atividade_id: editing.atividade_id,
+        projeto_id: editing.projeto_id,
+        talhao: editing.talhao,
         quantidade: editing.quantidade,
         observacoes: editing.observacoes,
       }),
@@ -108,7 +119,7 @@ export default function LancamentosTable({
   return (
     <div className="space-y-4">
       <Card className="p-4">
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-7 gap-3">
           <Input label="De" type="date" value={de} onChange={(e) => setDe(e.target.value)} />
           <Input label="Até" type="date" value={ate} onChange={(e) => setAte(e.target.value)} />
           <Select
@@ -125,6 +136,14 @@ export default function LancamentosTable({
             options={atividades.map((a) => ({ value: a.id, label: a.nome }))}
             placeholder="todas"
           />
+          <Select
+            label="Projeto"
+            value={projeto}
+            onChange={(e) => setProjeto(e.target.value)}
+            options={projetos.map((p) => ({ value: p.id, label: p.nome }))}
+            placeholder="todos"
+          />
+          <Input label="Talhão" value={talhao} onChange={(e) => setTalhao(e.target.value)} />
           <div className="flex items-end">
             <Button onClick={carregar} className="w-full" loading={loading}>
               Filtrar
@@ -150,6 +169,7 @@ export default function LancamentosTable({
                 <th className="px-4 py-2 font-medium">Data</th>
                 <th className="px-4 py-2 font-medium">Equipe</th>
                 <th className="px-4 py-2 font-medium">Atividade</th>
+                <th className="px-4 py-2 font-medium">Projeto / talhão</th>
                 <th className="px-4 py-2 font-medium">Detalhes</th>
                 <th className="px-4 py-2 font-medium text-right">Qtd</th>
                 <th className="px-4 py-2 font-medium text-right">Valor</th>
@@ -163,6 +183,10 @@ export default function LancamentosTable({
                   <td className="px-4 py-2 whitespace-nowrap">{ddmmyyyy(l.data)}</td>
                   <td className="px-4 py-2">{l.equipes?.nome}</td>
                   <td className="px-4 py-2">{l.atividades?.nome}</td>
+                  <td className="px-4 py-2">
+                    <p className="font-semibold">{l.projetos?.nome ?? "—"}</p>
+                    <p className="text-xs text-[var(--color-ink-500)]">{l.talhao ?? "—"}</p>
+                  </td>
                   <td className="px-4 py-2 max-w-xs whitespace-pre-line text-xs text-[var(--color-ink-500)]">
                     {l.observacoes ?? "—"}
                   </td>
@@ -191,7 +215,7 @@ export default function LancamentosTable({
               ))}
               {items.length === 0 && !loading && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-6 text-center text-[var(--color-ink-500)]">
+                  <td colSpan={9} className="px-4 py-6 text-center text-[var(--color-ink-500)]">
                     Nenhum lançamento encontrado.
                   </td>
                 </tr>
@@ -228,6 +252,18 @@ export default function LancamentosTable({
               value={editing.atividade_id}
               onChange={(e) => setEditing({ ...editing, atividade_id: e.target.value })}
               options={atividades.map((a) => ({ value: a.id, label: a.nome }))}
+            />
+            <Select
+              label="Projeto"
+              value={editing.projeto_id ?? ""}
+              onChange={(e) => setEditing({ ...editing, projeto_id: e.target.value || null })}
+              options={projetos.map((p) => ({ value: p.id, label: p.nome }))}
+              placeholder="Selecione…"
+            />
+            <Input
+              label="Talhão"
+              value={editing.talhao ?? ""}
+              onChange={(e) => setEditing({ ...editing, talhao: e.target.value })}
             />
             <Input
               label="Quantidade"

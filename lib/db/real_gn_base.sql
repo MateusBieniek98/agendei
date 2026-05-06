@@ -49,9 +49,11 @@ on conflict (id) do update set
 update public.profiles set equipe_id = null;
 
 delete from public.producao;
+delete from public.planejamento;
 delete from public.manutencoes;
 delete from public.maquinas;
 delete from public.metas;
+delete from public.projetos;
 delete from public.atividades;
 delete from public.equipes;
 delete from public.audit_log;
@@ -104,6 +106,25 @@ from (values
   ('SERV ROCADA" "N3', 'ha', 681.07),
   ('SERV ROCADA QUIM" "01_MEC', 'ha', 436.54)
 ) as v(nome, unidade, valor_unitario)
+order by nome;
+
+insert into public.projetos (nome)
+select nome
+from (values
+  ('Água Limpa'),
+  ('Azinheira Gleba A'),
+  ('Mãe Santa'),
+  ('Monte Belo Gleba A'),
+  ('Monte Belo Gleba B'),
+  ('Monte Belo Gleba C'),
+  ('Nossa Senhora de Fátima'),
+  ('Pontal II'),
+  ('Santa Maria II'),
+  ('Santo Expedito II'),
+  ('São José'),
+  ('São Pedro III'),
+  ('Taboca II')
+) as v(nome)
 order by nome;
 
 insert into public.maquinas (nome, tipo, identificador, status, ativo)

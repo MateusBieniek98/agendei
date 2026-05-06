@@ -15,8 +15,8 @@ export async function GET(req: NextRequest) {
     .from("producao")
     .select(
       "id, data, equipe_id, atividade_id, quantidade, observacoes, " +
-        "valor_unitario_snapshot, registrado_por, created_at, " +
-        "equipes(nome), atividades(nome, unidade)"
+        "projeto_id, talhao, valor_unitario_snapshot, registrado_por, created_at, " +
+        "equipes(nome), atividades(nome, unidade), projetos(nome)"
     )
     .order("data", { ascending: false })
     .order("created_at", { ascending: false });
@@ -25,11 +25,15 @@ export async function GET(req: NextRequest) {
   const ate = sp.get("data_ate");
   const equipe = sp.get("equipe_id");
   const atividade = sp.get("atividade_id");
+  const projeto = sp.get("projeto_id");
+  const talhao = sp.get("talhao");
 
   if (de) q = q.gte("data", de);
   if (ate) q = q.lte("data", ate);
   if (equipe) q = q.eq("equipe_id", equipe);
   if (atividade) q = q.eq("atividade_id", atividade);
+  if (projeto) q = q.eq("projeto_id", projeto);
+  if (talhao) q = q.ilike("talhao", `%${talhao}%`);
 
   const { data, error } = await q.limit(500);
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
@@ -41,9 +45,17 @@ export async function POST(req: NextRequest) {
   if (!profile) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
 
   const body = await req.json();
-  const { data: dataLanc, equipe_id, atividade_id, quantidade, observacoes } = body;
+  const {
+    data: dataLanc,
+    equipe_id,
+    atividade_id,
+    projeto_id,
+    talhao,
+    quantidade,
+    observacoes,
+  } = body;
 
-  if (!equipe_id || !atividade_id || !quantidade) {
+  if (!equipe_id || !atividade_id || !projeto_id || !talhao || !quantidade) {
     return NextResponse.json({ error: "campos obrigatórios faltando" }, { status: 400 });
   }
 
@@ -65,6 +77,8 @@ export async function POST(req: NextRequest) {
       data: dataLanc ?? new Date().toISOString().slice(0, 10),
       equipe_id,
       atividade_id,
+      projeto_id,
+      talhao: String(talhao).trim(),
       quantidade,
       observacoes: observacoes ?? null,
       valor_unitario_snapshot: ativ.valor_unitario,

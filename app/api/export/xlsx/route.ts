@@ -29,8 +29,8 @@ export async function GET(req: NextRequest) {
   let q = supabase
     .from("producao")
     .select(
-      "data, quantidade, valor_unitario_snapshot, observacoes, " +
-        "equipes(nome), atividades(nome, unidade)"
+      "data, quantidade, talhao, valor_unitario_snapshot, observacoes, " +
+        "equipes(nome), atividades(nome, unidade), projetos(nome)"
     )
     .order("data", { ascending: true });
   if (de) q = q.gte("data", de);
@@ -45,6 +45,8 @@ export async function GET(req: NextRequest) {
     { header: "Data", key: "data", width: 12 },
     { header: "Equipe", key: "equipe", width: 22 },
     { header: "Atividade", key: "atividade", width: 28 },
+    { header: "Projeto", key: "projeto", width: 24 },
+    { header: "Talhão", key: "talhao", width: 12 },
     { header: "Quantidade", key: "qtd", width: 14 },
     { header: "Unidade", key: "unidade", width: 12 },
     { header: "Valor unitário", key: "valor", width: 16 },
@@ -63,9 +65,11 @@ export async function GET(req: NextRequest) {
     data: string;
     quantidade: number;
     valor_unitario_snapshot: number;
+    talhao: string | null;
     observacoes: string | null;
     equipes: { nome: string } | null;
     atividades: { nome: string; unidade: string } | null;
+    projetos: { nome: string } | null;
   };
 
   for (const row of (data ?? []) as unknown as Row[]) {
@@ -74,6 +78,8 @@ export async function GET(req: NextRequest) {
       data: row.data,
       equipe: row.equipes?.nome,
       atividade: row.atividades?.nome,
+      projeto: row.projetos?.nome,
+      talhao: row.talhao,
       qtd: Number(row.quantidade),
       unidade: row.atividades?.unidade,
       valor: Number(row.valor_unitario_snapshot),

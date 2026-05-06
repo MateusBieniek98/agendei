@@ -21,6 +21,10 @@ do $$ begin
   create type maintenance_status as enum ('aberto', 'em_andamento', 'resolvido');
 exception when duplicate_object then null; end $$;
 
+do $$ begin
+  create type planning_status as enum ('planejado', 'em_execucao', 'concluido', 'cancelado');
+exception when duplicate_object then null; end $$;
+
 -- ═══ profiles ═══════════════════════════════════════════════════════════
 -- Estende auth.users com nome e papel (role).
 create table if not exists public.profiles (
@@ -59,12 +63,22 @@ create table if not exists public.atividades (
   created_at      timestamptz not null default now()
 );
 
+-- ═══ projetos (fazendas) ═══════════════════════════════════════════════
+create table if not exists public.projetos (
+  id          uuid primary key default gen_random_uuid(),
+  nome        text unique not null,
+  ativo       boolean not null default true,
+  created_at  timestamptz not null default now()
+);
+
 -- ═══ producao (lançamento diário) ═══════════════════════════════════════
 create table if not exists public.producao (
   id            uuid primary key default gen_random_uuid(),
   data          date not null default current_date,
   equipe_id     uuid not null references public.equipes(id),
   atividade_id  uuid not null references public.atividades(id),
+  projeto_id    uuid references public.projetos(id),
+  talhao        text,
   quantidade    numeric(12,3) not null check (quantidade > 0),
   observacoes   text,
   -- snapshot do valor unitário no momento do lançamento (auditoria)
@@ -74,9 +88,34 @@ create table if not exists public.producao (
   created_at     timestamptz not null default now(),
   updated_at     timestamptz not null default now()
 );
+alter table public.producao
+  add column if not exists projeto_id uuid references public.projetos(id),
+  add column if not exists talhao text;
 create index if not exists idx_producao_data on public.producao(data);
 create index if not exists idx_producao_equipe on public.producao(equipe_id);
 create index if not exists idx_producao_atividade on public.producao(atividade_id);
+create index if not exists idx_producao_projeto on public.producao(projeto_id);
+
+-- ═══ planejamento mensal ═══════════════════════════════════════════════
+create table if not exists public.planejamento (
+  id                  uuid primary key default gen_random_uuid(),
+  ano                 int not null check (ano between 2000 and 2100),
+  mes                 int not null check (mes between 1 and 12),
+  projeto_id           uuid not null references public.projetos(id),
+  talhao              text not null,
+  atividade_id         uuid not null references public.atividades(id),
+  equipe_id            uuid references public.equipes(id),
+  quantidade_prevista  numeric(12,3),
+  data_inicio          date,
+  data_limite          date not null,
+  status              planning_status not null default 'planejado',
+  observacoes          text,
+  created_at           timestamptz not null default now(),
+  updated_at           timestamptz not null default now()
+);
+create index if not exists idx_planejamento_mes on public.planejamento(ano, mes);
+create index if not exists idx_planejamento_prazo on public.planejamento(data_limite);
+create index if not exists idx_planejamento_status on public.planejamento(status);
 
 -- ═══ máquinas e manutenções ═════════════════════════════════════════════
 create table if not exists public.maquinas (
@@ -138,6 +177,10 @@ drop trigger if exists trg_producao_touch on public.producao;
 create trigger trg_producao_touch before update on public.producao
   for each row execute function public.touch_updated_at();
 
+drop trigger if exists trg_planejamento_touch on public.planejamento;
+create trigger trg_planejamento_touch before update on public.planejamento
+  for each row execute function public.touch_updated_at();
+
 -- ───── trigger de auditoria ────────────────────────────────────────────
 create or replace function public.fn_audit() returns trigger as $$
 declare
@@ -164,6 +207,7 @@ drop trigger if exists trg_audit_producao   on public.producao;
 drop trigger if exists trg_audit_maquinas   on public.maquinas;
 drop trigger if exists trg_audit_atividades on public.atividades;
 drop trigger if exists trg_audit_metas      on public.metas;
+drop trigger if exists trg_audit_planejamento on public.planejamento;
 create trigger trg_audit_producao   after insert or update or delete on public.producao
   for each row execute function public.fn_audit();
 create trigger trg_audit_maquinas   after insert or update or delete on public.maquinas
@@ -171,6 +215,8 @@ create trigger trg_audit_maquinas   after insert or update or delete on public.m
 create trigger trg_audit_atividades after insert or update or delete on public.atividades
   for each row execute function public.fn_audit();
 create trigger trg_audit_metas      after insert or update or delete on public.metas
+  for each row execute function public.fn_audit();
+create trigger trg_audit_planejamento after insert or update or delete on public.planejamento
   for each row execute function public.fn_audit();
 
 -- ───── helpers RLS ─────────────────────────────────────────────────────
@@ -222,7 +268,9 @@ grant execute on function public.set_machine_status(uuid, machine_status)
 alter table public.profiles    enable row level security;
 alter table public.equipes     enable row level security;
 alter table public.atividades  enable row level security;
+alter table public.projetos    enable row level security;
 alter table public.producao    enable row level security;
+alter table public.planejamento enable row level security;
 alter table public.maquinas    enable row level security;
 alter table public.manutencoes enable row level security;
 alter table public.metas       enable row level security;
@@ -237,12 +285,12 @@ create policy profiles_admin_write on public.profiles
   for all using (public.current_role() = 'admin')
   with check (public.current_role() = 'admin');
 
--- equipes / atividades / metas / maquinas — leitura para todos autenticados,
+-- equipes / atividades / projetos / metas / maquinas — leitura para todos autenticados,
 -- escrita para admin
 do $$
 declare t text;
 begin
-  for t in select unnest(array['equipes','atividades','metas','maquinas']) loop
+  for t in select unnest(array['equipes','atividades','projetos','metas','maquinas','planejamento']) loop
     execute format('drop policy if exists %I_read on public.%I', t, t);
     execute format('drop policy if exists %I_admin_write on public.%I', t, t);
     execute format('create policy %I_read on public.%I for select using (auth.uid() is not null)', t, t);

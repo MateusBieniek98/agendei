@@ -27,8 +27,13 @@ export default function MaquinaForm({ maquinas }: { maquinas: Maquina[] }) {
       ? "manutencao_urgente"
       : (maquinaSelecionada?.status ?? "manutencao_urgente")
   );
+  const [filtroStatus, setFiltroStatus] = useState("");
   const [descricao, setDescricao] = useState("");
   const [enviando, setEnviando] = useState(false);
+  const maquinasFiltradas = useMemo(
+    () => items.filter((m) => !filtroStatus || m.status === filtroStatus),
+    [items, filtroStatus]
+  );
 
   useEffect(() => {
     setItems(maquinas);
@@ -134,8 +139,17 @@ export default function MaquinaForm({ maquinas }: { maquinas: Maquina[] }) {
         <h3 className="text-sm font-bold text-[var(--color-ink-900)]">
           Status atual da frota
         </h3>
+        <div className="mt-2">
+          <Select
+            label="Filtro de status"
+            value={filtroStatus}
+            onChange={(e) => setFiltroStatus(e.target.value)}
+            options={STATUS_OPTS}
+            placeholder="Todos"
+          />
+        </div>
         <div className="mt-2 grid grid-cols-1 gap-2">
-          {items.map((m) => (
+          {maquinasFiltradas.map((m) => (
             <Card key={m.id} className="p-3 space-y-3">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -166,6 +180,11 @@ export default function MaquinaForm({ maquinas }: { maquinas: Maquina[] }) {
               </select>
             </Card>
           ))}
+          {maquinasFiltradas.length === 0 && (
+            <Card className="p-4 text-sm font-semibold text-[var(--color-ink-700)]">
+              Nenhuma máquina neste filtro.
+            </Card>
+          )}
         </div>
       </div>
     </form>

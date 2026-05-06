@@ -15,7 +15,15 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
 
   const supabase = await createSupabaseServer();
   const allowed: Record<string, unknown> = {};
-  for (const k of ["data", "equipe_id", "atividade_id", "quantidade", "observacoes"]) {
+  for (const k of [
+    "data",
+    "equipe_id",
+    "atividade_id",
+    "projeto_id",
+    "talhao",
+    "quantidade",
+    "observacoes",
+  ]) {
     if (body[k] !== undefined) allowed[k] = body[k];
   }
   allowed.editado_por = profile.id;

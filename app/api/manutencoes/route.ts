@@ -36,6 +36,10 @@ export async function POST(req: NextRequest) {
   if (status_maquina && !isMachineStatus(status_maquina)) {
     return NextResponse.json({ error: "status de máquina inválido" }, { status: 400 });
   }
+  const novoStatusMaquina = (status_maquina ?? "manutencao_urgente") as
+    | "operando"
+    | "parada"
+    | "manutencao_urgente";
 
   const supabase = await createSupabaseServer();
   const { data, error } = await supabase
@@ -49,14 +53,12 @@ export async function POST(req: NextRequest) {
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
-  if (status_maquina) {
-    const { error: statusError } = await supabase.rpc("set_machine_status", {
-      p_maquina_id: maquina_id,
-      p_status: status_maquina,
-    });
-    if (statusError) {
-      return NextResponse.json({ error: statusError.message }, { status: 400 });
-    }
+  const { error: statusError } = await supabase.rpc("set_machine_status", {
+    p_maquina_id: maquina_id,
+    p_status: novoStatusMaquina,
+  });
+  if (statusError) {
+    return NextResponse.json({ error: statusError.message }, { status: 400 });
   }
 
   return NextResponse.json({ item: data }, { status: 201 });

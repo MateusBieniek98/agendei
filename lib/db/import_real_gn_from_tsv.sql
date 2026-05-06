@@ -12,8 +12,8 @@
 -- O importador usa só o que faz sentido para o app atual:
 --   Data, Serviço, Projeto, Talhão, Produção, Equipe, Encarregado, Tarifa,
 --   Faturamento da Atividade.
--- Insumos ficam fora por enquanto; projeto, talhão, encarregado original e
--- faturamento original entram em observações do lançamento.
+-- Insumos ficam fora por enquanto; projeto e talhão entram nos campos próprios.
+-- Encarregado original e faturamento original entram em observações.
 
 begin;
 
@@ -169,6 +169,8 @@ delete from public.producao;
 delete from public.manutencoes;
 delete from public.maquinas;
 delete from public.metas;
+delete from public.planejamento;
+delete from public.projetos;
 delete from public.atividades;
 delete from public.equipes;
 delete from public.audit_log;
@@ -196,6 +198,12 @@ from gn_stage
 group by servico
 order by servico;
 
+insert into public.projetos (nome)
+select distinct projeto
+from gn_stage
+where projeto is not null
+order by projeto;
+
 insert into public.metas (ano, mes, valor_meta, observacoes)
 select distinct
   extract(year from data)::int,
@@ -210,6 +218,8 @@ insert into public.producao (
   data,
   equipe_id,
   atividade_id,
+  projeto_id,
+  talhao,
   quantidade,
   observacoes,
   valor_unitario_snapshot,
@@ -219,10 +229,10 @@ select
   s.data,
   e.id,
   a.id,
+  pr.id,
+  s.talhao,
   s.producao,
   concat_ws(E'\n',
-    'Projeto: ' || s.projeto,
-    'Talhão: ' || s.talhao,
     'Encarregado original: ' || s.encarregado,
     'Faturamento original: ' || coalesce(s.faturamento::text, 'não informado'),
     'Origem: Controle de Produção GN'
@@ -232,6 +242,7 @@ select
 from gn_stage s
 join public.equipes e on e.nome = s.equipe
 join public.atividades a on a.nome = s.servico
+join public.projetos pr on pr.nome = s.projeto
 where s.data is not null
   and s.producao is not null
   and s.producao > 0

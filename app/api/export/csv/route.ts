@@ -28,7 +28,8 @@ export async function GET(req: NextRequest) {
   let q = supabase
     .from("producao")
     .select(
-      "data, quantidade, valor_unitario_snapshot, observacoes, equipes(nome), atividades(nome, unidade)"
+      "data, quantidade, projeto_id, talhao, valor_unitario_snapshot, observacoes, " +
+        "equipes(nome), atividades(nome, unidade), projetos(nome)"
     )
     .order("data", { ascending: true });
   if (de) q = q.gte("data", de);
@@ -40,13 +41,15 @@ export async function GET(req: NextRequest) {
     data: string;
     quantidade: number;
     valor_unitario_snapshot: number;
+    talhao: string | null;
     observacoes: string | null;
     equipes: { nome: string } | null;
     atividades: { nome: string; unidade: string } | null;
+    projetos: { nome: string } | null;
   };
 
   const headers = [
-    "data", "equipe", "atividade", "quantidade",
+    "data", "equipe", "atividade", "projeto", "talhao", "quantidade",
     "unidade", "valor_unitario", "total", "observacoes",
   ];
   const lines = [headers.join(",")];
@@ -54,6 +57,7 @@ export async function GET(req: NextRequest) {
     const total = Number(r.quantidade) * Number(r.valor_unitario_snapshot);
     lines.push([
       r.data, r.equipes?.nome ?? "", r.atividades?.nome ?? "",
+      r.projetos?.nome ?? "", r.talhao ?? "",
       r.quantidade, r.atividades?.unidade ?? "",
       r.valor_unitario_snapshot, total.toFixed(2),
       r.observacoes ?? "",
