@@ -2,9 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Button from "@/components/ui/Button";
+import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import Badge from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
+import ListControls, { searchItems, visibleItems } from "@/components/ui/ListControls";
 import { useToast } from "@/components/ui/Toast";
 import { ddmmyyyy } from "@/lib/format";
 import type { Equipe, MachineStatus, Maquina, MaintenanceStatus, Projeto } from "@/lib/types";
@@ -39,8 +41,10 @@ export default function MaquinaForm({
   const { toast } = useToast();
   const [items, setItems] = useState<Maquina[]>(maquinas);
   const [maquinaId, setMaquinaId] = useState(items[0]?.id ?? "");
+  const [maquinaBusca, setMaquinaBusca] = useState("");
   const [equipeId, setEquipeId] = useState(equipes[0]?.id ?? "");
   const [projetoId, setProjetoId] = useState(projetos[0]?.id ?? "");
+  const [projetoBusca, setProjetoBusca] = useState("");
   const [talhao, setTalhao] = useState("");
   const maquinaSelecionada = useMemo(
     () => items.find((m) => m.id === maquinaId),
@@ -52,13 +56,62 @@ export default function MaquinaForm({
       : (maquinaSelecionada?.status ?? "manutencao_urgente")
   );
   const [filtroStatus, setFiltroStatus] = useState("");
+  const [frotaBusca, setFrotaBusca] = useState("");
+  const [frotaExpandida, setFrotaExpandida] = useState(false);
+  const [pendentesBusca, setPendentesBusca] = useState("");
+  const [pendentesExpandido, setPendentesExpandido] = useState(false);
   const [pendentes, setPendentes] = useState<ManutPendente[]>([]);
   const [descricao, setDescricao] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [resolvendoId, setResolvendoId] = useState<string | null>(null);
-  const maquinasFiltradas = useMemo(
-    () => items.filter((m) => !filtroStatus || m.status === filtroStatus),
-    [items, filtroStatus]
+  const maquinaOptions = useMemo(() => {
+    const filtradas = searchItems(items, maquinaBusca, [
+      (m) => m.nome,
+      (m) => m.tipo,
+      (m) => m.identificador,
+      (m) => m.status,
+    ]);
+    const selected = maquinaId ? items.find((m) => m.id === maquinaId) : undefined;
+    return selected && !filtradas.some((m) => m.id === selected.id)
+      ? [selected, ...filtradas]
+      : filtradas;
+  }, [items, maquinaBusca, maquinaId]);
+  const projetoOptions = useMemo(() => {
+    const filtrados = searchItems(projetos, projetoBusca, [(p) => p.nome]);
+    const selected = projetoId ? projetos.find((p) => p.id === projetoId) : undefined;
+    return selected && !filtrados.some((p) => p.id === selected.id)
+      ? [selected, ...filtrados]
+      : filtrados;
+  }, [projetos, projetoBusca, projetoId]);
+  const pendentesFiltradas = useMemo(
+    () =>
+      searchItems(pendentes, pendentesBusca, [
+        (m) => m.maquinas?.nome,
+        (m) => m.maquinas?.identificador,
+        (m) => m.equipes?.nome,
+        (m) => m.projetos?.nome,
+        (m) => m.talhao,
+        (m) => m.descricao,
+        (m) => m.status,
+      ]),
+    [pendentes, pendentesBusca]
+  );
+  const pendentesVisiveis = useMemo(
+    () => visibleItems(pendentesFiltradas, pendentesExpandido, 10),
+    [pendentesFiltradas, pendentesExpandido]
+  );
+  const maquinasFiltradas = useMemo(() => {
+    const porStatus = items.filter((m) => !filtroStatus || m.status === filtroStatus);
+    return searchItems(porStatus, frotaBusca, [
+      (m) => m.nome,
+      (m) => m.tipo,
+      (m) => m.identificador,
+      (m) => m.status,
+    ]);
+  }, [items, filtroStatus, frotaBusca]);
+  const maquinasVisiveis = useMemo(
+    () => visibleItems(maquinasFiltradas, frotaExpandida, 20),
+    [maquinasFiltradas, frotaExpandida]
   );
 
   useEffect(() => {
@@ -174,11 +227,21 @@ export default function MaquinaForm({
 
   return (
     <form onSubmit={salvar} className="space-y-4">
+      <Input
+        label="Buscar máquina"
+        type="search"
+        value={maquinaBusca}
+        onChange={(e) => setMaquinaBusca(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") e.preventDefault();
+        }}
+        placeholder="Código, tipo ou status"
+      />
       <Select
         label="Máquina"
         value={maquinaId}
         onChange={(e) => setMaquinaId(e.target.value)}
-        options={items.map((m) => ({
+        options={maquinaOptions.map((m) => ({
           value: m.id,
           label: m.identificador ? `${m.nome} · ${m.identificador}` : m.nome,
         }))}
@@ -200,11 +263,22 @@ export default function MaquinaForm({
         placeholder="Selecione…"
       />
 
+      <Input
+        label="Buscar projeto"
+        type="search"
+        value={projetoBusca}
+        onChange={(e) => setProjetoBusca(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") e.preventDefault();
+        }}
+        placeholder="Digite parte da fazenda/projeto"
+      />
+
       <Select
         label="Projeto"
         value={projetoId}
         onChange={(e) => setProjetoId(e.target.value)}
-        options={projetos.map((p) => ({ value: p.id, label: p.nome }))}
+        options={projetoOptions.map((p) => ({ value: p.id, label: p.nome }))}
         placeholder="Selecione…"
       />
 
@@ -251,7 +325,18 @@ export default function MaquinaForm({
           </button>
         </div>
         <div className="mt-2 grid grid-cols-1 gap-2">
-          {pendentes.map((m) => (
+          <ListControls
+            search={pendentesBusca}
+            onSearchChange={setPendentesBusca}
+            expanded={pendentesExpandido}
+            onExpandedChange={setPendentesExpandido}
+            total={pendentesFiltradas.length}
+            visible={pendentesVisiveis.length}
+            limit={10}
+            label="Pesquisar pendência"
+            placeholder="Máquina, frente, projeto, talhão ou problema"
+          />
+          {pendentesVisiveis.map((m) => (
             <Card key={m.id} className="p-3 space-y-3 border-red-200 bg-red-50">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -285,9 +370,9 @@ export default function MaquinaForm({
               </Button>
             </Card>
           ))}
-          {pendentes.length === 0 && (
+          {pendentesFiltradas.length === 0 && (
             <Card className="p-4 text-sm font-semibold text-[var(--color-ink-700)]">
-              Nenhuma manutenção pendente.
+              Nenhuma manutenção pendente neste filtro.
             </Card>
           )}
         </div>
@@ -298,16 +383,27 @@ export default function MaquinaForm({
           Status atual da frota
         </h3>
         <div className="mt-2">
-          <Select
-            label="Filtro de status"
-            value={filtroStatus}
-            onChange={(e) => setFiltroStatus(e.target.value)}
-            options={STATUS_OPTS}
-            placeholder="Todos"
-          />
+          <ListControls
+            search={frotaBusca}
+            onSearchChange={setFrotaBusca}
+            expanded={frotaExpandida}
+            onExpandedChange={setFrotaExpandida}
+            total={maquinasFiltradas.length}
+            visible={maquinasVisiveis.length}
+            label="Pesquisar frota"
+            placeholder="Código, tipo ou status"
+          >
+            <Select
+              label="Filtro de status"
+              value={filtroStatus}
+              onChange={(e) => setFiltroStatus(e.target.value)}
+              options={STATUS_OPTS}
+              placeholder="Todos"
+            />
+          </ListControls>
         </div>
         <div className="mt-2 grid grid-cols-1 gap-2">
-          {maquinasFiltradas.map((m) => (
+          {maquinasVisiveis.map((m) => (
             <Card key={m.id} className="p-3 space-y-3">
               <div className="flex items-start justify-between gap-3">
                 <div>

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
+import ListControls, { searchItems, visibleItems } from "@/components/ui/ListControls";
 import Badge from "@/components/ui/Badge";
 import { useToast } from "@/components/ui/Toast";
 import { brl } from "@/lib/format";
@@ -13,6 +14,9 @@ export default function AtividadesPage() {
   const { toast } = useToast();
   const [items, setItems] = useState<Atividade[]>([]);
   const [editing, setEditing] = useState<Partial<Atividade> | null>(null);
+  const [busca, setBusca] = useState("");
+  const [statusFiltro, setStatusFiltro] = useState("");
+  const [expandida, setExpandida] = useState(false);
 
   async function carregar() {
     try {
@@ -65,6 +69,15 @@ export default function AtividadesPage() {
     carregar();
   }
 
+  const filtradas = searchItems(
+    items.filter((a) =>
+      statusFiltro === "ativas" ? a.ativo : statusFiltro === "inativas" ? !a.ativo : true
+    ),
+    busca,
+    [(a) => a.nome, (a) => a.unidade, (a) => a.valor_unitario]
+  );
+  const visiveis = visibleItems(filtradas, expandida, 20);
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -84,8 +97,35 @@ export default function AtividadesPage() {
       </div>
 
       <Card>
+        <div className="border-b border-[var(--color-ink-100)] p-4">
+          <ListControls
+            search={busca}
+            onSearchChange={setBusca}
+            expanded={expandida}
+            onExpandedChange={setExpandida}
+            total={filtradas.length}
+            visible={visiveis.length}
+            label="Pesquisar atividades"
+            placeholder="Nome, unidade ou tarifa"
+          >
+            <div className="grid grid-cols-1 gap-3 sm:max-w-xs">
+              <label className="text-sm font-bold text-[var(--color-ink-900)]">
+                Status
+                <select
+                  value={statusFiltro}
+                  onChange={(e) => setStatusFiltro(e.target.value)}
+                  className="mt-1 h-12 w-full rounded-xl border-2 border-[var(--color-ink-300)] bg-white px-3 text-base font-bold text-[var(--color-ink-900)] shadow-sm"
+                >
+                  <option value="">todas</option>
+                  <option value="ativas">ativas</option>
+                  <option value="inativas">inativas</option>
+                </select>
+              </label>
+            </div>
+          </ListControls>
+        </div>
         <div className="divide-y divide-[var(--color-ink-100)] md:hidden">
-          {items.map((a) => (
+          {visiveis.map((a) => (
             <div key={a.id} className="p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -118,9 +158,9 @@ export default function AtividadesPage() {
               </div>
             </div>
           ))}
-          {items.length === 0 && (
+          {filtradas.length === 0 && (
             <div className="p-6 text-center text-sm font-semibold text-[var(--color-ink-600)]">
-              Nenhuma atividade cadastrada.
+              Nenhuma atividade encontrada neste filtro.
             </div>
           )}
         </div>
@@ -137,7 +177,7 @@ export default function AtividadesPage() {
               </tr>
             </thead>
             <tbody>
-              {items.map((a) => (
+              {visiveis.map((a) => (
                 <tr key={a.id} className="border-t border-[var(--color-ink-100)]">
                   <td className="px-4 py-2">{a.nome}</td>
                   <td className="px-4 py-2">{a.unidade}</td>

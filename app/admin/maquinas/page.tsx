@@ -5,6 +5,7 @@ import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import { Card } from "@/components/ui/Card";
+import ListControls, { searchItems, visibleItems } from "@/components/ui/ListControls";
 import Badge from "@/components/ui/Badge";
 import { useToast } from "@/components/ui/Toast";
 import { ddmmyyyy } from "@/lib/format";
@@ -29,6 +30,12 @@ export default function MaquinasAdminPage() {
   const [maquinas, setMaquinas] = useState<Maquina[]>([]);
   const [manuts, setManuts] = useState<ManutComMaquina[]>([]);
   const [editing, setEditing] = useState<Partial<Maquina> | null>(null);
+  const [buscaMaquina, setBuscaMaquina] = useState("");
+  const [statusMaquinaFiltro, setStatusMaquinaFiltro] = useState("");
+  const [maquinasExpandida, setMaquinasExpandida] = useState(false);
+  const [buscaManut, setBuscaManut] = useState("");
+  const [statusManutFiltro, setStatusManutFiltro] = useState("");
+  const [manutsExpandida, setManutsExpandida] = useState(false);
 
   async function carregar() {
     try {
@@ -97,6 +104,25 @@ export default function MaquinasAdminPage() {
     else { toast("Marcada como resolvida.", "success"); carregar(); }
   }
 
+  const maquinasFiltradas = searchItems(
+    maquinas.filter((m) => !statusMaquinaFiltro || m.status === statusMaquinaFiltro),
+    buscaMaquina,
+    [(m) => m.nome, (m) => m.tipo, (m) => m.identificador, (m) => m.status]
+  );
+  const maquinasVisiveis = visibleItems(maquinasFiltradas, maquinasExpandida, 20);
+  const manutsFiltradas = searchItems(
+    manuts.filter((m) => !statusManutFiltro || m.status === statusManutFiltro),
+    buscaManut,
+    [
+      (m) => m.maquinas?.nome,
+      (m) => m.maquinas?.identificador,
+      (m) => m.descricao,
+      (m) => m.status,
+      (m) => m.created_at,
+    ]
+  );
+  const manutsVisiveis = visibleItems(manutsFiltradas, manutsExpandida, 20);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -115,8 +141,30 @@ export default function MaquinasAdminPage() {
       </div>
 
       <Card>
+        <div className="border-b border-[var(--color-ink-100)] p-4">
+          <ListControls
+            search={buscaMaquina}
+            onSearchChange={setBuscaMaquina}
+            expanded={maquinasExpandida}
+            onExpandedChange={setMaquinasExpandida}
+            total={maquinasFiltradas.length}
+            visible={maquinasVisiveis.length}
+            label="Pesquisar máquinas"
+            placeholder="Código, nome, tipo ou status"
+          >
+            <div className="grid grid-cols-1 gap-3 sm:max-w-xs">
+              <Select
+                label="Filtro de status"
+                value={statusMaquinaFiltro}
+                onChange={(e) => setStatusMaquinaFiltro(e.target.value)}
+                options={STATUS_OPTS}
+                placeholder="todos"
+              />
+            </div>
+          </ListControls>
+        </div>
         <div className="divide-y divide-[var(--color-ink-100)] md:hidden">
-          {maquinas.map((m) => (
+          {maquinasVisiveis.map((m) => (
             <div key={m.id} className="p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -161,9 +209,9 @@ export default function MaquinasAdminPage() {
               </Button>
             </div>
           ))}
-          {maquinas.length === 0 && (
+          {maquinasFiltradas.length === 0 && (
             <div className="p-6 text-center text-sm font-semibold text-[var(--color-ink-600)]">
-              Nenhuma máquina cadastrada.
+              Nenhuma máquina encontrada neste filtro.
             </div>
           )}
         </div>
@@ -180,7 +228,7 @@ export default function MaquinasAdminPage() {
               </tr>
             </thead>
             <tbody>
-              {maquinas.map((m) => (
+              {maquinasVisiveis.map((m) => (
                 <tr key={m.id} className="border-t border-[var(--color-ink-100)]">
                   <td className="px-4 py-2">{m.nome}</td>
                   <td className="px-4 py-2">{m.tipo}</td>
@@ -213,8 +261,34 @@ export default function MaquinasAdminPage() {
         <div className="px-5 py-3 border-b border-[var(--color-ink-100)]">
           <h3 className="font-bold">Manutenções</h3>
         </div>
+        <div className="border-b border-[var(--color-ink-100)] p-4">
+          <ListControls
+            search={buscaManut}
+            onSearchChange={setBuscaManut}
+            expanded={manutsExpandida}
+            onExpandedChange={setManutsExpandida}
+            total={manutsFiltradas.length}
+            visible={manutsVisiveis.length}
+            label="Pesquisar manutenções"
+            placeholder="Máquina, identificador, descrição ou status"
+          >
+            <div className="grid grid-cols-1 gap-3 sm:max-w-xs">
+              <Select
+                label="Filtro de status"
+                value={statusManutFiltro}
+                onChange={(e) => setStatusManutFiltro(e.target.value)}
+                options={[
+                  { value: "aberto", label: "Aberto" },
+                  { value: "em_andamento", label: "Em andamento" },
+                  { value: "resolvido", label: "Resolvido" },
+                ]}
+                placeholder="todos"
+              />
+            </div>
+          </ListControls>
+        </div>
         <ul className="divide-y divide-[var(--color-ink-100)]">
-          {manuts.map((m) => (
+          {manutsVisiveis.map((m) => (
             <li key={m.id} className="flex flex-col gap-3 px-5 py-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <p className="text-sm font-bold">
@@ -243,9 +317,9 @@ export default function MaquinasAdminPage() {
               </div>
             </li>
           ))}
-          {manuts.length === 0 && (
+          {manutsFiltradas.length === 0 && (
             <li className="px-5 py-6 text-sm text-[var(--color-ink-500)] text-center">
-              Sem manutenções registradas.
+              Sem manutenções neste filtro.
             </li>
           )}
         </ul>

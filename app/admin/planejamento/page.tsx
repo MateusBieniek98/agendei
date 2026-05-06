@@ -6,6 +6,7 @@ import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import Badge from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
+import ListControls, { searchItems, visibleItems } from "@/components/ui/ListControls";
 import { useToast } from "@/components/ui/Toast";
 import { brl, ddmmyyyy, num } from "@/lib/format";
 import type { Atividade, Equipe, Planejamento, PlanningStatus, Projeto } from "@/lib/types";
@@ -90,6 +91,12 @@ export default function PlanejamentoAdminPage() {
   const [atividades, setAtividades] = useState<Atividade[]>([]);
   const [equipes, setEquipes] = useState<Equipe[]>([]);
   const [loading, setLoading] = useState(true);
+  const [busca, setBusca] = useState("");
+  const [listaExpandida, setListaExpandida] = useState(false);
+  const [statusFiltro, setStatusFiltro] = useState("");
+  const [projetoFiltro, setProjetoFiltro] = useState("");
+  const [atividadeFiltro, setAtividadeFiltro] = useState("");
+  const [equipeFiltro, setEquipeFiltro] = useState("");
   const [editing, setEditing] = useState<Partial<Planejamento>>({
     ano: now.getFullYear(),
     mes: now.getMonth() + 1,
@@ -197,6 +204,35 @@ export default function PlanejamentoAdminPage() {
     atividadeSelecionada
   );
   const faturamentoTotalPlanejado = items.reduce(
+    (total, item) =>
+      total +
+      (item.faturamento_planejado ??
+        faturamentoPlanejado(item.quantidade_prevista, item.atividades)),
+    0
+  );
+  const itemsFiltrados = useMemo(() => {
+    const base = items.filter((item) => {
+      if (statusFiltro && item.status !== statusFiltro) return false;
+      if (projetoFiltro && item.projeto_id !== projetoFiltro) return false;
+      if (atividadeFiltro && item.atividade_id !== atividadeFiltro) return false;
+      if (equipeFiltro && item.equipe_id !== equipeFiltro) return false;
+      return true;
+    });
+
+    return searchItems(base, busca, [
+      (item) => item.projetos?.nome,
+      (item) => item.atividades?.nome,
+      (item) => item.equipes?.nome,
+      (item) => item.talhao,
+      (item) => item.status,
+      (item) => item.observacoes,
+    ]);
+  }, [items, busca, statusFiltro, projetoFiltro, atividadeFiltro, equipeFiltro]);
+  const itemsVisiveis = useMemo(
+    () => visibleItems(itemsFiltrados, listaExpandida, 20),
+    [itemsFiltrados, listaExpandida]
+  );
+  const faturamentoFiltrado = itemsFiltrados.reduce(
     (total, item) =>
       total +
       (item.faturamento_planejado ??
@@ -321,16 +357,59 @@ export default function PlanejamentoAdminPage() {
       </Card>
 
       <Card>
+        <div className="border-b border-[var(--color-ink-100)] p-4">
+          <ListControls
+            search={busca}
+            onSearchChange={setBusca}
+            expanded={listaExpandida}
+            onExpandedChange={setListaExpandida}
+            total={itemsFiltrados.length}
+            visible={itemsVisiveis.length}
+            label="Pesquisar planejamento"
+            placeholder="Projeto, talhão, atividade, equipe ou observação"
+          >
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <Select
+                label="Status"
+                value={statusFiltro}
+                onChange={(e) => setStatusFiltro(e.target.value)}
+                options={STATUS_OPTS}
+                placeholder="todos"
+              />
+              <Select
+                label="Projeto"
+                value={projetoFiltro}
+                onChange={(e) => setProjetoFiltro(e.target.value)}
+                options={projetos.map((p) => ({ value: p.id, label: p.nome }))}
+                placeholder="todos"
+              />
+              <Select
+                label="Atividade"
+                value={atividadeFiltro}
+                onChange={(e) => setAtividadeFiltro(e.target.value)}
+                options={atividades.map((a) => ({ value: a.id, label: a.nome }))}
+                placeholder="todas"
+              />
+              <Select
+                label="Equipe"
+                value={equipeFiltro}
+                onChange={(e) => setEquipeFiltro(e.target.value)}
+                options={equipes.map((e) => ({ value: e.id, label: e.nome }))}
+                placeholder="todas"
+              />
+            </div>
+          </ListControls>
+        </div>
         <div className="flex flex-col gap-1 border-b border-[var(--color-ink-100)] px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm font-semibold">
-            {loading ? "Carregando…" : `${items.length} item${items.length === 1 ? "" : "s"}`}
+            {loading ? "Carregando…" : `${itemsFiltrados.length} item${itemsFiltrados.length === 1 ? "" : "s"}`}
           </p>
           <p className="text-sm font-bold text-[var(--color-gn-700)] tabular">
-            Total planejado: {brl(faturamentoTotalPlanejado)}
+            Total filtrado: {brl(faturamentoFiltrado)}
           </p>
         </div>
         <div className="divide-y divide-[var(--color-ink-100)]">
-          {items.map((item) => (
+          {itemsVisiveis.map((item) => (
             <div key={item.id} className="p-4 flex flex-col md:flex-row md:items-start justify-between gap-3">
               <div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -381,9 +460,9 @@ export default function PlanejamentoAdminPage() {
               </div>
             </div>
           ))}
-          {items.length === 0 && !loading && (
+          {itemsFiltrados.length === 0 && !loading && (
             <div className="p-6 text-center text-sm font-semibold text-[var(--color-ink-600)]">
-              Nenhum planejamento cadastrado.
+              Nenhum planejamento encontrado neste filtro.
             </div>
           )}
         </div>

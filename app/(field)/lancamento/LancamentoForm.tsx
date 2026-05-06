@@ -7,6 +7,7 @@ import Select from "@/components/ui/Select";
 import { Card } from "@/components/ui/Card";
 import { useToast } from "@/components/ui/Toast";
 import { brl, todayISO } from "@/lib/format";
+import { searchItems } from "@/components/ui/ListControls";
 import {
   INSUMOS_CATALOGO,
   insumoCatalogDisplay,
@@ -32,6 +33,8 @@ export default function LancamentoForm({
   const [equipeId, setEquipeId] = useState(equipes[0]?.id ?? "");
   const [atividadeId, setAtividadeId] = useState(atividades[0]?.id ?? "");
   const [projetoId, setProjetoId] = useState(projetos[0]?.id ?? "");
+  const [atividadeBusca, setAtividadeBusca] = useState("");
+  const [projetoBusca, setProjetoBusca] = useState("");
   const [talhao, setTalhao] = useState("");
   const [qtd, setQtd] = useState("");
   const [descarte, setDescarte] = useState("");
@@ -45,6 +48,28 @@ export default function LancamentoForm({
   );
   const valorEstimado =
     atividade && qtd ? Number(qtd) * Number(atividade.valor_unitario) : 0;
+  const atividadesFiltradas = useMemo(
+    () => searchItems(atividades, atividadeBusca, [(a) => a.nome, (a) => a.unidade]),
+    [atividades, atividadeBusca]
+  );
+  const projetosFiltrados = useMemo(
+    () => searchItems(projetos, projetoBusca, [(p) => p.nome]),
+    [projetos, projetoBusca]
+  );
+  const atividadeOptions = useMemo(() => {
+    const selected = atividadeId
+      ? atividades.find((a) => a.id === atividadeId)
+      : undefined;
+    return selected && !atividadesFiltradas.some((a) => a.id === selected.id)
+      ? [selected, ...atividadesFiltradas]
+      : atividadesFiltradas;
+  }, [atividadeId, atividades, atividadesFiltradas]);
+  const projetoOptions = useMemo(() => {
+    const selected = projetoId ? projetos.find((p) => p.id === projetoId) : undefined;
+    return selected && !projetosFiltrados.some((p) => p.id === selected.id)
+      ? [selected, ...projetosFiltrados]
+      : projetosFiltrados;
+  }, [projetoId, projetos, projetosFiltrados]);
 
   const insumosValidos = useMemo(
     () =>
@@ -163,22 +188,42 @@ export default function LancamentoForm({
         placeholder="Selecione…"
       />
 
+      <Input
+        label="Buscar atividade"
+        type="search"
+        value={atividadeBusca}
+        onChange={(e) => setAtividadeBusca(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") e.preventDefault();
+        }}
+        placeholder="Digite parte do serviço"
+      />
       <Select
         label="Atividade"
         value={atividadeId}
         onChange={(e) => setAtividadeId(e.target.value)}
-        options={atividades.map((a) => ({
+        options={atividadeOptions.map((a) => ({
           value: a.id,
           label: `${a.nome} · ${brl(a.valor_unitario)}/${a.unidade}`,
         }))}
         placeholder="Selecione…"
       />
 
+      <Input
+        label="Buscar projeto"
+        type="search"
+        value={projetoBusca}
+        onChange={(e) => setProjetoBusca(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") e.preventDefault();
+        }}
+        placeholder="Digite parte da fazenda/projeto"
+      />
       <Select
         label="Projeto"
         value={projetoId}
         onChange={(e) => setProjetoId(e.target.value)}
-        options={projetos.map((p) => ({ value: p.id, label: p.nome }))}
+        options={projetoOptions.map((p) => ({ value: p.id, label: p.nome }))}
         placeholder="Selecione…"
       />
 

@@ -5,6 +5,7 @@ import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import { Card } from "@/components/ui/Card";
+import ListControls, { searchItems, visibleItems } from "@/components/ui/ListControls";
 import Badge from "@/components/ui/Badge";
 import { useToast } from "@/components/ui/Toast";
 import type { Equipe, Profile, UserRole } from "@/lib/types";
@@ -42,6 +43,10 @@ export default function UsuariosPage() {
   const [enviando, setEnviando] = useState(false);
   const [resetando, setResetando] = useState<ProfileWithEquipe | null>(null);
   const [novaSenha, setNovaSenha] = useState("");
+  const [busca, setBusca] = useState("");
+  const [roleFiltro, setRoleFiltro] = useState("");
+  const [statusFiltro, setStatusFiltro] = useState("");
+  const [expandida, setExpandida] = useState(false);
 
   async function carregar() {
     try {
@@ -137,6 +142,18 @@ export default function UsuariosPage() {
     }
   }
 
+  const filtrados = searchItems(
+    items.filter((u) => {
+      if (roleFiltro && u.role !== roleFiltro) return false;
+      if (statusFiltro === "ativos" && !u.ativo) return false;
+      if (statusFiltro === "inativos" && u.ativo) return false;
+      return true;
+    }),
+    busca,
+    [(u) => u.nome, (u) => u.email, (u) => u.role, (u) => u.equipes?.nome]
+  );
+  const visiveis = visibleItems(filtrados, expandida, 20);
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -153,8 +170,42 @@ export default function UsuariosPage() {
       </div>
 
       <Card>
+        <div className="border-b border-[var(--color-ink-100)] p-4">
+          <ListControls
+            search={busca}
+            onSearchChange={setBusca}
+            expanded={expandida}
+            onExpandedChange={setExpandida}
+            total={filtrados.length}
+            visible={visiveis.length}
+            label="Pesquisar usuários"
+            placeholder="Nome, e-mail, papel ou equipe"
+          >
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Select
+                label="Papel"
+                value={roleFiltro}
+                onChange={(e) => setRoleFiltro(e.target.value)}
+                options={ROLES}
+                placeholder="todos"
+              />
+              <label className="text-sm font-bold text-[var(--color-ink-900)]">
+                Status
+                <select
+                  value={statusFiltro}
+                  onChange={(e) => setStatusFiltro(e.target.value)}
+                  className="mt-1 h-12 w-full rounded-xl border-2 border-[var(--color-ink-300)] bg-white px-3 text-base font-bold text-[var(--color-ink-900)] shadow-sm"
+                >
+                  <option value="">todos</option>
+                  <option value="ativos">ativos</option>
+                  <option value="inativos">inativos</option>
+                </select>
+              </label>
+            </div>
+          </ListControls>
+        </div>
         <div className="divide-y divide-[var(--color-ink-100)] md:hidden">
-          {items.map((u) => (
+          {visiveis.map((u) => (
             <div key={u.id} className="p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -222,9 +273,9 @@ export default function UsuariosPage() {
               </div>
             </div>
           ))}
-          {items.length === 0 && (
+          {filtrados.length === 0 && (
             <div className="p-6 text-center text-sm font-semibold text-[var(--color-ink-600)]">
-              Sem usuários cadastrados ainda.
+              Nenhum usuário encontrado neste filtro.
             </div>
           )}
         </div>
@@ -242,7 +293,7 @@ export default function UsuariosPage() {
               </tr>
             </thead>
             <tbody>
-              {items.map((u) => (
+              {visiveis.map((u) => (
                 <tr key={u.id} className="border-t border-[var(--color-ink-100)]">
                   <td className="px-4 py-2">{u.nome}</td>
                   <td className="px-4 py-2 text-[var(--color-ink-700)]">{u.email}</td>
@@ -299,10 +350,10 @@ export default function UsuariosPage() {
                   </td>
                 </tr>
               ))}
-              {items.length === 0 && (
+              {filtrados.length === 0 && (
                 <tr>
                   <td colSpan={6} className="px-4 py-6 text-center text-[var(--color-ink-500)]">
-                    Sem usuários cadastrados ainda.
+                    Nenhum usuário encontrado neste filtro.
                   </td>
                 </tr>
               )}

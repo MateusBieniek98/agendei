@@ -5,6 +5,7 @@ import Button from "@/components/ui/Button";
 import Select from "@/components/ui/Select";
 import Input from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
+import ListControls, { searchItems, visibleItems } from "@/components/ui/ListControls";
 import { useToast } from "@/components/ui/Toast";
 import { brl, ddmmyyyy, num } from "@/lib/format";
 import type { Atividade, Equipe, Projeto } from "@/lib/types";
@@ -44,6 +45,8 @@ export default function LancamentosTable({
   const [talhao, setTalhao] = useState("");
   const [de, setDe] = useState("");
   const [ate, setAte] = useState("");
+  const [busca, setBusca] = useState("");
+  const [expandida, setExpandida] = useState(false);
   const [editing, setEditing] = useState<Linha | null>(null);
 
   async function carregar() {
@@ -73,13 +76,30 @@ export default function LancamentosTable({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const itemsFiltrados = useMemo(
+    () =>
+      searchItems(items, busca, [
+        (l) => l.equipes?.nome,
+        (l) => l.atividades?.nome,
+        (l) => l.projetos?.nome,
+        (l) => l.talhao,
+        (l) => l.data,
+        (l) => l.observacoes,
+        (l) => l.insumos?.map((i) => i.nome).join(" "),
+      ]),
+    [items, busca]
+  );
+  const itemsVisiveis = useMemo(
+    () => visibleItems(itemsFiltrados, expandida, 20),
+    [itemsFiltrados, expandida]
+  );
   const total = useMemo(
     () =>
-      items.reduce(
+      itemsFiltrados.reduce(
         (s, l) => s + Number(l.quantidade) * Number(l.valor_unitario_snapshot),
         0
       ),
-    [items]
+    [itemsFiltrados]
   );
 
   async function salvarEdit() {
@@ -155,9 +175,21 @@ export default function LancamentosTable({
       </Card>
 
       <Card>
+        <div className="border-b border-[var(--color-ink-100)] p-4">
+          <ListControls
+            search={busca}
+            onSearchChange={setBusca}
+            expanded={expandida}
+            onExpandedChange={setExpandida}
+            total={itemsFiltrados.length}
+            visible={itemsVisiveis.length}
+            label="Pesquisar resultados"
+            placeholder="Projeto, talhão, atividade, equipe, insumo ou observação"
+          />
+        </div>
         <div className="flex flex-col gap-1 border-b border-[var(--color-ink-100)] px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm font-semibold">
-            <strong>{items.length}</strong> lançamento{items.length === 1 ? "" : "s"}
+            <strong>{itemsFiltrados.length}</strong> lançamento{itemsFiltrados.length === 1 ? "" : "s"}
           </p>
           <p className="text-sm font-semibold">
             Total: <strong className="tabular">{brl(total)}</strong>
@@ -165,7 +197,7 @@ export default function LancamentosTable({
         </div>
 
         <div className="divide-y divide-[var(--color-ink-100)] md:hidden">
-          {items.map((l) => (
+          {itemsVisiveis.map((l) => (
             <div key={l.id} className="p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -230,7 +262,7 @@ export default function LancamentosTable({
               </div>
             </div>
           ))}
-          {items.length === 0 && !loading && (
+          {itemsFiltrados.length === 0 && !loading && (
             <div className="p-6 text-center text-sm font-semibold text-[var(--color-ink-600)]">
               Nenhum lançamento encontrado.
             </div>
@@ -253,7 +285,7 @@ export default function LancamentosTable({
               </tr>
             </thead>
             <tbody>
-              {items.map((l) => (
+              {itemsVisiveis.map((l) => (
                 <tr key={l.id} className="border-t border-[var(--color-ink-100)]">
                   <td className="px-4 py-2 whitespace-nowrap">{ddmmyyyy(l.data)}</td>
                   <td className="px-4 py-2">{l.equipes?.nome}</td>
@@ -304,7 +336,7 @@ export default function LancamentosTable({
                   </td>
                 </tr>
               ))}
-              {items.length === 0 && !loading && (
+              {itemsFiltrados.length === 0 && !loading && (
                 <tr>
                   <td colSpan={9} className="px-4 py-6 text-center text-[var(--color-ink-500)]">
                     Nenhum lançamento encontrado.
