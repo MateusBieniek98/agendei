@@ -9,6 +9,10 @@ import { useToast } from "@/components/ui/Toast";
 import { brl, todayISO } from "@/lib/format";
 import type { Atividade, Equipe, Projeto } from "@/lib/types";
 
+function emptyInsumos() {
+  return Array.from({ length: 5 }, () => ({ nome: "", quantidade: "" }));
+}
+
 export default function LancamentoForm({
   equipes,
   atividades,
@@ -25,6 +29,8 @@ export default function LancamentoForm({
   const [projetoId, setProjetoId] = useState(projetos[0]?.id ?? "");
   const [talhao, setTalhao] = useState("");
   const [qtd, setQtd] = useState("");
+  const [descarte, setDescarte] = useState("");
+  const [insumos, setInsumos] = useState(emptyInsumos);
   const [obs, setObs] = useState("");
   const [enviando, setEnviando] = useState(false);
 
@@ -35,6 +41,40 @@ export default function LancamentoForm({
   const valorEstimado =
     atividade && qtd ? Number(qtd) * Number(atividade.valor_unitario) : 0;
 
+  const insumosValidos = useMemo(
+    () =>
+      insumos
+        .map((insumo) => ({
+          nome: insumo.nome.trim(),
+          quantidade: Number(insumo.quantidade),
+        }))
+        .filter(
+          (insumo) =>
+            insumo.nome &&
+            Number.isFinite(insumo.quantidade) &&
+            insumo.quantidade > 0
+        ),
+    [insumos]
+  );
+
+  function alterarInsumo(
+    index: number,
+    campo: "nome" | "quantidade",
+    valor: string
+  ) {
+    setInsumos((atuais) =>
+      atuais.map((insumo, i) => (i === index ? { ...insumo, [campo]: valor } : insumo))
+    );
+  }
+
+  function limparFormulario() {
+    setQtd("");
+    setTalhao("");
+    setDescarte("");
+    setInsumos(emptyInsumos());
+    setObs("");
+  }
+
   async function salvar(e: React.FormEvent) {
     e.preventDefault();
     if (!equipeId || !atividadeId || !projetoId || !talhao.trim() || !qtd || Number(qtd) <= 0) {
@@ -42,6 +82,7 @@ export default function LancamentoForm({
       return;
     }
     setEnviando(true);
+    const descarteValue = descarte === "" ? null : Number(descarte);
     try {
       const r = await fetch("/api/producao", {
         method: "POST",
@@ -53,6 +94,8 @@ export default function LancamentoForm({
           projeto_id: projetoId,
           talhao: talhao.trim(),
           quantidade: Number(qtd),
+          descarte: descarteValue,
+          insumos: insumosValidos,
           observacoes: obs || null,
         }),
       });
@@ -61,9 +104,7 @@ export default function LancamentoForm({
         throw new Error(j.error ?? "Falha ao salvar");
       }
       toast("Produção registrada!", "success");
-      setQtd("");
-      setTalhao("");
-      setObs("");
+      limparFormulario();
     } catch (err) {
       // fallback offline: guarda no localStorage para reenvio depois
       try {
@@ -75,14 +116,14 @@ export default function LancamentoForm({
           projeto_id: projetoId,
           talhao: talhao.trim(),
           quantidade: Number(qtd),
+          descarte: descarteValue,
+          insumos: insumosValidos,
           observacoes: obs || null,
           ts: Date.now(),
         });
         localStorage.setItem("gn:pendentes", JSON.stringify(pend));
         toast("Sem conexão — salvo offline. Reenviaremos depois.", "info");
-        setQtd("");
-        setTalhao("");
-        setObs("");
+        limparFormulario();
       } catch {
         toast(`Erro: ${(err as Error).message}`, "error");
       }
@@ -144,6 +185,51 @@ export default function LancamentoForm({
         onChange={(e) => setQtd(e.target.value)}
         placeholder="Ex.: 3.5"
       />
+
+      <Card className="p-4 space-y-4">
+        <div>
+          <h3 className="text-base font-bold text-[var(--color-ink-900)]">
+            Insumos utilizados
+          </h3>
+          <p className="mt-1 text-sm font-semibold text-[var(--color-ink-600)]">
+            Opcional. Essa informação fica operacional e não aparece para o gestor.
+          </p>
+        </div>
+
+        <div className="space-y-3">
+          {insumos.map((insumo, index) => (
+            <div key={index} className="grid grid-cols-[1fr_7rem] gap-3">
+              <Input
+                label={`Insumo ${index + 1}`}
+                value={insumo.nome}
+                onChange={(e) => alterarInsumo(index, "nome", e.target.value)}
+                placeholder="Ex.: GEL"
+              />
+              <Input
+                label="Qtd"
+                type="number"
+                inputMode="decimal"
+                step="0.01"
+                min="0"
+                value={insumo.quantidade}
+                onChange={(e) => alterarInsumo(index, "quantidade", e.target.value)}
+                placeholder="0"
+              />
+            </div>
+          ))}
+        </div>
+
+        <Input
+          label="Descarte (opcional)"
+          type="number"
+          inputMode="decimal"
+          step="0.01"
+          min="0"
+          value={descarte}
+          onChange={(e) => setDescarte(e.target.value)}
+          placeholder="Quantidade descartada"
+        />
+      </Card>
 
       <Input
         label="Observações (opcional)"

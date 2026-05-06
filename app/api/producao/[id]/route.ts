@@ -3,6 +3,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
+import { optionalNumber, sanitizeInsumos } from "@/lib/insumos";
 import { syncPlanningProgressForProduction } from "@/lib/planning-progress";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -33,6 +34,8 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   ]) {
     if (body[k] !== undefined) allowed[k] = body[k];
   }
+  if (body.insumos !== undefined) allowed.insumos = sanitizeInsumos(body.insumos);
+  if (body.descarte !== undefined) allowed.descarte = optionalNumber(body.descarte);
   allowed.editado_por = profile.id;
 
   const { data, error } = await supabase

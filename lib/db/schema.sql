@@ -80,6 +80,8 @@ create table if not exists public.producao (
   projeto_id    uuid references public.projetos(id),
   talhao        text,
   quantidade    numeric(12,3) not null check (quantidade > 0),
+  insumos       jsonb not null default '[]'::jsonb,
+  descarte      numeric(12,3),
   observacoes   text,
   -- snapshot do valor unitário no momento do lançamento (auditoria)
   valor_unitario_snapshot numeric(12,4) not null,
@@ -90,7 +92,9 @@ create table if not exists public.producao (
 );
 alter table public.producao
   add column if not exists projeto_id uuid references public.projetos(id),
-  add column if not exists talhao text;
+  add column if not exists talhao text,
+  add column if not exists insumos jsonb not null default '[]'::jsonb,
+  add column if not exists descarte numeric(12,3);
 create index if not exists idx_producao_data on public.producao(data);
 create index if not exists idx_producao_equipe on public.producao(equipe_id);
 create index if not exists idx_producao_atividade on public.producao(atividade_id);

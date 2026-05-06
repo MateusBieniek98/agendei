@@ -17,6 +17,8 @@ type Linha = {
   projeto_id: string | null;
   talhao: string | null;
   quantidade: number;
+  descarte: number | null;
+  insumos: { nome: string; quantidade: number }[] | null;
   observacoes: string | null;
   valor_unitario_snapshot: number;
   equipes: { nome: string } | null;
@@ -188,7 +190,23 @@ export default function LancamentosTable({
                     <p className="text-xs text-[var(--color-ink-500)]">{l.talhao ?? "—"}</p>
                   </td>
                   <td className="px-4 py-2 max-w-xs whitespace-pre-line text-xs text-[var(--color-ink-500)]">
-                    {l.observacoes ?? "—"}
+                    {l.insumos && l.insumos.length > 0 ? (
+                      <div className="font-semibold text-[var(--color-ink-700)]">
+                        {l.insumos
+                          .map((i) => `${i.nome} (${num(i.quantidade)})`)
+                          .join(", ")}
+                      </div>
+                    ) : null}
+                    {l.descarte !== null ? (
+                      <div className="mt-1 font-semibold text-[var(--color-ink-700)]">
+                        Descarte: {num(l.descarte)}
+                      </div>
+                    ) : null}
+                    {l.observacoes ? (
+                      <div className="mt-1">{l.observacoes}</div>
+                    ) : !l.insumos?.length && l.descarte === null ? (
+                      "—"
+                    ) : null}
                   </td>
                   <td className="px-4 py-2 text-right tabular">
                     {num(l.quantidade)} {l.atividades?.unidade}

@@ -6,13 +6,14 @@ Estrutura preparada para conectar GN a sistemas externos.
 
 Há duas estratégias suportadas:
 
-1. **Pull (relatório auto-atualizado)** — no Google Sheets, use
-   `IMPORTDATA("https://SEU_DOMINIO/api/export/csv?escopo=mes")` ou
-   `IMPORTHTML/IMPORTRANGE` apontando para um endpoint público.
-   Limitação: apenas dados de leitura, e o usuário precisa estar logado
-   ou o endpoint precisa estar protegido por token (ver `lib/integrations/google-sheets.ts`).
-2. **Push (Apps Script chamando API)** — no Apps Script, fetch para
-   `/api/producao` com Authorization Bearer do Supabase.
+1. **Pull simples (relatório auto-atualizado)** — no Google Sheets, use
+   `IMPORTDATA("https://SEU_DOMINIO/api/export/csv?escopo=mes")` para
+   consumir uma exportação CSV autenticada pela sessão do app.
+2. **Sincronização automática recomendada** — cole o script
+   `docs/google-sheets-apontamentos-sync.js` no Apps Script da planilha
+   **Controle de Produção GN**. Ele chama
+   `/api/sync/google-sheets/apontamentos`, valida `GOOGLE_SHEETS_SYNC_TOKEN`
+   e atualiza a aba `Apontamentos App` com apontamentos, insumos e descarte.
 
 ## Power BI
 

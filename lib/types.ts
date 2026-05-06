@@ -50,6 +50,8 @@ export type Producao = {
   projeto_id: string | null;
   talhao: string | null;
   quantidade: number;
+  insumos: { nome: string; quantidade: number }[];
+  descarte: number | null;
   observacoes: string | null;
   valor_unitario_snapshot: number;
   registrado_por: string;

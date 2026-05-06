@@ -154,6 +154,14 @@ Visível só pelo papel admin.
 
 - `GET /api/export/xlsx?escopo=mes|semana|hoje&data_de=&data_ate=`
 - `GET /api/export/csv?...`  (formato amigável a Power BI / Sheets)
+- `GET /api/sync/google-sheets/apontamentos?escopo=tudo` retorna JSON
+  protegido por `GOOGLE_SHEETS_SYNC_TOKEN` para alimentar a planilha
+  **Controle de Produção GN** por Apps Script.
+
+Os apontamentos incluem projeto, talhão, atividade, equipe, produção,
+tarifa, faturamento, até 5 insumos utilizados, descarte e observações.
+Insumos são operacionais: aparecem para encarregado/admin/exportação,
+mas não entram na tela do gestor.
 
 Os adapters de integração ficam em `lib/integrations/`.
 
@@ -163,8 +171,13 @@ Os adapters de integração ficam em `lib/integrations/`.
 vercel --prod
 ```
 
-No painel Vercel, configure as 3 variáveis de ambiente do `.env.local`.
+No painel Vercel, configure as variáveis de ambiente do `.env.local`.
 Aponte o domínio na DNS da GN.
+
+Para a sincronização automática com Google Sheets, configure também:
+
+- `SUPABASE_SERVICE_ROLE_KEY` — chave service role do projeto Supabase.
+- `GOOGLE_SHEETS_SYNC_TOKEN` — token secreto compartilhado com o Apps Script.
 
 ## Licença
 

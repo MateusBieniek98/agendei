@@ -9,6 +9,8 @@ type Linha = {
   id: string;
   data: string;
   quantidade: number;
+  descarte: number | null;
+  insumos: { nome: string; quantidade: number }[] | null;
   observacoes: string | null;
   valor_unitario_snapshot: number;
   equipes: { nome: string } | null;
@@ -23,7 +25,7 @@ export default async function HistoricoPage() {
   const { data } = await supabase
     .from("producao")
     .select(
-      "id, data, quantidade, observacoes, valor_unitario_snapshot, " +
+      "id, data, quantidade, descarte, insumos, observacoes, valor_unitario_snapshot, " +
         "equipes(nome), atividades(nome, unidade)"
     )
     .eq("registrado_por", profile!.id)
@@ -79,6 +81,19 @@ export default async function HistoricoPage() {
                 {" · "}
                 {brl(l.valor_unitario_snapshot)}/{l.atividades?.unidade}
               </div>
+              {l.insumos && l.insumos.length > 0 && (
+                <div className="mt-2 text-xs font-semibold text-[var(--color-ink-600)]">
+                  Insumos:{" "}
+                  {l.insumos
+                    .map((i) => `${i.nome} (${num(i.quantidade)})`)
+                    .join(", ")}
+                </div>
+              )}
+              {l.descarte !== null && (
+                <p className="mt-1 text-xs font-semibold text-[var(--color-ink-600)]">
+                  Descarte: {num(l.descarte)}
+                </p>
+              )}
               {l.observacoes && (
                 <p className="mt-2 text-xs italic text-[var(--color-ink-500)]">
                   “{l.observacoes}”

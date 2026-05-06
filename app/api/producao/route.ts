@@ -3,6 +3,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
+import { optionalNumber, sanitizeInsumos } from "@/lib/insumos";
 import { syncPlanningProgressForProduction } from "@/lib/planning-progress";
 
 export async function GET(req: NextRequest) {
@@ -16,7 +17,7 @@ export async function GET(req: NextRequest) {
     .from("producao")
     .select(
       "id, data, equipe_id, atividade_id, quantidade, observacoes, " +
-        "projeto_id, talhao, valor_unitario_snapshot, registrado_por, created_at, " +
+        "projeto_id, talhao, insumos, descarte, valor_unitario_snapshot, registrado_por, created_at, " +
         "equipes(nome), atividades(nome, unidade), projetos(nome)"
     )
     .order("data", { ascending: false })
@@ -53,6 +54,8 @@ export async function POST(req: NextRequest) {
     projeto_id,
     talhao,
     quantidade,
+    insumos,
+    descarte,
     observacoes,
   } = body;
 
@@ -81,6 +84,8 @@ export async function POST(req: NextRequest) {
       projeto_id,
       talhao: String(talhao).trim(),
       quantidade,
+      insumos: sanitizeInsumos(insumos),
+      descarte: optionalNumber(descarte),
       observacoes: observacoes ?? null,
       valor_unitario_snapshot: ativ.valor_unitario,
       registrado_por: profile.id,

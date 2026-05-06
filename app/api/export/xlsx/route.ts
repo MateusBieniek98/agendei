@@ -4,6 +4,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
+import { insumosToColumns } from "@/lib/insumos";
 import ExcelJS from "exceljs";
 
 export async function GET(req: NextRequest) {
@@ -29,7 +30,7 @@ export async function GET(req: NextRequest) {
   let q = supabase
     .from("producao")
     .select(
-      "data, quantidade, talhao, valor_unitario_snapshot, observacoes, " +
+      "data, quantidade, talhao, descarte, insumos, valor_unitario_snapshot, observacoes, " +
         "equipes(nome), atividades(nome, unidade), projetos(nome)"
     )
     .order("data", { ascending: true });
@@ -49,6 +50,17 @@ export async function GET(req: NextRequest) {
     { header: "Talhão", key: "talhao", width: 12 },
     { header: "Quantidade", key: "qtd", width: 14 },
     { header: "Unidade", key: "unidade", width: 12 },
+    { header: "Descarte", key: "descarte", width: 12 },
+    { header: "Insumo 1", key: "insumo1", width: 28 },
+    { header: "QTD 1", key: "qtdInsumo1", width: 12 },
+    { header: "Insumo 2", key: "insumo2", width: 28 },
+    { header: "QTD 2", key: "qtdInsumo2", width: 12 },
+    { header: "Insumo 3", key: "insumo3", width: 28 },
+    { header: "QTD 3", key: "qtdInsumo3", width: 12 },
+    { header: "Insumo 4", key: "insumo4", width: 28 },
+    { header: "QTD 4", key: "qtdInsumo4", width: 12 },
+    { header: "Insumo 5", key: "insumo5", width: 28 },
+    { header: "QTD 5", key: "qtdInsumo5", width: 12 },
     { header: "Valor unitário", key: "valor", width: 16 },
     { header: "Total", key: "total", width: 16 },
     { header: "Observações", key: "obs", width: 40 },
@@ -66,6 +78,8 @@ export async function GET(req: NextRequest) {
     quantidade: number;
     valor_unitario_snapshot: number;
     talhao: string | null;
+    descarte: number | null;
+    insumos: unknown;
     observacoes: string | null;
     equipes: { nome: string } | null;
     atividades: { nome: string; unidade: string } | null;
@@ -74,6 +88,7 @@ export async function GET(req: NextRequest) {
 
   for (const row of (data ?? []) as unknown as Row[]) {
     const total = Number(row.quantidade) * Number(row.valor_unitario_snapshot);
+    const insumos = insumosToColumns(row.insumos);
     ws.addRow({
       data: row.data,
       equipe: row.equipes?.nome,
@@ -82,6 +97,17 @@ export async function GET(req: NextRequest) {
       talhao: row.talhao,
       qtd: Number(row.quantidade),
       unidade: row.atividades?.unidade,
+      descarte: row.descarte === null ? null : Number(row.descarte),
+      insumo1: insumos[0]?.nome,
+      qtdInsumo1: insumos[0]?.quantidade,
+      insumo2: insumos[1]?.nome,
+      qtdInsumo2: insumos[1]?.quantidade,
+      insumo3: insumos[2]?.nome,
+      qtdInsumo3: insumos[2]?.quantidade,
+      insumo4: insumos[3]?.nome,
+      qtdInsumo4: insumos[3]?.quantidade,
+      insumo5: insumos[4]?.nome,
+      qtdInsumo5: insumos[4]?.quantidade,
       valor: Number(row.valor_unitario_snapshot),
       total,
       obs: row.observacoes,
@@ -90,6 +116,16 @@ export async function GET(req: NextRequest) {
   ws.getColumn("valor").numFmt = "R$ #,##0.00";
   ws.getColumn("total").numFmt = "R$ #,##0.00";
   ws.getColumn("qtd").numFmt = "0.00";
+  ws.getColumn("descarte").numFmt = "0.00";
+  for (const key of [
+    "qtdInsumo1",
+    "qtdInsumo2",
+    "qtdInsumo3",
+    "qtdInsumo4",
+    "qtdInsumo5",
+  ]) {
+    ws.getColumn(key).numFmt = "0.00";
+  }
 
   const buf = await wb.xlsx.writeBuffer();
   return new NextResponse(buf as ArrayBuffer, {

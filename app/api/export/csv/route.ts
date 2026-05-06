@@ -2,6 +2,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
+import { insumosToColumns } from "@/lib/insumos";
 
 function csvEscape(v: unknown): string {
   if (v === null || v === undefined) return "";
@@ -28,7 +29,8 @@ export async function GET(req: NextRequest) {
   let q = supabase
     .from("producao")
     .select(
-      "data, quantidade, projeto_id, talhao, valor_unitario_snapshot, observacoes, " +
+      "data, quantidade, projeto_id, talhao, descarte, insumos, " +
+        "valor_unitario_snapshot, observacoes, " +
         "equipes(nome), atividades(nome, unidade), projetos(nome)"
     )
     .order("data", { ascending: true });
@@ -42,6 +44,8 @@ export async function GET(req: NextRequest) {
     quantidade: number;
     valor_unitario_snapshot: number;
     talhao: string | null;
+    descarte: number | null;
+    insumos: unknown;
     observacoes: string | null;
     equipes: { nome: string } | null;
     atividades: { nome: string; unidade: string } | null;
@@ -49,19 +53,52 @@ export async function GET(req: NextRequest) {
   };
 
   const headers = [
-    "data", "equipe", "atividade", "projeto", "talhao", "quantidade",
-    "unidade", "valor_unitario", "total", "observacoes",
+    "data",
+    "equipe",
+    "atividade",
+    "projeto",
+    "talhao",
+    "quantidade",
+    "unidade",
+    "descarte",
+    "insumo_1",
+    "qtd_insumo_1",
+    "insumo_2",
+    "qtd_insumo_2",
+    "insumo_3",
+    "qtd_insumo_3",
+    "insumo_4",
+    "qtd_insumo_4",
+    "insumo_5",
+    "qtd_insumo_5",
+    "valor_unitario",
+    "total",
+    "observacoes",
   ];
   const lines = [headers.join(",")];
   for (const r of (data ?? []) as unknown as Row[]) {
     const total = Number(r.quantidade) * Number(r.valor_unitario_snapshot);
-    lines.push([
-      r.data, r.equipes?.nome ?? "", r.atividades?.nome ?? "",
-      r.projetos?.nome ?? "", r.talhao ?? "",
-      r.quantidade, r.atividades?.unidade ?? "",
-      r.valor_unitario_snapshot, total.toFixed(2),
-      r.observacoes ?? "",
-    ].map(csvEscape).join(","));
+    const insumos = insumosToColumns(r.insumos);
+    lines.push(
+      [
+        r.data,
+        r.equipes?.nome ?? "",
+        r.atividades?.nome ?? "",
+        r.projetos?.nome ?? "",
+        r.talhao ?? "",
+        r.quantidade,
+        r.atividades?.unidade ?? "",
+        r.descarte ?? "",
+        ...insumos.flatMap((insumo) =>
+          insumo ? [insumo.nome, insumo.quantidade] : ["", ""]
+        ),
+        r.valor_unitario_snapshot,
+        total.toFixed(2),
+        r.observacoes ?? "",
+      ]
+        .map(csvEscape)
+        .join(",")
+    );
   }
   return new NextResponse(lines.join("\n"), {
     headers: {
