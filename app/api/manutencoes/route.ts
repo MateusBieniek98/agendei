@@ -2,6 +2,12 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
 
+const MACHINE_STATUSES = ["operando", "parada", "manutencao_urgente"] as const;
+
+function isMachineStatus(value: unknown): value is (typeof MACHINE_STATUSES)[number] {
+  return typeof value === "string" && MACHINE_STATUSES.includes(value as never);
+}
+
 export async function GET(req: NextRequest) {
   const profile = await getCurrentProfile();
   if (!profile) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
@@ -27,6 +33,9 @@ export async function POST(req: NextRequest) {
   if (!maquina_id || !descricao) {
     return NextResponse.json({ error: "campos obrigatórios" }, { status: 400 });
   }
+  if (status_maquina && !isMachineStatus(status_maquina)) {
+    return NextResponse.json({ error: "status de máquina inválido" }, { status: 400 });
+  }
 
   const supabase = await createSupabaseServer();
   const { data, error } = await supabase
@@ -40,11 +49,14 @@ export async function POST(req: NextRequest) {
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
-  // se o encarregado indicou status "parada" ou "manutenção", atualiza máquina.
-  // somente admin pode alterar via RLS — então o encarregado abre a manutenção
-  // e o admin altera o status na revisão. Pulamos a atualização se não for admin.
-  if (profile.role === "admin" && status_maquina) {
-    await supabase.from("maquinas").update({ status: status_maquina }).eq("id", maquina_id);
+  if (status_maquina) {
+    const { error: statusError } = await supabase.rpc("set_machine_status", {
+      p_maquina_id: maquina_id,
+      p_status: status_maquina,
+    });
+    if (statusError) {
+      return NextResponse.json({ error: statusError.message }, { status: 400 });
+    }
   }
 
   return NextResponse.json({ item: data }, { status: 201 });

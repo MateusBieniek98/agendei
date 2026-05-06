@@ -6,6 +6,7 @@ import Badge from "@/components/ui/Badge";
 import { brl, ddmmyyyy } from "@/lib/format";
 import { LinhaChart } from "./GestorCharts";
 import PeriodoFiltro, { type PeriodoState } from "@/components/dashboard/PeriodoFiltro";
+import type { MachineStatus } from "@/lib/types";
 
 type Manut = {
   id: string;
@@ -49,9 +50,24 @@ type DashboardData = {
   manutencoesAbertas: Manut[];
 };
 
+type MaquinaItem = {
+  id: string;
+  nome: string;
+  tipo: string;
+  identificador: string | null;
+  status: MachineStatus;
+};
+
+const STATUS_OPTS: { value: MachineStatus; label: string }[] = [
+  { value: "operando", label: "Operando" },
+  { value: "parada", label: "Parada" },
+  { value: "manutencao_urgente", label: "Manutenção urgente" },
+];
+
 export default function GestorDashboard() {
   const [periodo, setPeriodo] = useState<PeriodoState>({ preset: "ciclo_atual" });
   const [data, setData] = useState<DashboardData | null>(null);
+  const [maquinas, setMaquinas] = useState<MaquinaItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
 
@@ -65,17 +81,38 @@ export default function GestorDashboard() {
         sp.set("de", periodo.de);
         sp.set("ate", periodo.ate);
       }
-      const r = await fetch(`/api/dashboard?${sp.toString()}`);
+      const [r, mr] = await Promise.all([
+        fetch(`/api/dashboard?${sp.toString()}`),
+        fetch("/api/maquinas"),
+      ]);
       const j = (await r.json()) as DashboardData & { error?: string };
+      const mj = (await mr.json()) as { items?: MaquinaItem[]; error?: string };
       if (!r.ok || j.error) throw new Error(j.error ?? r.statusText);
+      if (!mr.ok || mj.error) throw new Error(mj.error ?? mr.statusText);
       if (!j.periodo) throw new Error("resposta inválida do dashboard");
       setData(j);
+      setMaquinas(Array.isArray(mj.items) ? mj.items : []);
     } catch (err) {
       setData(null);
+      setMaquinas([]);
       setErro((err as Error).message);
     } finally {
       setLoading(false);
     }
+  }
+
+  async function alterarStatusMaquina(id: string, status: MachineStatus) {
+    const r = await fetch(`/api/maquinas/${id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      setErro(`Erro ao alterar status da máquina: ${j.error ?? r.statusText}`);
+      return;
+    }
+    await carregar();
   }
 
   useEffect(() => {
@@ -198,6 +235,39 @@ export default function GestorDashboard() {
           <p className="text-xs text-[var(--color-ink-500)] mt-3">
             Total ativo: {totalFrota} máquinas.
           </p>
+          <div className="mt-4 max-h-72 space-y-2 overflow-y-auto pr-1">
+            {maquinas.map((m) => (
+              <div
+                key={m.id}
+                className="rounded-xl border border-[var(--color-ink-100)] bg-white p-3"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-bold text-[var(--color-ink-900)]">
+                      {m.nome}
+                    </p>
+                    <p className="text-xs font-semibold text-[var(--color-ink-500)]">
+                      {m.tipo}
+                      {m.identificador ? ` · ${m.identificador}` : ""}
+                    </p>
+                  </div>
+                  <select
+                    value={m.status}
+                    onChange={(e) =>
+                      alterarStatusMaquina(m.id, e.target.value as MachineStatus)
+                    }
+                    className="h-10 min-w-36 rounded-lg border-2 border-[var(--color-ink-300)] bg-white px-2 text-xs font-bold text-[var(--color-ink-900)] shadow-sm"
+                  >
+                    {STATUS_OPTS.map((s) => (
+                      <option key={s.value} value={s.value}>
+                        {s.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            ))}
+          </div>
         </Card>
 
         <Card className="p-5">
