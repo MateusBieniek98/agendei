@@ -88,6 +88,9 @@ export type Maquina = {
 export type Manutencao = {
   id: string;
   maquina_id: string;
+  equipe_id: string | null;
+  projeto_id: string | null;
+  talhao: string | null;
   descricao: string;
   status: MaintenanceStatus;
   reportado_por: string;

@@ -74,8 +74,9 @@ export async function GET(req: NextRequest) {
   const { data: manutAbertas } = await supabase
     .from("manutencoes")
     .select(
-      "id, descricao, status, created_at, resolvido_em, " +
-        "maquinas(nome, tipo, identificador, status)"
+      "id, maquina_id, descricao, status, created_at, resolvido_em, " +
+        "talhao, maquinas(nome, tipo, identificador, status), " +
+        "equipes(nome), projetos(nome)"
     )
     .neq("status", "resolvido")
     .order("created_at", { ascending: false });

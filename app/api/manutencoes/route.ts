@@ -13,12 +13,16 @@ export async function GET(req: NextRequest) {
   if (!profile) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
   const sp = req.nextUrl.searchParams;
   const status = sp.get("status");
+  const pendentes = sp.get("pendentes");
   const supabase = await createSupabaseServer();
   let q = supabase
     .from("manutencoes")
-    .select("*, maquinas(nome, tipo, identificador)")
+    .select(
+      "*, maquinas(nome, tipo, identificador, status), equipes(nome), projetos(nome)"
+    )
     .order("created_at", { ascending: false });
   if (status) q = q.eq("status", status);
+  if (pendentes === "1" || pendentes === "true") q = q.neq("status", "resolvido");
   const { data, error } = await q;
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   return NextResponse.json({ items: data });
@@ -29,8 +33,8 @@ export async function POST(req: NextRequest) {
   if (!profile) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
 
   const body = await req.json();
-  const { maquina_id, descricao, status_maquina } = body;
-  if (!maquina_id || !descricao) {
+  const { maquina_id, equipe_id, projeto_id, talhao, descricao, status_maquina } = body;
+  if (!maquina_id || !equipe_id || !projeto_id || !talhao || !descricao) {
     return NextResponse.json({ error: "campos obrigatórios" }, { status: 400 });
   }
   if (status_maquina && !isMachineStatus(status_maquina)) {
@@ -46,6 +50,9 @@ export async function POST(req: NextRequest) {
     .from("manutencoes")
     .insert({
       maquina_id,
+      equipe_id,
+      projeto_id,
+      talhao: String(talhao).trim(),
       descricao,
       reportado_por: profile.id,
     })

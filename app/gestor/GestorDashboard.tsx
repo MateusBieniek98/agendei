@@ -13,16 +13,20 @@ type Aba = "faturamento" | "manutencao" | "planejamento";
 
 type Manut = {
   id: string;
+  maquina_id: string;
   descricao: string;
   status: "aberto" | "em_andamento" | "resolvido";
   created_at: string;
   resolvido_em: string | null;
+  talhao: string | null;
   maquinas: {
     nome: string;
     tipo: string;
     identificador: string | null;
-    status: string;
+    status: MachineStatus;
   } | null;
+  equipes: { nome: string } | null;
+  projetos: { nome: string } | null;
 };
 
 type DashboardData = {
@@ -44,14 +48,6 @@ type DashboardData = {
   ranking: { id: string; nome: string; faturamento: number; lancamentos: number }[];
   maquinas: { operando: number; paradas: number; urgentes: number; total: number };
   manutencoesAbertas: Manut[];
-};
-
-type MaquinaItem = {
-  id: string;
-  nome: string;
-  tipo: string;
-  identificador: string | null;
-  status: MachineStatus;
 };
 
 type PlanejamentoItem = {
@@ -77,16 +73,16 @@ type AlertasPlanejamento = {
   futuros: PlanejamentoItem[];
 };
 
-const STATUS_OPTS: { value: MachineStatus; label: string }[] = [
-  { value: "operando", label: "Operando" },
-  { value: "parada", label: "Parada" },
-  { value: "manutencao_urgente", label: "Manutenção urgente" },
-];
-
 const ABAS: { value: Aba; label: string }[] = [
   { value: "faturamento", label: "Faturamento" },
   { value: "manutencao", label: "Manutenção" },
   { value: "planejamento", label: "Planejamento" },
+];
+
+const STATUS_OPTS: { value: MachineStatus; label: string }[] = [
+  { value: "operando", label: "Operando" },
+  { value: "parada", label: "Parada" },
+  { value: "manutencao_urgente", label: "Manutenção urgente" },
 ];
 
 function statusManut(status: Manut["status"]) {
@@ -162,7 +158,6 @@ export default function GestorDashboard() {
   const [aba, setAba] = useState<Aba>("faturamento");
   const [periodo, setPeriodo] = useState<PeriodoState>({ preset: "ciclo_atual" });
   const [data, setData] = useState<DashboardData | null>(null);
-  const [maquinas, setMaquinas] = useState<MaquinaItem[]>([]);
   const [alertas, setAlertas] = useState<AlertasPlanejamento | null>(null);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
@@ -177,24 +172,19 @@ export default function GestorDashboard() {
         sp.set("de", periodo.de);
         sp.set("ate", periodo.ate);
       }
-      const [r, mr, ar] = await Promise.all([
+      const [r, ar] = await Promise.all([
         fetch(`/api/dashboard?${sp.toString()}`),
-        fetch("/api/maquinas"),
         fetch("/api/planejamento/alertas"),
       ]);
       const j = (await r.json()) as DashboardData & { error?: string };
-      const mj = (await mr.json()) as { items?: MaquinaItem[]; error?: string };
       const aj = (await ar.json()) as AlertasPlanejamento & { error?: string };
       if (!r.ok || j.error) throw new Error(j.error ?? r.statusText);
-      if (!mr.ok || mj.error) throw new Error(mj.error ?? mr.statusText);
       if (!ar.ok || aj.error) throw new Error(aj.error ?? ar.statusText);
       if (!j.periodo) throw new Error("resposta inválida do dashboard");
       setData(j);
-      setMaquinas(Array.isArray(mj.items) ? mj.items : []);
       setAlertas(aj);
     } catch (err) {
       setData(null);
-      setMaquinas([]);
       setAlertas(null);
       setErro((err as Error).message);
     } finally {
@@ -232,7 +222,6 @@ export default function GestorDashboard() {
     );
   }
 
-  const totalFrota = data.maquinas.total;
   const totalAlertas =
     (alertas?.atrasados.length ?? 0) + (alertas?.noPrazo.length ?? 0);
 
@@ -336,11 +325,11 @@ export default function GestorDashboard() {
         <div className="space-y-4">
           <div className="grid grid-cols-3 gap-3 text-center">
             <Card className="p-3">
-              <p className="text-3xl font-bold text-[var(--color-forest-700)] tabular">
-                {data.maquinas.operando}
+              <p className="text-3xl font-bold text-[var(--color-danger-500)] tabular">
+                {data.manutencoesAbertas.length}
               </p>
-              <p className="text-xs font-bold text-[var(--color-forest-700)] uppercase">
-                operando
+              <p className="text-xs font-bold text-[var(--color-danger-500)] uppercase">
+                pendentes
               </p>
             </Card>
             <Card className="p-3">
@@ -358,36 +347,6 @@ export default function GestorDashboard() {
               </p>
             </Card>
           </div>
-
-          <Card className="p-5">
-            <h3 className="font-bold">Frota ativa ({totalFrota})</h3>
-            <div className="mt-4 max-h-[28rem] space-y-2 overflow-y-auto pr-1">
-              {maquinas.map((m) => (
-                <div key={m.id} className="rounded-xl border border-[var(--color-ink-200)] bg-white p-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-bold text-[var(--color-ink-900)]">{m.nome}</p>
-                      <p className="text-xs font-semibold text-[var(--color-ink-600)]">
-                        {m.tipo}
-                        {m.identificador ? ` · ${m.identificador}` : ""}
-                      </p>
-                    </div>
-                    <select
-                      value={m.status}
-                      onChange={(e) =>
-                        alterarStatusMaquina(m.id, e.target.value as MachineStatus)
-                      }
-                      className="h-10 min-w-36 rounded-lg border-2 border-[var(--color-ink-300)] bg-white px-2 text-xs font-bold text-[var(--color-ink-900)] shadow-sm"
-                    >
-                      {STATUS_OPTS.map((s) => (
-                        <option key={s.value} value={s.value}>{s.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
 
           <Card className="p-5">
             <div className="flex items-baseline justify-between">
@@ -416,6 +375,13 @@ export default function GestorDashboard() {
                             {m.maquinas.tipo}
                           </p>
                         )}
+                        <p className="mt-1 text-xs font-bold text-[var(--color-ink-700)]">
+                          Frente: {m.equipes?.nome ?? "não informada"}
+                        </p>
+                        <p className="text-xs font-bold text-[var(--color-ink-700)]">
+                          Projeto: {m.projetos?.nome ?? "não informado"}
+                          {m.talhao ? ` · Talhão ${m.talhao}` : ""}
+                        </p>
                       </div>
                       {statusManut(m.status)}
                     </div>
@@ -425,6 +391,26 @@ export default function GestorDashboard() {
                     <p className="mt-2 text-xs font-semibold text-[var(--color-ink-600)]">
                       Aberto em {ddmmyyyy(m.created_at)}
                     </p>
+                    {m.maquinas && (
+                      <div className="mt-3">
+                        <label className="text-xs font-bold uppercase text-[var(--color-ink-600)]">
+                          Status da máquina
+                        </label>
+                        <select
+                          value={m.maquinas.status}
+                          onChange={(e) =>
+                            alterarStatusMaquina(m.maquina_id, e.target.value as MachineStatus)
+                          }
+                          className="mt-1 h-11 w-full rounded-lg border-2 border-[var(--color-ink-300)] bg-white px-3 text-sm font-bold text-[var(--color-ink-900)] shadow-sm outline-none focus:border-[var(--color-gn-500)] md:max-w-xs"
+                        >
+                          {STATUS_OPTS.map((s) => (
+                            <option key={s.value} value={s.value}>
+                              {s.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                   </li>
                 ))}
               </ul>

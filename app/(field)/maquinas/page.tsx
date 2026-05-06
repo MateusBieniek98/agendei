@@ -1,16 +1,17 @@
 import { createSupabaseServer } from "@/lib/supabase/server";
 import MaquinaForm from "./MaquinaForm";
-import type { Maquina } from "@/lib/types";
+import type { Equipe, Maquina, Projeto } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
 export default async function MaquinasFieldPage() {
   const supabase = await createSupabaseServer();
-  const { data } = await supabase
-    .from("maquinas")
-    .select("*")
-    .eq("ativo", true)
-    .order("nome");
+  const [{ data: maquinas }, { data: equipes }, { data: projetos }] = await Promise.all([
+    supabase.from("maquinas").select("*").eq("ativo", true).order("nome"),
+    supabase.from("equipes").select("*").eq("ativo", true).order("nome"),
+    supabase.from("projetos").select("*").eq("ativo", true).order("nome"),
+  ]);
+
   return (
     <div className="space-y-4">
       <div>
@@ -19,7 +20,11 @@ export default async function MaquinasFieldPage() {
           Avise a manutenção sobre uma máquina parada ou com defeito.
         </p>
       </div>
-      <MaquinaForm maquinas={(data ?? []) as Maquina[]} />
+      <MaquinaForm
+        maquinas={(maquinas ?? []) as Maquina[]}
+        equipes={(equipes ?? []) as Equipe[]}
+        projetos={(projetos ?? []) as Projeto[]}
+      />
     </div>
   );
 }
