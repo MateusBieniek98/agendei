@@ -3,6 +3,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
+import { syncPlanningProgressForProduction } from "@/lib/planning-progress";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -14,6 +15,12 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   const body = await req.json();
 
   const supabase = await createSupabaseServer();
+  const { data: anterior } = await supabase
+    .from("producao")
+    .select("projeto_id, talhao, atividade_id")
+    .eq("id", id)
+    .maybeSingle();
+
   const allowed: Record<string, unknown> = {};
   for (const k of [
     "data",
@@ -35,7 +42,16 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     .select()
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-  return NextResponse.json({ item: data });
+
+  const syncErrors = await Promise.all([
+    syncPlanningProgressForProduction(supabase, anterior),
+    syncPlanningProgressForProduction(supabase, data),
+  ]);
+
+  return NextResponse.json({
+    item: data,
+    planejamento_sync_error: syncErrors.find(Boolean)?.message ?? null,
+  });
 }
 
 export async function DELETE(_req: NextRequest, ctx: Ctx) {
@@ -45,7 +61,13 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
   }
   const { id } = await ctx.params;
   const supabase = await createSupabaseServer();
+  const { data: anterior } = await supabase
+    .from("producao")
+    .select("projeto_id, talhao, atividade_id")
+    .eq("id", id)
+    .maybeSingle();
   const { error } = await supabase.from("producao").delete().eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-  return NextResponse.json({ ok: true });
+  const syncError = await syncPlanningProgressForProduction(supabase, anterior);
+  return NextResponse.json({ ok: true, planejamento_sync_error: syncError?.message ?? null });
 }

@@ -3,6 +3,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
+import { syncPlanningProgressForProduction } from "@/lib/planning-progress";
 
 export async function GET(req: NextRequest) {
   const profile = await getCurrentProfile();
@@ -88,5 +89,9 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-  return NextResponse.json({ item: data }, { status: 201 });
+  const syncError = await syncPlanningProgressForProduction(supabase, data);
+  return NextResponse.json(
+    { item: data, planejamento_sync_error: syncError?.message ?? null },
+    { status: 201 }
+  );
 }

@@ -61,8 +61,11 @@ type PlanejamentoItem = {
   status: PlanningStatus;
   observacoes: string | null;
   projetos: { nome: string } | null;
-  atividades: { nome: string; unidade: string } | null;
+  atividades: { nome: string; unidade: string; valor_unitario: number } | null;
   equipes: { nome: string } | null;
+  quantidade_realizada: number;
+  pct_realizado: number;
+  faturamento_planejado: number;
 };
 
 type AlertasPlanejamento = {
@@ -98,6 +101,49 @@ function statusPlanejamento(status: PlanningStatus) {
   return <Badge tone="info">planejado</Badge>;
 }
 
+function faturamentoPlanejado(
+  quantidade: number | null | undefined,
+  atividade: { valor_unitario: number } | null | undefined
+) {
+  return Number(quantidade ?? 0) * Number(atividade?.valor_unitario ?? 0);
+}
+
+function progressoWidth(pct: number | null | undefined) {
+  return `${Math.min(Math.max(Number(pct ?? 0), 0), 100)}%`;
+}
+
+function PlanejamentoProgressBar({ item }: { item: PlanejamentoItem }) {
+  const prevista = Number(item.quantidade_prevista ?? 0);
+  const realizada = Number(item.quantidade_realizada ?? 0);
+  const pct = Number(item.pct_realizado ?? 0);
+  const unidade = item.atividades?.unidade ?? "un.";
+
+  return (
+    <div className="mt-3">
+      <div className="mb-1 flex items-center justify-between gap-3 text-xs font-bold text-[var(--color-ink-700)]">
+        <span>
+          Realizado: {num(realizada)} de {num(prevista)} {unidade}
+        </span>
+        <span className="text-[var(--color-gn-700)] tabular">{pct.toFixed(1)}%</span>
+      </div>
+      <div
+        className="h-3 w-full overflow-hidden rounded-full bg-white/70"
+        title={`${pct.toFixed(1)}% realizado`}
+      >
+        <div
+          className="h-full rounded-full bg-[var(--color-gn-500)] transition-all"
+          style={{ width: progressoWidth(pct) }}
+        />
+      </div>
+      {pct >= 100 && (
+        <p className="mt-1 text-xs font-bold text-[var(--color-forest-700)]">
+          100% realizado.
+        </p>
+      )}
+    </div>
+  );
+}
+
 function PlanejamentoLista({
   titulo,
   items,
@@ -113,13 +159,23 @@ function PlanejamentoLista({
       : prioridade === "normal"
         ? "border-amber-300 bg-amber-50"
         : "border-[var(--color-ink-200)] bg-white";
+  const totalPrevisto = items.reduce(
+    (s, p) => s + (p.faturamento_planejado ?? faturamentoPlanejado(p.quantidade_prevista, p.atividades)),
+    0
+  );
+
   return (
     <Card className="p-5">
       <div className="flex items-center justify-between gap-3">
         <h3 className="font-bold text-[var(--color-ink-900)]">{titulo}</h3>
-        <span className="text-sm font-bold text-[var(--color-ink-700)]">
-          {items.length}
-        </span>
+        <div className="text-right">
+          <p className="text-sm font-bold text-[var(--color-ink-700)]">
+            {items.length}
+          </p>
+          <p className="text-xs font-bold text-[var(--color-gn-700)] tabular">
+            {brl(totalPrevisto)}
+          </p>
+        </div>
       </div>
       <div className="mt-3 space-y-3">
         {items.map((p) => (
@@ -139,6 +195,11 @@ function PlanejamentoLista({
                 ? ` · previsto ${num(p.quantidade_prevista)} ${p.atividades.unidade}`
                 : ""}
             </p>
+            <p className="mt-1 text-sm font-bold text-[var(--color-gn-700)] tabular">
+              Faturamento planejado:{" "}
+              {brl(p.faturamento_planejado ?? faturamentoPlanejado(p.quantidade_prevista, p.atividades))}
+            </p>
+            <PlanejamentoProgressBar item={p} />
             {p.observacoes && (
               <p className="mt-2 text-sm text-[var(--color-ink-700)]">{p.observacoes}</p>
             )}

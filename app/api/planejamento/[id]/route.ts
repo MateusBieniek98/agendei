@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
+import { syncPlanningProgressForProduction } from "@/lib/planning-progress";
 
 type Ctx = { params: Promise<{ id: string }> };
 const STATUSES = ["planejado", "em_execucao", "concluido", "cancelado"] as const;
@@ -47,7 +48,11 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-  return NextResponse.json({ item: data });
+  const syncError = await syncPlanningProgressForProduction(supabase, data);
+  return NextResponse.json({
+    item: data,
+    planejamento_sync_error: syncError?.message ?? null,
+  });
 }
 
 export async function DELETE(_req: NextRequest, ctx: Ctx) {

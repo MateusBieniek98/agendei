@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
+import { enrichPlanningProgress } from "@/lib/planning-progress";
 
 export const dynamic = "force-dynamic";
 
@@ -23,18 +24,19 @@ export async function GET() {
   const supabase = await createSupabaseServer();
   const { data, error } = await supabase
     .from("planejamento")
-    .select("*, projetos(nome), atividades(nome, unidade), equipes(nome)")
+    .select("*, projetos(nome), atividades(nome, unidade, valor_unitario), equipes(nome)")
     .not("status", "in", "(concluido,cancelado)")
     .order("data_limite", { ascending: true });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-  const items = data ?? [];
+  const items = await enrichPlanningProgress(supabase, data ?? []);
+  const pendentes = items.filter((p) => Number(p.pct_realizado ?? 0) < 100);
 
   return NextResponse.json({
     hoje,
     horizonte,
-    atrasados: items.filter((p) => p.data_limite < hoje),
-    noPrazo: items.filter((p) => p.data_limite >= hoje && p.data_limite <= horizonte),
-    futuros: items.filter((p) => p.data_limite > horizonte),
+    atrasados: pendentes.filter((p) => p.data_limite < hoje),
+    noPrazo: pendentes.filter((p) => p.data_limite >= hoje && p.data_limite <= horizonte),
+    futuros: pendentes.filter((p) => p.data_limite > horizonte),
   });
 }

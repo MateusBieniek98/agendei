@@ -7,13 +7,16 @@ import Select from "@/components/ui/Select";
 import Badge from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { useToast } from "@/components/ui/Toast";
-import { ddmmyyyy, num } from "@/lib/format";
+import { brl, ddmmyyyy, num } from "@/lib/format";
 import type { Atividade, Equipe, Planejamento, PlanningStatus, Projeto } from "@/lib/types";
 
 type PlanejamentoRow = Planejamento & {
   projetos: { nome: string } | null;
-  atividades: { nome: string; unidade: string } | null;
+  atividades: { nome: string; unidade: string; valor_unitario: number } | null;
   equipes: { nome: string } | null;
+  quantidade_realizada: number;
+  pct_realizado: number;
+  faturamento_planejado: number;
 };
 
 const STATUS_OPTS: { value: PlanningStatus; label: string }[] = [
@@ -32,6 +35,51 @@ function statusBadge(status: PlanningStatus) {
   if (status === "em_execucao") return <Badge tone="warning">em execução</Badge>;
   if (status === "cancelado") return <Badge tone="neutral">cancelado</Badge>;
   return <Badge tone="info">planejado</Badge>;
+}
+
+function faturamentoPlanejado(
+  quantidade: number | null | undefined,
+  atividade: { valor_unitario: number } | null | undefined
+) {
+  return Number(quantidade ?? 0) * Number(atividade?.valor_unitario ?? 0);
+}
+
+function progressoWidth(pct: number | null | undefined) {
+  return `${Math.min(Math.max(Number(pct ?? 0), 0), 100)}%`;
+}
+
+function PlanejamentoProgressBar({ item }: { item: PlanejamentoRow }) {
+  const prevista = Number(item.quantidade_prevista ?? 0);
+  const realizada = Number(item.quantidade_realizada ?? 0);
+  const pct = Number(item.pct_realizado ?? 0);
+  const unidade = item.atividades?.unidade ?? "un.";
+
+  return (
+    <div className="mt-3 max-w-xl">
+      <div className="mb-1 flex items-center justify-between gap-3 text-xs font-bold text-[var(--color-ink-700)]">
+        <span>
+          Realizado: {num(realizada)} de {num(prevista)} {unidade}
+        </span>
+        <span className="text-[var(--color-gn-700)] tabular">
+          {pct.toFixed(1)}%
+        </span>
+      </div>
+      <div
+        className="h-3 w-full overflow-hidden rounded-full bg-[var(--color-ink-100)]"
+        title={`${pct.toFixed(1)}% realizado`}
+      >
+        <div
+          className="h-full rounded-full bg-[var(--color-gn-500)] transition-all"
+          style={{ width: progressoWidth(pct) }}
+        />
+      </div>
+      {pct >= 100 && (
+        <p className="mt-1 text-xs font-bold text-[var(--color-forest-700)]">
+          Produção atingiu 100%; o planejamento será concluído automaticamente.
+        </p>
+      )}
+    </div>
+  );
 }
 
 export default function PlanejamentoAdminPage() {
@@ -129,6 +177,26 @@ export default function PlanejamentoAdminPage() {
     carregar();
   }
 
+  async function concluir(id: string) {
+    const r = await fetch(`/api/planejamento/${id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ status: "concluido" }),
+    });
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      toast(`Erro ao concluir: ${j.error ?? r.statusText}`, "error");
+      return;
+    }
+    toast("Atividade planejada concluída.", "success");
+    carregar();
+  }
+
+  const faturamentoEditing = faturamentoPlanejado(
+    editing.quantidade_prevista,
+    atividadeSelecionada
+  );
+
   return (
     <div className="space-y-6">
       <div>
@@ -190,6 +258,17 @@ export default function PlanejamentoAdminPage() {
               setEditing({ ...editing, quantidade_prevista: e.target.value ? Number(e.target.value) : null })
             }
           />
+          <div className="rounded-xl border-2 border-[var(--color-ink-200)] bg-[var(--color-ink-50)] px-3 py-2">
+            <p className="text-sm font-bold text-[var(--color-ink-900)]">
+              Faturamento planejado
+            </p>
+            <p className="mt-1 text-xl font-bold text-[var(--color-gn-700)] tabular">
+              {brl(faturamentoEditing)}
+            </p>
+            <p className="text-xs font-semibold text-[var(--color-ink-600)]">
+              tarifa × produção prevista
+            </p>
+          </div>
           <Select
             label="Status"
             value={editing.status ?? "planejado"}
@@ -247,11 +326,24 @@ export default function PlanejamentoAdminPage() {
                     ? ` · previsto ${num(item.quantidade_prevista)} ${item.atividades.unidade}`
                     : ""}
                 </p>
+                <p className="mt-1 text-sm font-bold text-[var(--color-gn-700)] tabular">
+                  Faturamento planejado:{" "}
+                  {brl(item.faturamento_planejado ?? faturamentoPlanejado(item.quantidade_prevista, item.atividades))}
+                </p>
+                <PlanejamentoProgressBar item={item} />
                 {item.observacoes && (
                   <p className="mt-1 text-sm text-[var(--color-ink-600)]">{item.observacoes}</p>
                 )}
               </div>
-              <div className="flex gap-3 md:justify-end">
+              <div className="flex flex-wrap gap-3 md:justify-end">
+                {!["concluido", "cancelado"].includes(item.status) && (
+                  <button
+                    onClick={() => concluir(item.id)}
+                    className="text-sm font-bold text-[var(--color-forest-700)]"
+                  >
+                    concluir
+                  </button>
+                )}
                 <button
                   onClick={() => setEditing(item)}
                   className="text-sm font-bold text-[var(--color-gn-700)]"

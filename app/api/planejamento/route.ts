@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
+import { enrichPlanningProgress, syncPlanningProgressForProduction } from "@/lib/planning-progress";
 
 const STATUSES = ["planejado", "em_execucao", "concluido", "cancelado"] as const;
 
@@ -17,7 +18,7 @@ export async function GET(req: NextRequest) {
   let q = supabase
     .from("planejamento")
     .select(
-      "*, projetos(nome), atividades(nome, unidade), equipes(nome)"
+      "*, projetos(nome), atividades(nome, unidade, valor_unitario), equipes(nome)"
     )
     .order("data_limite", { ascending: true })
     .order("created_at", { ascending: false });
@@ -31,7 +32,8 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await q.limit(800);
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-  return NextResponse.json({ items: data });
+  const items = await enrichPlanningProgress(supabase, data ?? []);
+  return NextResponse.json({ items });
 }
 
 export async function POST(req: NextRequest) {
@@ -72,5 +74,9 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-  return NextResponse.json({ item: data }, { status: 201 });
+  const syncError = await syncPlanningProgressForProduction(supabase, data);
+  return NextResponse.json(
+    { item: data, planejamento_sync_error: syncError?.message ?? null },
+    { status: 201 }
+  );
 }
