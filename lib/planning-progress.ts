@@ -5,6 +5,8 @@ type ProducaoResumo = {
   atividade_id: string | null;
   talhao: string | null;
   quantidade: number | string | null;
+  projetos?: { nome?: string | null } | null;
+  atividades?: { nome?: string | null } | null;
 };
 
 type PlanejamentoBase = {
@@ -12,7 +14,8 @@ type PlanejamentoBase = {
   atividade_id: string;
   talhao: string;
   quantidade_prevista: number | string | null;
-  atividades?: { valor_unitario?: number | string | null } | null;
+  projetos?: { nome?: string | null } | null;
+  atividades?: { nome?: string | null; valor_unitario?: number | string | null } | null;
 };
 
 export type PlanejamentoProgress = {
@@ -25,8 +28,36 @@ export function normalizeTalhao(talhao: string | null | undefined) {
   return String(talhao ?? "").trim().toLowerCase();
 }
 
-function key(projetoId: string | null | undefined, talhao: string | null | undefined, atividadeId: string | null | undefined) {
+export function normalizePlanningText(value: string | null | undefined) {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[º°ª]/g, "")
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+export function normalizeProjectName(value: string | null | undefined) {
+  return normalizePlanningText(value).replace(/\s*-\s*(srp|rrp|cpg)\s*$/i, "").trim();
+}
+
+function exactKey(
+  projetoId: string | null | undefined,
+  talhao: string | null | undefined,
+  atividadeId: string | null | undefined
+) {
   return `${projetoId ?? ""}|${normalizeTalhao(talhao)}|${atividadeId ?? ""}`;
+}
+
+function namedKey(
+  projetoNome: string | null | undefined,
+  talhao: string | null | undefined,
+  atividadeNome: string | null | undefined
+) {
+  return `${normalizeProjectName(projetoNome)}|${normalizeTalhao(talhao)}|${normalizePlanningText(atividadeNome)}`;
 }
 
 export async function enrichPlanningProgress<T extends PlanejamentoBase>(
@@ -35,9 +66,7 @@ export async function enrichPlanningProgress<T extends PlanejamentoBase>(
 ): Promise<Array<T & PlanejamentoProgress>> {
   if (items.length === 0) return [];
 
-  const projectIds = Array.from(new Set(items.map((p) => p.projeto_id).filter(Boolean)));
-  const activityIds = Array.from(new Set(items.map((p) => p.atividade_id).filter(Boolean)));
-  if (projectIds.length === 0 || activityIds.length === 0) {
+  if (items.some((item) => !item.projeto_id || !item.atividade_id)) {
     return items.map((item) => {
       const prevista = Number(item.quantidade_prevista ?? 0);
       const tarifa = Number(item.atividades?.valor_unitario ?? 0);
@@ -52,22 +81,32 @@ export async function enrichPlanningProgress<T extends PlanejamentoBase>(
 
   const { data, error } = await supabase
     .from("producao")
-    .select("projeto_id, atividade_id, talhao, quantidade")
-    .in("projeto_id", projectIds)
-    .in("atividade_id", activityIds)
+    .select("projeto_id, atividade_id, talhao, quantidade, projetos(nome), atividades(nome)")
     .limit(10000);
 
   if (error) throw new Error(error.message);
 
-  const totals = new Map<string, number>();
+  const exactTotals = new Map<string, number>();
+  const namedTotals = new Map<string, number>();
   for (const row of (data ?? []) as ProducaoResumo[]) {
-    const k = key(row.projeto_id, row.talhao, row.atividade_id);
-    totals.set(k, (totals.get(k) ?? 0) + Number(row.quantidade ?? 0));
+    const quantidade = Number(row.quantidade ?? 0);
+    const byId = exactKey(row.projeto_id, row.talhao, row.atividade_id);
+    const byName = namedKey(row.projetos?.nome, row.talhao, row.atividades?.nome);
+    exactTotals.set(byId, (exactTotals.get(byId) ?? 0) + quantidade);
+    namedTotals.set(byName, (namedTotals.get(byName) ?? 0) + quantidade);
   }
 
   return items.map((item) => {
     const prevista = Number(item.quantidade_prevista ?? 0);
-    const realizada = totals.get(key(item.projeto_id, item.talhao, item.atividade_id)) ?? 0;
+    const realizadaPorId = exactTotals.get(
+      exactKey(item.projeto_id, item.talhao, item.atividade_id)
+    );
+    const realizadaPorNome = namedTotals.get(
+      namedKey(item.projetos?.nome, item.talhao, item.atividades?.nome)
+    );
+    const realizada = realizadaPorId && realizadaPorId > 0
+      ? realizadaPorId
+      : realizadaPorNome ?? realizadaPorId ?? 0;
     const pct = prevista > 0 ? Math.min((realizada / prevista) * 100, 999) : 0;
     const tarifa = Number(item.atividades?.valor_unitario ?? 0);
 

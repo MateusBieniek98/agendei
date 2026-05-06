@@ -4,6 +4,22 @@ import type { Atividade, Equipe, Projeto } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
+function dedupeAtividadesPorNome(atividades: Atividade[]) {
+  const vistos = new Set<string>();
+  return atividades.filter((atividade) => {
+    const chave = atividade.nome
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase();
+
+    if (vistos.has(chave)) return false;
+    vistos.add(chave);
+    return true;
+  });
+}
+
 export default async function LancamentoPage() {
   const supabase = await createSupabaseServer();
   const [{ data: equipes }, { data: atividades }, { data: projetos }] = await Promise.all([
@@ -22,7 +38,7 @@ export default async function LancamentoPage() {
       </div>
       <LancamentoForm
         equipes={(equipes ?? []) as Equipe[]}
-        atividades={(atividades ?? []) as Atividade[]}
+        atividades={dedupeAtividadesPorNome((atividades ?? []) as Atividade[])}
         projetos={(projetos ?? []) as Projeto[]}
       />
     </div>

@@ -7,6 +7,11 @@ import Select from "@/components/ui/Select";
 import { Card } from "@/components/ui/Card";
 import { useToast } from "@/components/ui/Toast";
 import { brl, todayISO } from "@/lib/format";
+import {
+  INSUMOS_CATALOGO,
+  insumoCatalogDisplay,
+  normalizeInsumoInput,
+} from "@/lib/insumos";
 import type { Atividade, Equipe, Projeto } from "@/lib/types";
 
 function emptyInsumos() {
@@ -45,7 +50,7 @@ export default function LancamentoForm({
     () =>
       insumos
         .map((insumo) => ({
-          nome: insumo.nome.trim(),
+          nome: normalizeInsumoInput(insumo.nome),
           quantidade: Number(insumo.quantidade),
         }))
         .filter(
@@ -134,6 +139,15 @@ export default function LancamentoForm({
 
   return (
     <form onSubmit={salvar} className="space-y-4">
+      <datalist id="gn-insumos-catalogo">
+        {INSUMOS_CATALOGO.map((insumo) => (
+          <option
+            key={`${insumo.codigo ?? insumo.grupo}-${insumo.nome}`}
+            value={insumoCatalogDisplay(insumo)}
+          />
+        ))}
+      </datalist>
+
       <Input
         label="Data"
         type="date"
@@ -192,7 +206,8 @@ export default function LancamentoForm({
             Insumos utilizados
           </h3>
           <p className="mt-1 text-sm font-semibold text-[var(--color-ink-600)]">
-            Opcional. Essa informação fica operacional e não aparece para o gestor.
+            Digite parte do código ou do nome para filtrar. Essa informação fica
+            operacional e não aparece para o gestor.
           </p>
         </div>
 
@@ -201,9 +216,11 @@ export default function LancamentoForm({
             <div key={index} className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_7rem]">
               <Input
                 label={`Insumo ${index + 1}`}
+                list="gn-insumos-catalogo"
                 value={insumo.nome}
                 onChange={(e) => alterarInsumo(index, "nome", e.target.value)}
-                placeholder="Ex.: GEL"
+                placeholder="Ex.: 90000775 ou GEL"
+                hint="Selecione na lista ou digite manualmente."
               />
               <Input
                 label="Qtd"

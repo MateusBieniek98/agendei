@@ -7,6 +7,7 @@
 
 -- ───── extensões ────────────────────────────────────────────────────────
 create extension if not exists pgcrypto;
+create extension if not exists unaccent;
 
 -- ───── tipos enumerados ─────────────────────────────────────────────────
 do $$ begin
@@ -334,6 +335,33 @@ revoke all on function public.resolve_maintenance(uuid, machine_status) from pub
 grant execute on function public.resolve_maintenance(uuid, machine_status)
   to authenticated, service_role;
 
+create or replace function public.normalize_planejamento_text(p_value text)
+returns text
+  language sql
+  stable
+  set search_path = public
+as $$
+  select lower(
+    trim(
+      regexp_replace(
+        regexp_replace(unaccent(coalesce(p_value, '')), '[º°ª]', '', 'g'),
+        '[[:space:]]+',
+        ' ',
+        'g'
+      )
+    )
+  );
+$$;
+
+create or replace function public.normalize_planejamento_projeto(p_value text)
+returns text
+  language sql
+  stable
+  set search_path = public
+as $$
+  select trim(regexp_replace(public.normalize_planejamento_text(p_value), '[[:space:]]*-[[:space:]]*(srp|rrp|cpg)[[:space:]]*$', '', 'i'));
+$$;
+
 create or replace function public.sync_planejamento_progress(
   p_projeto_id uuid,
   p_talhao text,
@@ -343,10 +371,21 @@ create or replace function public.sync_planejamento_progress(
   security definer
   set search_path = public
 as $$
+declare
+  v_projeto_nome text;
+  v_atividade_nome text;
 begin
   if p_projeto_id is null or p_talhao is null or p_atividade_id is null then
     return;
   end if;
+
+  select nome into v_projeto_nome
+  from public.projetos
+  where id = p_projeto_id;
+
+  select nome into v_atividade_nome
+  from public.atividades
+  where id = p_atividade_id;
 
   with alvo as (
     select
@@ -354,12 +393,40 @@ begin
       coalesce(pl.quantidade_prevista, 0)::numeric as previsto,
       coalesce(sum(p.quantidade), 0)::numeric as produzido
     from public.planejamento pl
+    join public.projetos pl_proj on pl_proj.id = pl.projeto_id
+    join public.atividades pl_ativ on pl_ativ.id = pl.atividade_id
     left join public.producao p
-      on p.projeto_id = pl.projeto_id
-     and p.atividade_id = pl.atividade_id
+      on (
+        p.projeto_id = pl.projeto_id
+        or exists (
+          select 1
+          from public.projetos p_proj
+          where p_proj.id = p.projeto_id
+            and public.normalize_planejamento_projeto(p_proj.nome) =
+                public.normalize_planejamento_projeto(pl_proj.nome)
+        )
+      )
+     and (
+        p.atividade_id = pl.atividade_id
+        or exists (
+          select 1
+          from public.atividades p_ativ
+          where p_ativ.id = p.atividade_id
+            and public.normalize_planejamento_text(p_ativ.nome) =
+                public.normalize_planejamento_text(pl_ativ.nome)
+        )
+      )
      and lower(trim(p.talhao)) = lower(trim(pl.talhao))
-    where pl.projeto_id = p_projeto_id
-      and pl.atividade_id = p_atividade_id
+    where (
+        pl.projeto_id = p_projeto_id
+        or public.normalize_planejamento_projeto(pl_proj.nome) =
+           public.normalize_planejamento_projeto(v_projeto_nome)
+      )
+      and (
+        pl.atividade_id = p_atividade_id
+        or public.normalize_planejamento_text(pl_ativ.nome) =
+           public.normalize_planejamento_text(v_atividade_nome)
+      )
       and lower(trim(pl.talhao)) = lower(trim(p_talhao))
       and pl.status not in ('concluido', 'cancelado')
     group by pl.id, pl.quantidade_prevista
