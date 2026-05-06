@@ -49,6 +49,18 @@ function progressoWidth(pct: number | null | undefined) {
   return `${Math.min(Math.max(Number(pct ?? 0), 0), 100)}%`;
 }
 
+function dataNoPeriodo(
+  data: string | null | undefined,
+  inicio: string,
+  fim: string
+) {
+  if (!inicio && !fim) return true;
+  if (!data) return false;
+  if (inicio && data < inicio) return false;
+  if (fim && data > fim) return false;
+  return true;
+}
+
 function PlanejamentoProgressBar({ item }: { item: PlanejamentoRow }) {
   const prevista = Number(item.quantidade_prevista ?? 0);
   const realizada = Number(item.quantidade_realizada ?? 0);
@@ -97,6 +109,10 @@ export default function PlanejamentoAdminPage() {
   const [projetoFiltro, setProjetoFiltro] = useState("");
   const [atividadeFiltro, setAtividadeFiltro] = useState("");
   const [equipeFiltro, setEquipeFiltro] = useState("");
+  const [inicioDeFiltro, setInicioDeFiltro] = useState("");
+  const [inicioAteFiltro, setInicioAteFiltro] = useState("");
+  const [prazoDeFiltro, setPrazoDeFiltro] = useState("");
+  const [prazoAteFiltro, setPrazoAteFiltro] = useState("");
   const [editing, setEditing] = useState<Partial<Planejamento>>({
     ano: now.getFullYear(),
     mes: now.getMonth() + 1,
@@ -216,6 +232,8 @@ export default function PlanejamentoAdminPage() {
       if (projetoFiltro && item.projeto_id !== projetoFiltro) return false;
       if (atividadeFiltro && item.atividade_id !== atividadeFiltro) return false;
       if (equipeFiltro && item.equipe_id !== equipeFiltro) return false;
+      if (!dataNoPeriodo(item.data_inicio, inicioDeFiltro, inicioAteFiltro)) return false;
+      if (!dataNoPeriodo(item.data_limite, prazoDeFiltro, prazoAteFiltro)) return false;
       return true;
     });
 
@@ -227,7 +245,18 @@ export default function PlanejamentoAdminPage() {
       (item) => item.status,
       (item) => item.observacoes,
     ]);
-  }, [items, busca, statusFiltro, projetoFiltro, atividadeFiltro, equipeFiltro]);
+  }, [
+    items,
+    busca,
+    statusFiltro,
+    projetoFiltro,
+    atividadeFiltro,
+    equipeFiltro,
+    inicioDeFiltro,
+    inicioAteFiltro,
+    prazoDeFiltro,
+    prazoAteFiltro,
+  ]);
   const itemsVisiveis = useMemo(
     () => visibleItems(itemsFiltrados, listaExpandida, 20),
     [itemsFiltrados, listaExpandida]
@@ -396,6 +425,30 @@ export default function PlanejamentoAdminPage() {
                 onChange={(e) => setEquipeFiltro(e.target.value)}
                 options={equipes.map((e) => ({ value: e.id, label: e.nome }))}
                 placeholder="todas"
+              />
+              <Input
+                label="Início previsto de"
+                type="date"
+                value={inicioDeFiltro}
+                onChange={(e) => setInicioDeFiltro(e.target.value)}
+              />
+              <Input
+                label="Início previsto até"
+                type="date"
+                value={inicioAteFiltro}
+                onChange={(e) => setInicioAteFiltro(e.target.value)}
+              />
+              <Input
+                label="Prazo final de"
+                type="date"
+                value={prazoDeFiltro}
+                onChange={(e) => setPrazoDeFiltro(e.target.value)}
+              />
+              <Input
+                label="Prazo final até"
+                type="date"
+                value={prazoAteFiltro}
+                onChange={(e) => setPrazoAteFiltro(e.target.value)}
               />
             </div>
           </ListControls>
