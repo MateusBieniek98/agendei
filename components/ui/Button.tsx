@@ -15,7 +15,7 @@ type Props = React.ButtonHTMLAttributes<HTMLButtonElement> & {
 };
 
 const base =
-  "inline-flex items-center justify-center gap-2 rounded-xl font-semibold " +
+  "inline-flex items-center justify-center gap-2 rounded-xl font-bold " +
   "transition active:scale-[0.99] disabled:opacity-50 disabled:pointer-events-none";
 
 const variants: Record<Variant, string> = {

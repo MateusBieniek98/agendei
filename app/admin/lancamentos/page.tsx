@@ -16,7 +16,7 @@ export default async function LancamentosAdminPage() {
     <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-bold">Lançamentos de produção</h1>
-        <p className="text-sm text-[var(--color-ink-500)]">
+        <p className="text-sm font-semibold text-[var(--color-ink-600)]">
           Filtre por período, equipe ou atividade. Edição inline e exclusão.
         </p>
       </div>

@@ -67,21 +67,65 @@ export default function AtividadesPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-end justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold">Atividades</h1>
-          <p className="text-sm text-[var(--color-ink-500)]">
+          <p className="text-sm font-semibold text-[var(--color-ink-600)]">
             Tipos de serviço e seus valores por unidade. O valor é capturado no
             lançamento — alterações futuras não afetam histórico.
           </p>
         </div>
-        <Button onClick={() => setEditing({ nome: "", unidade: "ha", valor_unitario: 0 })}>
+        <Button
+          className="w-full sm:w-auto"
+          onClick={() => setEditing({ nome: "", unidade: "ha", valor_unitario: 0 })}
+        >
           + Nova
         </Button>
       </div>
 
       <Card>
-        <div className="overflow-x-auto">
+        <div className="divide-y divide-[var(--color-ink-100)] md:hidden">
+          {items.map((a) => (
+            <div key={a.id} className="p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="break-words text-base font-bold text-[var(--color-ink-900)]">
+                    {a.nome}
+                  </p>
+                  <p className="mt-1 text-sm font-bold text-[var(--color-gn-700)] tabular">
+                    {brl(a.valor_unitario)} / {a.unidade}
+                  </p>
+                </div>
+                {a.ativo ? (
+                  <Badge tone="success">ativo</Badge>
+                ) : (
+                  <Badge>inativo</Badge>
+                )}
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <Button variant="secondary" onClick={() => setEditing(a)}>
+                  Editar
+                </Button>
+                {a.ativo ? (
+                  <Button variant="danger" onClick={() => excluir(a.id)}>
+                    Inativar
+                  </Button>
+                ) : (
+                  <Button variant="ghost" disabled>
+                    Inativa
+                  </Button>
+                )}
+              </div>
+            </div>
+          ))}
+          {items.length === 0 && (
+            <div className="p-6 text-center text-sm font-semibold text-[var(--color-ink-600)]">
+              Nenhuma atividade cadastrada.
+            </div>
+          )}
+        </div>
+
+        <div className="hidden overflow-x-auto md:block">
           <table className="w-full text-sm">
             <thead className="bg-[var(--color-ink-50)] text-[var(--color-ink-500)] text-left">
               <tr>
@@ -144,7 +188,7 @@ export default function AtividadesPage() {
               value={String(editing.valor_unitario ?? 0)}
               onChange={(e) => setEditing({ ...editing, valor_unitario: Number(e.target.value) })}
             />
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="grid grid-cols-2 gap-2 pt-2">
               <Button variant="ghost" onClick={() => setEditing(null)}>Cancelar</Button>
               <Button onClick={salvar}>Salvar</Button>
             </div>

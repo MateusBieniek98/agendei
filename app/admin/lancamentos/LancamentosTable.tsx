@@ -121,7 +121,7 @@ export default function LancamentosTable({
   return (
     <div className="space-y-4">
       <Card className="p-4">
-        <div className="grid grid-cols-2 md:grid-cols-7 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-7">
           <Input label="De" type="date" value={de} onChange={(e) => setDe(e.target.value)} />
           <Input label="Até" type="date" value={ate} onChange={(e) => setAte(e.target.value)} />
           <Select
@@ -155,16 +155,89 @@ export default function LancamentosTable({
       </Card>
 
       <Card>
-        <div className="px-5 py-3 flex items-center justify-between border-b border-[var(--color-ink-100)]">
-          <p className="text-sm">
+        <div className="flex flex-col gap-1 border-b border-[var(--color-ink-100)] px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm font-semibold">
             <strong>{items.length}</strong> lançamento{items.length === 1 ? "" : "s"}
           </p>
-          <p className="text-sm">
+          <p className="text-sm font-semibold">
             Total: <strong className="tabular">{brl(total)}</strong>
           </p>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="divide-y divide-[var(--color-ink-100)] md:hidden">
+          {items.map((l) => (
+            <div key={l.id} className="p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-[var(--color-ink-600)]">
+                    {ddmmyyyy(l.data)}
+                  </p>
+                  <p className="mt-1 break-words text-base font-bold text-[var(--color-ink-900)]">
+                    {l.atividades?.nome ?? "Atividade"}
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-[var(--color-ink-700)]">
+                    {l.equipes?.nome ?? "Equipe não informada"}
+                  </p>
+                </div>
+                <p className="shrink-0 text-right text-sm font-bold text-[var(--color-gn-700)] tabular">
+                  {brl(Number(l.quantidade) * Number(l.valor_unitario_snapshot))}
+                </p>
+              </div>
+
+              <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                <div className="rounded-xl bg-[var(--color-ink-50)] p-3">
+                  <p className="text-xs font-bold uppercase text-[var(--color-ink-600)]">Produção</p>
+                  <p className="mt-1 font-bold tabular">
+                    {num(l.quantidade)} {l.atividades?.unidade}
+                  </p>
+                </div>
+                <div className="rounded-xl bg-[var(--color-ink-50)] p-3">
+                  <p className="text-xs font-bold uppercase text-[var(--color-ink-600)]">Tarifa</p>
+                  <p className="mt-1 font-bold tabular">{brl(l.valor_unitario_snapshot)}</p>
+                </div>
+              </div>
+
+              <div className="mt-3 rounded-xl bg-[var(--color-ink-50)] p-3 text-sm font-semibold text-[var(--color-ink-700)]">
+                <p>
+                  Projeto: <strong>{l.projetos?.nome ?? "não informado"}</strong>
+                </p>
+                <p>Talhão: <strong>{l.talhao ?? "não informado"}</strong></p>
+                {l.insumos && l.insumos.length > 0 && (
+                  <p className="mt-2">
+                    Insumos:{" "}
+                    <strong>
+                      {l.insumos
+                        .map((i) => `${i.nome} (${num(i.quantidade)})`)
+                        .join(", ")}
+                    </strong>
+                  </p>
+                )}
+                {l.descarte !== null && (
+                  <p className="mt-1">
+                    Descarte: <strong>{num(l.descarte)}</strong>
+                  </p>
+                )}
+                {l.observacoes && <p className="mt-2">{l.observacoes}</p>}
+              </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <Button variant="secondary" onClick={() => setEditing(l)}>
+                  Editar
+                </Button>
+                <Button variant="danger" onClick={() => excluir(l.id)}>
+                  Excluir
+                </Button>
+              </div>
+            </div>
+          ))}
+          {items.length === 0 && !loading && (
+            <div className="p-6 text-center text-sm font-semibold text-[var(--color-ink-600)]">
+              Nenhum lançamento encontrado.
+            </div>
+          )}
+        </div>
+
+        <div className="hidden overflow-x-auto md:block">
           <table className="w-full text-sm">
             <thead className="bg-[var(--color-ink-50)] text-[var(--color-ink-500)] text-left">
               <tr>
@@ -297,7 +370,7 @@ export default function LancamentosTable({
               value={editing.observacoes ?? ""}
               onChange={(e) => setEditing({ ...editing, observacoes: e.target.value })}
             />
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="grid grid-cols-2 gap-2 pt-2">
               <Button variant="ghost" onClick={() => setEditing(null)}>
                 Cancelar
               </Button>

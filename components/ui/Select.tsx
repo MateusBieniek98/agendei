@@ -34,7 +34,7 @@ export default function Select({
       <select
         id={finalId}
         className={
-          "h-13 min-h-12 rounded-xl border-2 bg-white px-3 text-base font-semibold " +
+          "h-13 min-h-12 rounded-xl border-2 bg-white px-3 text-base font-bold " +
           "text-[var(--color-ink-900)] shadow-sm focus:border-[var(--color-gn-500)] outline-none transition " +
           (error ? "border-[var(--color-danger-500)] " : "border-[var(--color-ink-300)] ") +
           (className ?? "")

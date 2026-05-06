@@ -64,10 +64,16 @@ export function StatCard({
     danger: "text-[var(--color-danger-500)]",
   };
   return (
-    <Card className="p-5">
-      <p className="text-sm font-medium text-[var(--color-ink-500)]">{label}</p>
-      <p className={`mt-2 text-3xl font-bold tabular ${toneText[tone]}`}>{value}</p>
-      {hint && <p className="mt-1 text-xs text-[var(--color-ink-500)]">{hint}</p>}
+    <Card className="p-4 sm:p-5">
+      <p className="text-sm font-bold text-[var(--color-ink-600)]">{label}</p>
+      <p className={`mt-2 text-2xl font-bold tabular sm:text-3xl ${toneText[tone]}`}>
+        {value}
+      </p>
+      {hint && (
+        <p className="mt-1 text-xs font-semibold text-[var(--color-ink-600)]">
+          {hint}
+        </p>
+      )}
     </Card>
   );
 }

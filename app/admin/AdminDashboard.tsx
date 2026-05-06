@@ -105,16 +105,16 @@ export default function AdminDashboard() {
             Visão consolidada da operação. Hoje · {ddmmyyyy(new Date())}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="grid w-full grid-cols-2 gap-2 sm:w-auto">
           <Link
             href={`/api/export/xlsx?${expSearch}`}
-            className="px-4 py-2 rounded-lg bg-white border border-[var(--color-ink-300)] text-sm font-medium hover:bg-[var(--color-ink-50)]"
+            className="rounded-lg border border-[var(--color-ink-300)] bg-white px-4 py-2 text-center text-sm font-bold hover:bg-[var(--color-ink-50)]"
           >
             Exportar XLSX
           </Link>
           <Link
             href={`/api/export/csv?${expSearch}`}
-            className="px-4 py-2 rounded-lg bg-white border border-[var(--color-ink-300)] text-sm font-medium hover:bg-[var(--color-ink-50)]"
+            className="rounded-lg border border-[var(--color-ink-300)] bg-white px-4 py-2 text-center text-sm font-bold hover:bg-[var(--color-ink-50)]"
           >
             Exportar CSV
           </Link>
@@ -130,7 +130,7 @@ export default function AdminDashboard() {
       ) : (
         <>
           {/* KPIs */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <StatCard
               label="Faturamento hoje"
               value={brl(data.hoje)}
@@ -165,7 +165,7 @@ export default function AdminDashboard() {
             <Card className="p-5 md:col-span-2">
               <div className="flex items-baseline justify-between">
                 <h3 className="font-semibold">Produção diária</h3>
-                <span className="text-xs text-[var(--color-ink-500)]">
+                <span className="text-xs font-semibold text-[var(--color-ink-600)]">
                   {data.periodo.label}
                 </span>
               </div>
@@ -178,10 +178,10 @@ export default function AdminDashboard() {
                 {data.porAtividade.map((a) => (
                   <li
                     key={a.id}
-                    className="text-sm flex justify-between gap-3"
+                    className="flex flex-col gap-1 text-sm sm:flex-row sm:justify-between sm:gap-3"
                   >
-                    <span className="truncate">{a.nome}</span>
-                    <span className="text-[var(--color-ink-500)] tabular shrink-0">
+                    <span className="font-semibold text-[var(--color-ink-800)]">{a.nome}</span>
+                    <span className="shrink-0 font-bold tabular text-[var(--color-ink-700)]">
                       {Number(a.total).toFixed(2)} {a.unidade} · {brl(a.faturamento)}
                     </span>
                   </li>
@@ -202,7 +202,7 @@ export default function AdminDashboard() {
               <p className="mt-3 text-3xl font-bold text-[var(--color-gn-700)] tabular">
                 {brl(data.metaProxDia)}/dia
               </p>
-              <p className="text-xs text-[var(--color-ink-500)] mt-1">
+              <p className="mt-1 text-xs font-semibold text-[var(--color-ink-600)]">
                 Necessário pelos {data.periodo.diasRestantes} dia
                 {data.periodo.diasRestantes === 1 ? "" : "s"} restante
                 {data.periodo.diasRestantes === 1 ? "" : "s"} pra bater a meta.
@@ -213,7 +213,7 @@ export default function AdminDashboard() {
                   style={{ width: `${Math.min(data.pctMeta, 100)}%` }}
                 />
               </div>
-              <p className="text-xs text-[var(--color-ink-500)] mt-2">
+              <p className="mt-2 text-xs font-semibold text-[var(--color-ink-600)]">
                 {brl(data.total)} de {brl(data.meta)}
               </p>
             </Card>
@@ -252,15 +252,15 @@ export default function AdminDashboard() {
               <h3 className="font-semibold">Manutenções abertas</h3>
               <Link
                 href="/admin/maquinas"
-                className="text-xs text-[var(--color-gn-700)] hover:underline"
+                className="text-xs font-bold text-[var(--color-gn-700)] hover:underline"
               >
-                gerenciar →
+                gerenciar
               </Link>
             </div>
 
             {data.manutencoesAbertas.length === 0 ? (
-              <p className="mt-4 text-sm text-[var(--color-ink-500)]">
-                Frota toda em ordem 🌲
+              <p className="mt-4 text-sm font-semibold text-[var(--color-ink-600)]">
+                Frota toda em ordem.
               </p>
             ) : (
               <ul className="mt-4 space-y-3">
@@ -298,10 +298,10 @@ export default function AdminDashboard() {
                         {(m.status ?? "sem_status").replaceAll("_", " ")}
                       </Badge>
                     </div>
-                    <p className="mt-2 text-sm text-[var(--color-ink-700)] italic">
-                      “{m.descricao}”
+                    <p className="mt-2 text-sm font-semibold text-[var(--color-ink-700)]">
+                      {m.descricao}
                     </p>
-                    <p className="mt-2 text-xs text-[var(--color-ink-500)]">
+                    <p className="mt-2 text-xs font-semibold text-[var(--color-ink-600)]">
                       Aberto em {ddmmyyyy(m.created_at)}
                     </p>
                   </li>

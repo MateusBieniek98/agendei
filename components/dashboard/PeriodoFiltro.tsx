@@ -39,7 +39,7 @@ export default function PeriodoFiltro({
 
   return (
     <div className="bg-white border border-[var(--color-ink-300)] rounded-2xl p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between shadow-sm">
-      <div className="flex flex-col md:flex-row md:items-center gap-3 flex-wrap">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:flex-wrap">
         <label className="text-sm font-bold text-[var(--color-ink-900)]">
           Período:
         </label>
@@ -48,7 +48,7 @@ export default function PeriodoFiltro({
           onChange={(e) =>
             onChange({ ...value, preset: e.target.value as PeriodoPreset })
           }
-          className="h-11 rounded-lg border-2 border-[var(--color-ink-300)] bg-white px-3 text-sm font-semibold text-[var(--color-ink-900)] shadow-sm"
+          className="h-11 w-full rounded-lg border-2 border-[var(--color-ink-300)] bg-white px-3 text-sm font-bold text-[var(--color-ink-900)] shadow-sm md:w-auto"
         >
           {Object.entries(PRESETS).map(([k, label]) => (
             <option key={k} value={k}>
@@ -58,7 +58,7 @@ export default function PeriodoFiltro({
         </select>
 
         {value.preset === "custom" && (
-          <div className="flex items-center gap-2">
+          <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
             <input
               type="date"
               value={customDe}
@@ -68,9 +68,9 @@ export default function PeriodoFiltro({
                   onChange({ preset: "custom", de: customDe, ate: customAte });
                 }
               }}
-              className="h-11 rounded-lg border-2 border-[var(--color-ink-300)] bg-white px-3 text-sm font-semibold text-[var(--color-ink-900)] shadow-sm"
+              className="h-11 min-w-0 rounded-lg border-2 border-[var(--color-ink-300)] bg-white px-3 text-sm font-bold text-[var(--color-ink-900)] shadow-sm"
             />
-            <span className="text-[var(--color-ink-500)]">→</span>
+            <span className="font-bold text-[var(--color-ink-600)]">→</span>
             <input
               type="date"
               value={customAte}
@@ -80,13 +80,13 @@ export default function PeriodoFiltro({
                   onChange({ preset: "custom", de: customDe, ate: customAte });
                 }
               }}
-              className="h-11 rounded-lg border-2 border-[var(--color-ink-300)] bg-white px-3 text-sm font-semibold text-[var(--color-ink-900)] shadow-sm"
+              className="h-11 min-w-0 rounded-lg border-2 border-[var(--color-ink-300)] bg-white px-3 text-sm font-bold text-[var(--color-ink-900)] shadow-sm"
             />
           </div>
         )}
       </div>
 
-      <div className="text-xs text-[var(--color-ink-500)] tabular flex items-center gap-3">
+      <div className="flex items-center gap-3 text-xs font-bold tabular text-[var(--color-ink-600)]">
         {info && (
           <>
             <span>

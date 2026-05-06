@@ -215,7 +215,7 @@ export default function MaquinaForm({
         <input
           value={talhao}
           onChange={(e) => setTalhao(e.target.value)}
-          className="h-13 min-h-12 rounded-xl border-2 border-[var(--color-ink-300)] bg-white px-3 text-base font-semibold text-[var(--color-ink-900)] shadow-sm placeholder:font-semibold placeholder:text-[var(--color-ink-500)] focus:border-[var(--color-gn-500)] outline-none transition"
+          className="h-13 min-h-12 rounded-xl border-2 border-[var(--color-ink-300)] bg-white px-3 text-base font-bold text-[var(--color-ink-900)] shadow-sm placeholder:font-bold placeholder:text-[var(--color-ink-700)] focus:border-[var(--color-gn-500)] outline-none transition"
           placeholder="Ex.: 017-01"
         />
       </div>
@@ -228,7 +228,7 @@ export default function MaquinaForm({
           rows={4}
           value={descricao}
           onChange={(e) => setDescricao(e.target.value)}
-          className="rounded-xl border-2 border-[var(--color-ink-300)] bg-white px-3 py-2 text-base font-semibold text-[var(--color-ink-900)] shadow-sm placeholder:font-semibold placeholder:text-[var(--color-ink-500)] focus:border-[var(--color-gn-500)] outline-none"
+          className="rounded-xl border-2 border-[var(--color-ink-300)] bg-white px-3 py-2 text-base font-bold text-[var(--color-ink-900)] shadow-sm placeholder:font-bold placeholder:text-[var(--color-ink-700)] focus:border-[var(--color-gn-500)] outline-none"
           placeholder="Ex.: motor desligando em alta rotação, vazamento de óleo…"
         />
       </div>
@@ -328,7 +328,7 @@ export default function MaquinaForm({
               <select
                 value={m.status}
                 onChange={(e) => alterarStatus(m.id, e.target.value as MachineStatus)}
-                className="h-11 w-full rounded-lg border-2 border-[var(--color-ink-300)] bg-white px-3 text-sm font-semibold text-[var(--color-ink-900)] shadow-sm"
+                className="h-11 w-full rounded-lg border-2 border-[var(--color-ink-300)] bg-white px-3 text-sm font-bold text-[var(--color-ink-900)] shadow-sm"
               >
                 {STATUS_OPTS.map((s) => (
                   <option key={s.value} value={s.value}>

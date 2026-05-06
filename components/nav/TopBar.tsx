@@ -20,7 +20,7 @@ export default function TopBar({
         <div className="flex-1 min-w-0">
           {title && <h1 className="text-base font-bold truncate">{title}</h1>}
           {subtitle && (
-            <p className="text-xs text-[var(--color-ink-500)] truncate">{subtitle}</p>
+            <p className="truncate text-xs font-bold text-[var(--color-ink-600)]">{subtitle}</p>
           )}
         </div>
         {right}

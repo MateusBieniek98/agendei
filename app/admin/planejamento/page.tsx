@@ -196,6 +196,13 @@ export default function PlanejamentoAdminPage() {
     editing.quantidade_prevista,
     atividadeSelecionada
   );
+  const faturamentoTotalPlanejado = items.reduce(
+    (total, item) =>
+      total +
+      (item.faturamento_planejado ??
+        faturamentoPlanejado(item.quantidade_prevista, item.atividades)),
+    0
+  );
 
   return (
     <div className="space-y-6">
@@ -207,7 +214,7 @@ export default function PlanejamentoAdminPage() {
       </div>
 
       <Card className="p-4">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Input
             label="Ano"
             type="number"
@@ -287,7 +294,7 @@ export default function PlanejamentoAdminPage() {
             value={editing.data_limite ?? ""}
             onChange={(e) => setEditing({ ...editing, data_limite: e.target.value })}
           />
-          <div className="md:col-span-2">
+          <div className="sm:col-span-2">
             <Input
               label="Observações"
               value={editing.observacoes ?? ""}
@@ -295,16 +302,31 @@ export default function PlanejamentoAdminPage() {
             />
           </div>
         </div>
-        <div className="mt-4 flex flex-col sm:flex-row justify-end gap-2">
+        <div className="mt-4 grid grid-cols-1 gap-2 sm:flex sm:justify-end">
           <Button variant="ghost" onClick={novo}>Limpar</Button>
           <Button onClick={salvar}>{editing.id ? "Salvar alterações" : "Adicionar ao planejamento"}</Button>
         </div>
       </Card>
 
+      <Card className="p-5 bg-[var(--color-gn-700)] text-white border-[var(--color-gn-700)]">
+        <p className="text-xs font-bold uppercase tracking-wider text-white/80">
+          Faturamento total planejado
+        </p>
+        <p className="mt-2 text-3xl font-bold tabular">
+          {brl(faturamentoTotalPlanejado)}
+        </p>
+        <p className="mt-1 text-sm font-semibold text-white/75">
+          Soma de todos os itens cadastrados no planejamento carregado.
+        </p>
+      </Card>
+
       <Card>
-        <div className="px-5 py-3 border-b border-[var(--color-ink-100)] flex justify-between">
+        <div className="flex flex-col gap-1 border-b border-[var(--color-ink-100)] px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm font-semibold">
             {loading ? "Carregando…" : `${items.length} item${items.length === 1 ? "" : "s"}`}
+          </p>
+          <p className="text-sm font-bold text-[var(--color-gn-700)] tabular">
+            Total planejado: {brl(faturamentoTotalPlanejado)}
           </p>
         </div>
         <div className="divide-y divide-[var(--color-ink-100)]">
@@ -335,26 +357,26 @@ export default function PlanejamentoAdminPage() {
                   <p className="mt-1 text-sm text-[var(--color-ink-600)]">{item.observacoes}</p>
                 )}
               </div>
-              <div className="flex flex-wrap gap-3 md:justify-end">
+              <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap md:justify-end">
                 {!["concluido", "cancelado"].includes(item.status) && (
                   <button
                     onClick={() => concluir(item.id)}
-                    className="text-sm font-bold text-[var(--color-forest-700)]"
+                    className="rounded-xl border-2 border-[var(--color-forest-700)] px-3 py-2 text-sm font-bold text-[var(--color-forest-700)]"
                   >
-                    concluir
+                    Concluir
                   </button>
                 )}
                 <button
                   onClick={() => setEditing(item)}
-                  className="text-sm font-bold text-[var(--color-gn-700)]"
+                  className="rounded-xl border-2 border-[var(--color-gn-600)] px-3 py-2 text-sm font-bold text-[var(--color-gn-700)]"
                 >
-                  editar
+                  Editar
                 </button>
                 <button
                   onClick={() => excluir(item.id)}
-                  className="text-sm font-bold text-[var(--color-danger-500)]"
+                  className="rounded-xl border-2 border-[var(--color-danger-500)] px-3 py-2 text-sm font-bold text-[var(--color-danger-500)]"
                 >
-                  excluir
+                  Excluir
                 </button>
               </div>
             </div>

@@ -62,16 +62,55 @@ export default function EquipesPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-end justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold">Equipes / frentes</h1>
-          <p className="text-sm text-[var(--color-ink-500)]">Cadastre as frentes de trabalho.</p>
+          <p className="text-sm font-semibold text-[var(--color-ink-600)]">Cadastre as frentes de trabalho.</p>
         </div>
-        <Button onClick={() => setEditing({ nome: "", descricao: "" })}>+ Nova</Button>
+        <Button className="w-full sm:w-auto" onClick={() => setEditing({ nome: "", descricao: "" })}>
+          + Nova
+        </Button>
       </div>
 
       <Card>
-        <div className="overflow-x-auto">
+        <div className="divide-y divide-[var(--color-ink-100)] md:hidden">
+          {items.map((e) => (
+            <div key={e.id} className="p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="break-words text-base font-bold text-[var(--color-ink-900)]">
+                    {e.nome}
+                  </p>
+                  <p className="mt-1 break-words text-sm font-semibold text-[var(--color-ink-700)]">
+                    {e.descricao || "Sem descrição"}
+                  </p>
+                </div>
+                {e.ativo ? <Badge tone="success">ativa</Badge> : <Badge>inativa</Badge>}
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <Button variant="secondary" onClick={() => setEditing(e)}>
+                  Editar
+                </Button>
+                {e.ativo ? (
+                  <Button variant="danger" onClick={() => excluir(e.id)}>
+                    Inativar
+                  </Button>
+                ) : (
+                  <Button variant="ghost" disabled>
+                    Inativa
+                  </Button>
+                )}
+              </div>
+            </div>
+          ))}
+          {items.length === 0 && (
+            <div className="p-6 text-center text-sm font-semibold text-[var(--color-ink-600)]">
+              Nenhuma equipe cadastrada.
+            </div>
+          )}
+        </div>
+
+        <div className="hidden overflow-x-auto md:block">
           <table className="w-full text-sm">
             <thead className="bg-[var(--color-ink-50)] text-[var(--color-ink-500)] text-left">
               <tr>
@@ -124,7 +163,7 @@ export default function EquipesPage() {
               value={editing.descricao ?? ""}
               onChange={(e) => setEditing({ ...editing, descricao: e.target.value })}
             />
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="grid grid-cols-2 gap-2 pt-2">
               <Button variant="ghost" onClick={() => setEditing(null)}>Cancelar</Button>
               <Button onClick={salvar}>Salvar</Button>
             </div>

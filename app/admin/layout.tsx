@@ -2,6 +2,7 @@ import { requireRole } from "@/lib/auth";
 import Sidebar from "@/components/nav/Sidebar";
 import TopBar from "@/components/nav/TopBar";
 import LogoutButton from "@/components/nav/LogoutButton";
+import MobileSectionNav from "@/components/nav/MobileSectionNav";
 import { ToastProvider } from "@/components/ui/Toast";
 
 const items = [
@@ -24,7 +25,6 @@ export default async function AdminLayout({
   return (
     <ToastProvider>
       <div className="flex min-h-screen">
-        {/* Sidebar (desktop). Em mobile só renderizamos o TopBar. */}
         <Sidebar items={items} user={{ nome: profile.nome, role: "admin" }} />
         <div className="flex-1 min-w-0">
           <div className="md:hidden">
@@ -33,8 +33,11 @@ export default async function AdminLayout({
               subtitle={profile.nome}
               right={<LogoutButton />}
             />
+            <MobileSectionNav items={items} />
           </div>
-          <main className="p-4 md:p-8">{children}</main>
+          <main className="overflow-x-hidden px-3 py-4 pb-24 sm:px-4 md:p-8">
+            {children}
+          </main>
         </div>
       </div>
     </ToastProvider>

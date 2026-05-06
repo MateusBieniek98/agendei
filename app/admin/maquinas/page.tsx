@@ -99,20 +99,76 @@ export default function MaquinasAdminPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-end justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold">Máquinas</h1>
-          <p className="text-sm text-[var(--color-ink-500)]">
+          <p className="text-sm font-semibold text-[var(--color-ink-600)]">
             Cadastre a frota e gerencie manutenções abertas.
           </p>
         </div>
-        <Button onClick={() => setEditing({ nome: "", tipo: "Trator", status: "operando" })}>
+        <Button
+          className="w-full sm:w-auto"
+          onClick={() => setEditing({ nome: "", tipo: "Trator", status: "operando" })}
+        >
           + Nova
         </Button>
       </div>
 
       <Card>
-        <div className="overflow-x-auto">
+        <div className="divide-y divide-[var(--color-ink-100)] md:hidden">
+          {maquinas.map((m) => (
+            <div key={m.id} className="p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="break-words text-base font-bold text-[var(--color-ink-900)]">
+                    {m.nome}
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-[var(--color-ink-700)]">
+                    {m.tipo}
+                    {m.identificador ? ` · ${m.identificador}` : ""}
+                  </p>
+                </div>
+                <Badge
+                  tone={
+                    m.status === "operando"
+                      ? "success"
+                      : m.status === "parada"
+                        ? "warning"
+                        : "danger"
+                  }
+                >
+                  {statusTexto(m.status)}
+                </Badge>
+              </div>
+              <label className="mt-4 block text-xs font-bold uppercase text-[var(--color-ink-700)]">
+                Status da máquina
+              </label>
+              <select
+                value={m.status}
+                onChange={(e) => alterarStatus(m.id, e.target.value as MachineStatus)}
+                className="mt-1 h-12 w-full rounded-xl border-2 border-[var(--color-ink-300)] bg-white px-3 text-base font-bold text-[var(--color-ink-900)] shadow-sm"
+              >
+                {STATUS_OPTS.map((s) => (
+                  <option key={s.value} value={s.value}>{s.label}</option>
+                ))}
+              </select>
+              <Button
+                variant="secondary"
+                className="mt-3 w-full"
+                onClick={() => setEditing(m)}
+              >
+                Editar
+              </Button>
+            </div>
+          ))}
+          {maquinas.length === 0 && (
+            <div className="p-6 text-center text-sm font-semibold text-[var(--color-ink-600)]">
+              Nenhuma máquina cadastrada.
+            </div>
+          )}
+        </div>
+
+        <div className="hidden overflow-x-auto md:block">
           <table className="w-full text-sm">
             <thead className="bg-[var(--color-ink-50)] text-[var(--color-ink-500)] text-left">
               <tr>
@@ -155,31 +211,31 @@ export default function MaquinasAdminPage() {
 
       <Card>
         <div className="px-5 py-3 border-b border-[var(--color-ink-100)]">
-          <h3 className="font-semibold">Manutenções</h3>
+          <h3 className="font-bold">Manutenções</h3>
         </div>
         <ul className="divide-y divide-[var(--color-ink-100)]">
           {manuts.map((m) => (
-            <li key={m.id} className="px-5 py-3 flex items-start justify-between gap-3">
+            <li key={m.id} className="flex flex-col gap-3 px-5 py-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <p className="text-sm font-medium">
+                <p className="text-sm font-bold">
                   {m.maquinas?.nome}
                   {m.maquinas?.identificador && (
-                    <span className="text-[var(--color-ink-500)]"> · {m.maquinas.identificador}</span>
+                    <span className="font-semibold text-[var(--color-ink-600)]"> · {m.maquinas.identificador}</span>
                   )}
                 </p>
-                <p className="text-sm text-[var(--color-ink-700)]">{m.descricao}</p>
-                <p className="text-xs text-[var(--color-ink-500)] mt-1">
+                <p className="text-sm font-semibold text-[var(--color-ink-700)]">{m.descricao}</p>
+                <p className="mt-1 text-xs font-semibold text-[var(--color-ink-600)]">
                   Aberto em {ddmmyyyy(m.created_at)}
                 </p>
               </div>
-              <div className="text-right shrink-0 space-y-2">
+              <div className="shrink-0 space-y-2 sm:text-right">
                 <Badge tone={m.status === "resolvido" ? "success" : m.status === "aberto" ? "danger" : "warning"}>
                   {statusTexto(m.status)}
                 </Badge>
                 {m.status !== "resolvido" && (
                   <button
                     onClick={() => resolverManut(m.id)}
-                    className="block text-xs text-[var(--color-forest-700)] hover:underline"
+                    className="block text-sm font-bold text-[var(--color-forest-700)] hover:underline"
                   >
                     marcar resolvida
                   </button>
@@ -215,7 +271,7 @@ export default function MaquinasAdminPage() {
               onChange={(e) => setEditing({ ...editing, status: e.target.value as MachineStatus })}
               options={STATUS_OPTS}
             />
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="grid grid-cols-2 gap-2 pt-2">
               <Button variant="ghost" onClick={() => setEditing(null)}>Cancelar</Button>
               <Button onClick={salvar}>Salvar</Button>
             </div>

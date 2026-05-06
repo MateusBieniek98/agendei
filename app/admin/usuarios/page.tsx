@@ -139,19 +139,97 @@ export default function UsuariosPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-end justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold">Usuários</h1>
-          <p className="text-sm text-[var(--color-ink-500)]">
+          <p className="text-sm font-semibold text-[var(--color-ink-600)]">
             Crie acessos personalizados (encarregado, admin, gestor),
             altere papéis, ative/desative ou redefina senhas.
           </p>
         </div>
-        <Button onClick={() => setCriando(true)}>+ Novo usuário</Button>
+        <Button className="w-full sm:w-auto" onClick={() => setCriando(true)}>
+          + Novo usuário
+        </Button>
       </div>
 
       <Card>
-        <div className="overflow-x-auto">
+        <div className="divide-y divide-[var(--color-ink-100)] md:hidden">
+          {items.map((u) => (
+            <div key={u.id} className="p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="break-words text-base font-bold text-[var(--color-ink-900)]">
+                    {u.nome}
+                  </p>
+                  <p className="mt-1 break-words text-sm font-semibold text-[var(--color-ink-700)]">
+                    {u.email}
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-[var(--color-ink-700)]">
+                    Equipe: {u.equipes?.nome ?? "sem equipe"}
+                  </p>
+                </div>
+                {u.ativo ? (
+                  <Badge tone="success">ativo</Badge>
+                ) : (
+                  <Badge tone="danger">inativo</Badge>
+                )}
+              </div>
+
+              <div className="mt-4 grid gap-3">
+                <label className="text-xs font-bold uppercase text-[var(--color-ink-700)]">
+                  Papel
+                  <select
+                    value={u.role}
+                    onChange={(e) => patch(u.id, { role: e.target.value as UserRole })}
+                    className="mt-1 h-12 w-full rounded-xl border-2 border-[var(--color-ink-300)] bg-white px-3 text-base font-bold normal-case text-[var(--color-ink-900)] shadow-sm"
+                  >
+                    {ROLES.map((r) => (
+                      <option key={r.value} value={r.value}>{r.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="text-xs font-bold uppercase text-[var(--color-ink-700)]">
+                  Equipe
+                  <select
+                    value={u.equipe_id ?? ""}
+                    onChange={(e) =>
+                      patch(u.id, {
+                        equipe_id: e.target.value ? e.target.value : null,
+                      })
+                    }
+                    className="mt-1 h-12 w-full rounded-xl border-2 border-[var(--color-ink-300)] bg-white px-3 text-base font-bold normal-case text-[var(--color-ink-900)] shadow-sm"
+                  >
+                    <option value="">Sem equipe</option>
+                    {equipes.map((eq) => (
+                      <option key={eq.id} value={eq.id}>
+                        {eq.nome}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <Button variant="secondary" onClick={() => setResetando(u)}>
+                  Resetar senha
+                </Button>
+                <Button
+                  variant={u.ativo ? "danger" : "primary"}
+                  onClick={() => patch(u.id, { ativo: !u.ativo })}
+                >
+                  {u.ativo ? "Desativar" : "Ativar"}
+                </Button>
+              </div>
+            </div>
+          ))}
+          {items.length === 0 && (
+            <div className="p-6 text-center text-sm font-semibold text-[var(--color-ink-600)]">
+              Sem usuários cadastrados ainda.
+            </div>
+          )}
+        </div>
+
+        <div className="hidden overflow-x-auto md:block">
           <table className="w-full text-sm">
             <thead className="bg-[var(--color-ink-50)] text-[var(--color-ink-500)] text-left">
               <tr>
@@ -288,7 +366,7 @@ export default function UsuariosPage() {
               options={equipes.map((eq) => ({ value: eq.id, label: eq.nome }))}
               placeholder="Sem equipe"
             />
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="grid grid-cols-2 gap-2 pt-2">
               <Button variant="ghost" onClick={() => setCriando(false)}>
                 Cancelar
               </Button>
@@ -326,7 +404,7 @@ export default function UsuariosPage() {
               placeholder="mín. 6 caracteres"
               autoComplete="new-password"
             />
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="grid grid-cols-2 gap-2 pt-2">
               <Button
                 variant="ghost"
                 onClick={() => {

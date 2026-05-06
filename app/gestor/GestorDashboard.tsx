@@ -285,6 +285,18 @@ export default function GestorDashboard() {
 
   const totalAlertas =
     (alertas?.atrasados.length ?? 0) + (alertas?.noPrazo.length ?? 0);
+  const planejamentoAberto = [
+    ...(alertas?.atrasados ?? []),
+    ...(alertas?.noPrazo ?? []),
+    ...(alertas?.futuros ?? []),
+  ];
+  const faturamentoPlanejadoAberto = planejamentoAberto.reduce(
+    (s, p) =>
+      s +
+      (p.faturamento_planejado ??
+        faturamentoPlanejado(p.quantidade_prevista, p.atividades)),
+    0
+  );
 
   return (
     <div className="space-y-6">
@@ -315,7 +327,7 @@ export default function GestorDashboard() {
         <div className="space-y-6">
           <PeriodoFiltro value={periodo} onChange={setPeriodo} loading={loading} />
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <StatCard label="Faturamento — hoje" value={brl(data.hoje)} tone="positive" />
             <StatCard label="Total no período" value={brl(data.total)} hint={data.periodo.label} />
             <StatCard
@@ -482,16 +494,26 @@ export default function GestorDashboard() {
 
       {aba === "planejamento" && (
         <div className="space-y-4">
-          <Card className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <Card className="flex flex-col gap-4 p-5 md:flex-row md:items-center md:justify-between">
             <div>
               <h3 className="font-bold">Alertas do planejamento</h3>
               <p className="text-sm font-semibold text-[var(--color-ink-600)]">
                 {totalAlertas} item{totalAlertas === 1 ? "" : "s"} pedindo atenção.
               </p>
             </div>
-            <Button onClick={carregar} loading={loading}>
-              Gerar alertas
-            </Button>
+            <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
+              <div className="rounded-xl bg-[var(--color-gn-50)] px-4 py-3">
+                <p className="text-xs font-bold uppercase text-[var(--color-gn-700)]">
+                  Faturamento planejado em aberto
+                </p>
+                <p className="mt-1 text-2xl font-bold text-[var(--color-gn-700)] tabular">
+                  {brl(faturamentoPlanejadoAberto)}
+                </p>
+              </div>
+              <Button onClick={carregar} loading={loading}>
+                Gerar alertas
+              </Button>
+            </div>
           </Card>
 
           <PlanejamentoLista

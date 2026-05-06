@@ -54,6 +54,7 @@ html, body {
   color: var(--fg);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
 }
 
 /* botões grandes (uso em campo) */
@@ -76,9 +77,17 @@ html, body {
 }
 
 :where(input, select, textarea)::placeholder {
-  color: var(--color-ink-500);
+  color: var(--color-ink-700);
   opacity: 1;
 }
 
 /* tipografia tabular pra colunas numéricas */
 .tabular { font-variant-numeric: tabular-nums; }
+
+.scrollbar-none {
+  scrollbar-width: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}

@@ -65,7 +65,7 @@ export default function MetasPage() {
     <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-bold">Metas mensais</h1>
-        <p className="text-sm text-[var(--color-ink-500)]">
+        <p className="text-sm font-semibold text-[var(--color-ink-600)]">
           Defina o valor de faturamento alvo para cada mês. O dashboard usa esse
           valor para calcular % atingido e meta do próximo dia.
         </p>
@@ -107,7 +107,25 @@ export default function MetasPage() {
       </Card>
 
       <Card>
-        <div className="overflow-x-auto">
+        <div className="divide-y divide-[var(--color-ink-100)] md:hidden">
+          {items.map((m) => (
+            <div key={m.id} className="p-4">
+              <p className="text-base font-bold capitalize text-[var(--color-ink-900)]">
+                {MESES[m.mes - 1]}/{m.ano}
+              </p>
+              <p className="mt-1 text-xl font-bold text-[var(--color-gn-700)] tabular">
+                {brl(m.valor_meta)}
+              </p>
+              {m.observacoes && (
+                <p className="mt-2 text-sm font-semibold text-[var(--color-ink-700)]">
+                  {m.observacoes}
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <div className="hidden overflow-x-auto md:block">
           <table className="w-full text-sm">
             <thead className="bg-[var(--color-ink-50)] text-[var(--color-ink-500)] text-left">
               <tr>

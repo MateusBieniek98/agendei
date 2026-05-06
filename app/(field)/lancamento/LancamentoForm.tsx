@@ -198,7 +198,7 @@ export default function LancamentoForm({
 
         <div className="space-y-3">
           {insumos.map((insumo, index) => (
-            <div key={index} className="grid grid-cols-[1fr_7rem] gap-3">
+            <div key={index} className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_7rem]">
               <Input
                 label={`Insumo ${index + 1}`}
                 value={insumo.nome}
