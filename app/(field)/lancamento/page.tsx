@@ -29,7 +29,7 @@ export default async function LancamentoPage() {
   ]);
 
   return (
-    <div className="space-y-4">
+    <div className="mx-auto max-w-md space-y-4">
       <div>
         <h2 className="text-xl font-bold">Novo lançamento</h2>
         <p className="text-sm text-[var(--color-ink-500)]">

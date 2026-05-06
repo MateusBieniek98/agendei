@@ -20,10 +20,15 @@ export default async function FieldLayout({
           subtitle={profile.nome}
           right={<LogoutButton />}
         />
-        <main className="px-4 py-4 max-w-md mx-auto">{children}</main>
+        <main className="mx-auto max-w-5xl px-4 py-4">{children}</main>
 
         <BottomNav
           items={[
+            {
+              href: "/resumo",
+              label: "Resumo",
+              icon: <IconChart />,
+            },
             {
               href: "/lancamento",
               label: "Lançar",
@@ -51,6 +56,18 @@ function IconPlus() {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"
          strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
       <circle cx="12" cy="12" r="9" /> <path d="M12 8v8M8 12h8" />
+    </svg>
+  );
+}
+function IconChart() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+         strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
+      <path d="M4 19V5" />
+      <path d="M4 19h16" />
+      <path d="M8 16V9" />
+      <path d="M13 16V7" />
+      <path d="M18 16v-4" />
     </svg>
   );
 }

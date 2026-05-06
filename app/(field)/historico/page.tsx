@@ -39,7 +39,7 @@ export default async function HistoricoPage() {
   );
 
   return (
-    <div className="space-y-4">
+    <div className="mx-auto max-w-md space-y-4">
       <div>
         <h2 className="text-xl font-bold">Hoje · {ddmmyyyy(hoje)}</h2>
         <p className="text-sm text-[var(--color-ink-500)]">

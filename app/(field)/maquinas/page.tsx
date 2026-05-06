@@ -13,7 +13,7 @@ export default async function MaquinasFieldPage() {
   ]);
 
   return (
-    <div className="space-y-4">
+    <div className="mx-auto max-w-md space-y-4">
       <div>
         <h2 className="text-xl font-bold">Reportar problema</h2>
         <p className="text-sm text-[var(--color-ink-500)]">
