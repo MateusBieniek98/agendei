@@ -14,6 +14,12 @@ Há duas estratégias suportadas:
    **Controle de Produção GN**. Ele chama
    `/api/sync/google-sheets/apontamentos`, valida `GOOGLE_SHEETS_SYNC_TOKEN`
    e atualiza a aba `Apontamentos App` com apontamentos, insumos e descarte.
+3. **Importação da aba Registro de atividades** — rode o SQL
+   `lib/db/sync_google_sheets_registro_atividades.sql` e cole o script
+   `docs/google-sheets-registro-atividades-import.js` no Apps Script da
+   mesma planilha. Ele envia a aba `Registro de atividades` para
+   `/api/sync/google-sheets/registro-atividades`, criando ou atualizando
+   apontamentos no Supabase sem duplicidade.
 
 ## Power BI
 

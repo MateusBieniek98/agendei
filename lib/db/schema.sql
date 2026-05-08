@@ -88,6 +88,13 @@ create table if not exists public.producao (
   valor_unitario_snapshot numeric(12,4) not null,
   registrado_por uuid not null references public.profiles(id),
   editado_por    uuid references public.profiles(id),
+  origem          text,
+  origem_planilha text,
+  origem_aba      text,
+  origem_linha    int,
+  origem_chave    text,
+  import_metadata jsonb not null default '{}'::jsonb,
+  importado_em    timestamptz,
   created_at     timestamptz not null default now(),
   updated_at     timestamptz not null default now()
 );
@@ -95,11 +102,20 @@ alter table public.producao
   add column if not exists projeto_id uuid references public.projetos(id),
   add column if not exists talhao text,
   add column if not exists insumos jsonb not null default '[]'::jsonb,
-  add column if not exists descarte numeric(12,3);
+  add column if not exists descarte numeric(12,3),
+  add column if not exists origem text,
+  add column if not exists origem_planilha text,
+  add column if not exists origem_aba text,
+  add column if not exists origem_linha int,
+  add column if not exists origem_chave text,
+  add column if not exists import_metadata jsonb not null default '{}'::jsonb,
+  add column if not exists importado_em timestamptz;
 create index if not exists idx_producao_data on public.producao(data);
 create index if not exists idx_producao_equipe on public.producao(equipe_id);
 create index if not exists idx_producao_atividade on public.producao(atividade_id);
 create index if not exists idx_producao_projeto on public.producao(projeto_id);
+create unique index if not exists idx_producao_origem_chave_unique
+  on public.producao (origem_chave);
 
 -- ═══ planejamento mensal ═══════════════════════════════════════════════
 create table if not exists public.planejamento (

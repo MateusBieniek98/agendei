@@ -12,7 +12,13 @@ Atalho recomendado para produção: rode `lib/db/update_status_projetos_planejam
 
 Use `lib/db/import_real_gn_from_tsv.sql` quando quiser importar todos os lançamentos da planilha. Cole no bloco `$gn_tsv$` as colunas desde `Inicio` até `Faturamento da Atividade`, incluindo o cabeçalho.
 
-O app agora usa campos próprios para projeto e talhão. Insumos ainda ficam fora por enquanto; encarregado original e faturamento original entram em `observacoes` do lançamento importado.
+Para manter a aba `Registro de atividades` sincronizando automaticamente com
+o app, use `lib/db/sync_google_sheets_registro_atividades.sql` e depois cole
+`docs/google-sheets-registro-atividades-import.js` no Apps Script da planilha.
+
+O app agora usa campos próprios para projeto, talhão e insumos. No fluxo
+automático via Apps Script, encarregado original, linha de origem e faturamento
+original também ficam registrados nos metadados/observações do lançamento.
 
 Antes de rodar em produção, confira se os usuários de teste existem no Supabase Auth:
 

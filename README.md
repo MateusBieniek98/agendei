@@ -157,13 +157,18 @@ Visível só pelo papel admin.
 - `GET /api/sync/google-sheets/apontamentos?escopo=tudo` retorna JSON
   protegido por `GOOGLE_SHEETS_SYNC_TOKEN` para alimentar a planilha
   **Controle de Produção GN** por Apps Script.
+- `POST /api/sync/google-sheets/registro-atividades` recebe a aba
+  **Registro de atividades** da planilha e importa/atualiza apontamentos no
+  Supabase sem duplicar linhas.
 
 Os apontamentos incluem projeto, talhão, atividade, equipe, produção,
 tarifa, faturamento, até 5 insumos utilizados, descarte e observações.
 Insumos são operacionais: aparecem para encarregado/admin/exportação,
 mas não entram na tela do gestor.
 
-Os adapters de integração ficam em `lib/integrations/`.
+Os adapters de integração ficam em `lib/integrations/`. O script de
+importação da planilha para o app fica em
+`docs/google-sheets-registro-atividades-import.js`.
 
 ## Deploy
 
