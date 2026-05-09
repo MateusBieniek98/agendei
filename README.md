@@ -155,11 +155,13 @@ Visível só pelo papel admin.
 - `GET /api/export/xlsx?escopo=mes|semana|hoje&data_de=&data_ate=`
 - `GET /api/export/csv?...`  (formato amigável a Power BI / Sheets)
 - `GET /api/sync/google-sheets/apontamentos?escopo=tudo` retorna JSON
-  protegido por `GOOGLE_SHEETS_SYNC_TOKEN` para alimentar a planilha
+  protegido por `SHARED_SYNC_TOKEN` para alimentar a planilha
   **Controle de Produção GN** por Apps Script.
 - `POST /api/sync/google-sheets/registro-atividades` recebe a aba
   **Registro de atividades** da planilha e importa/atualiza apontamentos no
   Supabase sem duplicar linhas.
+- `POST /api/sync/metadata` recebe metadados de serviços da planilha e
+  sincroniza nomes, tarifas, unidades e aliases em `services_metadata`.
 
 Os apontamentos incluem projeto, talhão, atividade, equipe, produção,
 tarifa, faturamento, até 5 insumos utilizados, descarte e observações.
@@ -182,7 +184,7 @@ Aponte o domínio na DNS da GN.
 Para a sincronização automática com Google Sheets, configure também:
 
 - `SUPABASE_SERVICE_ROLE_KEY` — chave service role do projeto Supabase.
-- `GOOGLE_SHEETS_SYNC_TOKEN` — token secreto compartilhado com o Apps Script.
+- `SHARED_SYNC_TOKEN` — token secreto único compartilhado com o Apps Script.
 
 ## Licença
 

@@ -7,15 +7,15 @@
  * Controle de Produção GN
  *
  * Depois:
- * 1. Troque GN_SYNC_TOKEN pelo mesmo valor configurado no Vercel.
+ * 1. Troque GN_SHARED_SYNC_TOKEN pelo mesmo valor configurado no Vercel.
  * 2. Rode instalarAtualizacaoAutomaticaGN() uma vez.
  * 3. Autorize o script quando o Google pedir.
  */
 
 const GN_SPREADSHEET_ID = '1KrTQYh1JkNCUj4UvgSZm4LCd58MFSAAzP0sdC1jMv9Y';
 const GN_SHEET_NAME = 'Apontamentos App';
-const GN_SYNC_TOKEN = 'COLE_AQUI_O_GOOGLE_SHEETS_SYNC_TOKEN';
-const GN_API_URL = 'https://www.appdamarei.com/api/sync/google-sheets/apontamentos?escopo=tudo';
+const GN_SHARED_SYNC_TOKEN = 'COLE_AQUI_O_SHARED_SYNC_TOKEN';
+const GN_API_URL = 'https://agendei-rho.vercel.app/api/sync/google-sheets/apontamentos?escopo=tudo';
 
 function atualizarApontamentosGN() {
   const lock = LockService.getScriptLock();
@@ -26,7 +26,7 @@ function atualizarApontamentosGN() {
       method: 'get',
       muteHttpExceptions: true,
       headers: {
-        Authorization: `Bearer ${GN_SYNC_TOKEN}`,
+        Authorization: `Bearer ${GN_SHARED_SYNC_TOKEN}`,
       },
     });
 

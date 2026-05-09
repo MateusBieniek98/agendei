@@ -7,27 +7,43 @@
  * Controle de Producao GN
  *
  * Depois:
- * 1. Troque GN_SYNC_TOKEN pelo mesmo valor configurado no Vercel.
+ * 1. Troque GN_SHARED_SYNC_TOKEN pelo mesmo valor configurado no Vercel.
  * 2. Rode importarRegistroAtividadesParaAppGN() uma vez.
  * 3. Autorize o script quando o Google pedir.
- * 4. Se quiser automatico, rode instalarImportacaoRegistroAtividadesGN().
+ * 4. Se quiser automatico, rode instalarAutomacaoCompletaGN().
  */
 
 const GN_IMPORT_SPREADSHEET_ID = '1KrTQYh1JkNCUj4UvgSZm4LCd58MFSAAzP0sdC1jMv9Y';
 const GN_IMPORT_SHEET_NAME = 'Registro de atividades';
-const GN_IMPORT_API_URL = 'https://www.appdamarei.com/api/sync/google-sheets/registro-atividades';
-const GN_SYNC_TOKEN = 'COLE_AQUI_O_GOOGLE_SHEETS_SYNC_TOKEN';
+const GN_IMPORT_API_URL = 'https://agendei-rho.vercel.app/api/sync/google-sheets/registro-atividades';
+const GN_METADATA_API_URL = 'https://agendei-rho.vercel.app/api/sync/metadata';
+const GN_SHARED_SYNC_TOKEN = 'COLE_AQUI_O_SHARED_SYNC_TOKEN';
 const GN_ID_HEADER = 'GN App ID';
 const GN_STATUS_HEADER = 'GN Sync Status';
-const GN_BATCH_SIZE = 300;
+const GN_BATCH_SIZE = 25;
 
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('GN App')
     .addItem('Enviar Registro de atividades para o app', 'importarRegistroAtividadesParaAppGN')
     .addItem('Validar sem gravar no app', 'validarRegistroAtividadesGN')
-    .addItem('Instalar sincronizacao automatica', 'instalarImportacaoRegistroAtividadesGN')
+    .addItem('Testar conexao com o app', 'testarConexaoImportacaoRegistroAtividadesGN')
+    .addItem('Sincronizar metadados da aba atual', 'sincronizarMetadataServicosAbaAtualGN')
+    .addItem('Instalar automacao completa', 'instalarAutomacaoCompletaGN')
     .addToUi();
+}
+
+function escreverLogGN(mensagem) {
+  try {
+    const ss = SpreadsheetApp.openById(GN_IMPORT_SPREADSHEET_ID);
+    const sheet = ss.getSheetByName('GN Logs') || ss.insertSheet('GN Logs');
+    sheet.appendRow([
+      Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss'),
+      mensagem,
+    ]);
+  } catch (error) {
+    console.log(mensagem);
+  }
 }
 
 function normalizarCabecalhoGN(value) {
@@ -98,6 +114,9 @@ function carregarLinhasRegistroAtividadesGN() {
     const row = values[index].map(valorParaApiGN);
     if (!linhaTemConteudoGN(row, headers)) continue;
 
+    const statusAtual = String(row[statusCol - 1] || '').trim().toUpperCase();
+    if (statusAtual.startsWith('OK ')) continue;
+
     let sourceId = String(row[idCol - 1] || '').trim();
     if (!sourceId) {
       sourceId = Utilities.getUuid();
@@ -121,7 +140,7 @@ function enviarLoteRegistroAtividadesGN(headers, rows, dryRun) {
     contentType: 'application/json',
     muteHttpExceptions: true,
     headers: {
-      Authorization: `Bearer ${GN_SYNC_TOKEN}`,
+      Authorization: `Bearer ${GN_SHARED_SYNC_TOKEN}`,
     },
     payload: JSON.stringify({
       spreadsheetName: 'Controle de Producao GN',
@@ -200,6 +219,33 @@ function validarRegistroAtividadesGN() {
   importarOuValidarRegistroAtividadesGN(true);
 }
 
+function testarConexaoImportacaoRegistroAtividadesGN() {
+  const response = UrlFetchApp.fetch(GN_IMPORT_API_URL, {
+    method: 'post',
+    contentType: 'application/json',
+    muteHttpExceptions: true,
+    headers: {
+      Authorization: `Bearer ${GN_SHARED_SYNC_TOKEN}`,
+    },
+    payload: JSON.stringify({
+      spreadsheetName: 'Controle de Producao GN',
+      sheetName: GN_IMPORT_SHEET_NAME,
+      headers: ['Data', 'Serviço', 'Projeto', 'Talhão', 'Produção', 'Equipe', 'Encarregado'],
+      rows: [{
+        rowNumber: 2,
+        sourceId: 'teste-conexao-app-gn',
+        values: ['2026-05-08', 'TESTE DE CONEXAO', 'TESTE', '000-00', '0', 'TESTE', 'TESTE'],
+      }],
+      dryRun: true,
+      atualizarCadastros: false,
+    }),
+  });
+
+  SpreadsheetApp.getUi().alert(
+    `Status ${response.getResponseCode()}\n\n${response.getContentText().slice(0, 1200)}`
+  );
+}
+
 function instalarImportacaoRegistroAtividadesGN() {
   const functionName = 'importarRegistroAtividadesParaAppGN';
 
@@ -213,4 +259,149 @@ function instalarImportacaoRegistroAtividadesGN() {
     .create();
 
   importarRegistroAtividadesParaAppGN();
+}
+
+function enviarMetadataServicosGN(sheetName, headers, rows, editedRange) {
+  const response = UrlFetchApp.fetch(GN_METADATA_API_URL, {
+    method: 'post',
+    contentType: 'application/json',
+    muteHttpExceptions: true,
+    headers: {
+      Authorization: `Bearer ${GN_SHARED_SYNC_TOKEN}`,
+    },
+    payload: JSON.stringify({
+      spreadsheetName: 'Controle de Producao GN',
+      sheetName,
+      headers,
+      rows,
+      editedRange: editedRange || null,
+    }),
+  });
+
+  const status = response.getResponseCode();
+  const text = response.getContentText();
+  if (status < 200 || status >= 300) {
+    throw new Error(`Erro ${status} ao sincronizar metadados: ${text}`);
+  }
+
+  return JSON.parse(text);
+}
+
+function cabecalhosDaAbaGN(sheet) {
+  const lastColumn = Math.max(sheet.getLastColumn(), 1);
+  return sheet.getRange(1, 1, 1, lastColumn).getValues()[0].map((header) => String(header || '').trim());
+}
+
+function linhaDaAbaGN(sheet, rowNumber) {
+  const lastColumn = Math.max(sheet.getLastColumn(), 1);
+  return sheet.getRange(rowNumber, 1, 1, lastColumn).getValues()[0].map(valorParaApiGN);
+}
+
+function linhaTemServicoGN(row, headers) {
+  const index = indiceCabecalhoGN(headers, [
+    'Nomenclatura Facilitada',
+    'Servico',
+    'Serviço',
+    'Atividade',
+    'Nome',
+  ]);
+  return index >= 0 && String(row[index] || '').trim() !== '';
+}
+
+function sincronizarMetadataServicosEditadosGN(e) {
+  try {
+    if (!e || !e.range) return;
+    const sheet = e.range.getSheet();
+    const rowNumber = e.range.getRow();
+    if (rowNumber <= 1) return;
+
+    const headers = cabecalhosDaAbaGN(sheet);
+    const row = linhaDaAbaGN(sheet, rowNumber);
+    if (!linhaTemServicoGN(row, headers)) return;
+
+    const payload = enviarMetadataServicosGN(
+      sheet.getName(),
+      headers,
+      [{ rowNumber, sourceId: `sheet-row-${sheet.getSheetId()}-${rowNumber}`, values: row }],
+      {
+        rowNumber,
+        columnNumber: e.range.getColumn(),
+        oldValue: e.oldValue || null,
+        newValue: e.value || null,
+      }
+    );
+
+    escreverLogGN(`Metadados sincronizados: ${payload.ok || 0} OK, ${payload.errors || 0} erro(s).`);
+  } catch (error) {
+    escreverLogGN(`ERRO sincronizarMetadataServicosEditadosGN: ${error.message || error}`);
+  }
+}
+
+function sincronizarMetadataServicosAbaAtualGN() {
+  const sheet = SpreadsheetApp.getActiveSheet();
+  const headers = cabecalhosDaAbaGN(sheet);
+  const lastRow = sheet.getLastRow();
+  const rows = [];
+
+  for (let rowNumber = 2; rowNumber <= lastRow; rowNumber += 1) {
+    const row = linhaDaAbaGN(sheet, rowNumber);
+    if (!linhaTemServicoGN(row, headers)) continue;
+    rows.push({
+      rowNumber,
+      sourceId: `sheet-row-${sheet.getSheetId()}-${rowNumber}`,
+      values: row,
+    });
+  }
+
+  if (rows.length === 0) {
+    SpreadsheetApp.getUi().alert('Nenhuma linha com serviço encontrada na aba atual.');
+    return;
+  }
+
+  let ok = 0;
+  let errors = 0;
+  for (let start = 0; start < rows.length; start += 200) {
+    const payload = enviarMetadataServicosGN(sheet.getName(), headers, rows.slice(start, start + 200), null);
+    ok += payload.ok || 0;
+    errors += payload.errors || 0;
+  }
+
+  SpreadsheetApp.getUi().alert(`Metadados sincronizados.\nOK: ${ok}\nErros: ${errors}`);
+}
+
+function instalarMetadataServicosGN() {
+  const functionName = 'sincronizarMetadataServicosEditadosGN';
+
+  ScriptApp.getProjectTriggers()
+    .filter((trigger) => trigger.getHandlerFunction() === functionName)
+    .forEach((trigger) => ScriptApp.deleteTrigger(trigger));
+
+  ScriptApp.newTrigger(functionName)
+    .forSpreadsheet(GN_IMPORT_SPREADSHEET_ID)
+    .onEdit()
+    .create();
+
+  sincronizarMetadataServicosAbaAtualGN();
+}
+
+function instalarAutomacaoCompletaGN() {
+  ['importarRegistroAtividadesParaAppGN', 'sincronizarMetadataServicosEditadosGN']
+    .forEach((functionName) => {
+      ScriptApp.getProjectTriggers()
+        .filter((trigger) => trigger.getHandlerFunction() === functionName)
+        .forEach((trigger) => ScriptApp.deleteTrigger(trigger));
+    });
+
+  ScriptApp.newTrigger('importarRegistroAtividadesParaAppGN')
+    .timeBased()
+    .everyHours(1)
+    .create();
+
+  ScriptApp.newTrigger('sincronizarMetadataServicosEditadosGN')
+    .forSpreadsheet(GN_IMPORT_SPREADSHEET_ID)
+    .onEdit()
+    .create();
+
+  importarRegistroAtividadesParaAppGN();
+  sincronizarMetadataServicosAbaAtualGN();
 }

@@ -12,7 +12,7 @@ Há duas estratégias suportadas:
 2. **Sincronização automática recomendada** — cole o script
    `docs/google-sheets-apontamentos-sync.js` no Apps Script da planilha
    **Controle de Produção GN**. Ele chama
-   `/api/sync/google-sheets/apontamentos`, valida `GOOGLE_SHEETS_SYNC_TOKEN`
+   `/api/sync/google-sheets/apontamentos`, valida `SHARED_SYNC_TOKEN`
    e atualiza a aba `Apontamentos App` com apontamentos, insumos e descarte.
 3. **Importação da aba Registro de atividades** — rode o SQL
    `lib/db/sync_google_sheets_registro_atividades.sql` e cole o script
@@ -20,6 +20,10 @@ Há duas estratégias suportadas:
    mesma planilha. Ele envia a aba `Registro de atividades` para
    `/api/sync/google-sheets/registro-atividades`, criando ou atualizando
    apontamentos no Supabase sem duplicidade.
+4. **Metadados de serviços** — rode
+   `lib/db/2026-05-services-metadata-sync.sql`. O Apps Script também pode
+   chamar `/api/sync/metadata` em edições da planilha para manter nomes,
+   tarifas, unidades e aliases sincronizados com `services_metadata`.
 
 ## Power BI
 

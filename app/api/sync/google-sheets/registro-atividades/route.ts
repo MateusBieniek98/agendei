@@ -7,6 +7,12 @@ import {
   normalizeProjectName,
   syncPlanningProgressForProduction,
 } from "@/lib/planning-progress";
+import { upsertServiceMetadata } from "@/lib/service-metadata";
+import {
+  configuredSyncTokens,
+  isAuthorizedSyncRequest,
+  syncTokenMissingMessage,
+} from "@/lib/sync-auth";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -35,6 +41,8 @@ type EntityRow = {
   ativo?: boolean;
   unidade?: string;
   valor_unitario?: number | string | null;
+  service_key?: string | null;
+  service_metadata_id?: string | null;
   role?: string;
   email?: string;
 };
@@ -78,15 +86,6 @@ const SOURCE_NAME = "google_sheets";
 const DEFAULT_SPREADSHEET_NAME = "Controle de Produção GN";
 const DEFAULT_SHEET_NAME = "Registro de atividades";
 const MAX_ROWS_PER_REQUEST = 5000;
-
-function bearer(req: NextRequest) {
-  const header = req.headers.get("authorization") ?? "";
-  return header.toLowerCase().startsWith("bearer ") ? header.slice(7).trim() : "";
-}
-
-function requestedToken(req: NextRequest) {
-  return bearer(req) || req.nextUrl.searchParams.get("token") || "";
-}
 
 function cleanText(value: unknown) {
   return String(value ?? "")
@@ -211,14 +210,6 @@ function parseDateISO(input: unknown): string | null {
   return null;
 }
 
-function inferUnitFromActivity(nome: string) {
-  const normalized = normalizePlanningText(nome);
-  if (normalized.includes(" km") || normalized.includes("tracado km")) return "km";
-  if (normalized.includes("hora")) return "h";
-  if (normalized.includes("diaria") || normalized.includes("caminhao pipa")) return "diaria";
-  return "ha";
-}
-
 function hashSource(row: SheetRowPayload, headers: string[], sheetName: string) {
   const values = rowValues(row);
   const serialized = JSON.stringify(values ?? rowData(row));
@@ -268,7 +259,10 @@ async function loadImportMaps(supabase: AdminSupabase): Promise<ImportMaps> {
   const [projetos, equipes, atividades, profiles] = await Promise.all([
     supabase.from("projetos").select("id, nome, ativo").limit(10000),
     supabase.from("equipes").select("id, nome, ativo").limit(10000),
-    supabase.from("atividades").select("id, nome, unidade, valor_unitario, ativo").limit(10000),
+    supabase
+      .from("atividades")
+      .select("id, nome, unidade, valor_unitario, ativo, service_key, service_metadata_id")
+      .limit(10000),
     supabase.from("profiles").select("id, nome, email, role").limit(10000),
   ]);
 
@@ -362,35 +356,18 @@ async function ensureAtividade(
   tarifa: number | null,
   atualizarCadastros: boolean
 ) {
-  const mapKey = key(nome);
-  const existing = maps.atividades.get(mapKey);
-  if (existing) {
-    if (atualizarCadastros && tarifa !== null && tarifa > 0) {
-      await supabase
-        .from("atividades")
-        .update({ valor_unitario: tarifa, ativo: true })
-        .eq("id", existing.id);
-      existing.valor_unitario = tarifa;
-      existing.ativo = true;
-    }
-    return existing;
+  const metadata = await upsertServiceMetadata(supabase, {
+    displayName: nome,
+    valorUnitario: atualizarCadastros ? tarifa : null,
+    sourceSheet: DEFAULT_SHEET_NAME,
+    metadata: { origem: "importacao_registro_atividades" },
+  });
+  const metadataActivity = metadata.atividade as EntityRow;
+  addEntity(maps.atividades, metadataActivity);
+  if (metadataActivity.service_key) {
+    maps.atividades.set(key(metadataActivity.service_key), metadataActivity);
   }
-
-  const { data, error } = await supabase
-    .from("atividades")
-    .insert({
-      nome,
-      unidade: inferUnitFromActivity(nome),
-      valor_unitario: tarifa ?? 0,
-      ativo: true,
-    })
-    .select("id, nome, unidade, valor_unitario, ativo")
-    .single();
-  if (error) throw new Error(`Atividade "${nome}": ${error.message}`);
-
-  const row = data as EntityRow;
-  addEntity(maps.atividades, row);
-  return row;
+  return metadataActivity;
 }
 
 function normalizeHeaders(input: unknown[] | undefined) {
@@ -531,15 +508,14 @@ async function importRow(
 }
 
 export async function POST(req: NextRequest) {
-  const expectedToken = process.env.GOOGLE_SHEETS_SYNC_TOKEN;
-  if (!expectedToken) {
+  if (configuredSyncTokens().length === 0) {
     return NextResponse.json(
-      { error: "GOOGLE_SHEETS_SYNC_TOKEN nao configurado no servidor." },
+      { error: syncTokenMissingMessage() },
       { status: 500 }
     );
   }
 
-  if (requestedToken(req) !== expectedToken) {
+  if (!isAuthorizedSyncRequest(req)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 

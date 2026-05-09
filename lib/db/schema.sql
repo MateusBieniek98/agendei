@@ -64,6 +64,120 @@ create table if not exists public.atividades (
   created_at      timestamptz not null default now()
 );
 
+-- ═══ metadados de serviços (fonte única de verdade) ════════════════════
+-- Mantém ID/chave estável para cada serviço mesmo quando o nome muda na planilha.
+create table if not exists public.services_metadata (
+  id                 uuid primary key default gen_random_uuid(),
+  service_key        text not null,
+  slug               text not null,
+  display_name       text not null,
+  canonical_name     text not null,
+  operation_code     text,
+  operation_name     text,
+  unidade            text not null default 'ha',
+  escala_rendimento  text,
+  valor_unitario     numeric(12,4) not null default 0 check (valor_unitario >= 0),
+  atividade_id       uuid references public.atividades(id) on delete set null,
+  aliases            text[] not null default '{}'::text[],
+  source_spreadsheet text,
+  source_sheet       text,
+  source_row         int,
+  metadata           jsonb not null default '{}'::jsonb,
+  ativo              boolean not null default true,
+  last_synced_at     timestamptz,
+  created_at         timestamptz not null default now(),
+  updated_at         timestamptz not null default now()
+);
+create unique index if not exists idx_services_metadata_service_key
+  on public.services_metadata(service_key);
+drop index if exists public.idx_services_metadata_slug;
+create index if not exists idx_services_metadata_slug
+  on public.services_metadata(slug);
+create index if not exists idx_services_metadata_display_name
+  on public.services_metadata(display_name);
+create index if not exists idx_services_metadata_atividade
+  on public.services_metadata(atividade_id);
+
+alter table public.atividades
+  add column if not exists service_key text,
+  add column if not exists service_metadata_id uuid references public.services_metadata(id) on delete set null;
+create index if not exists idx_atividades_service_key on public.atividades(service_key);
+create index if not exists idx_atividades_service_metadata on public.atividades(service_metadata_id);
+
+with atividades_source as (
+  select distinct on (service_key)
+    a.id,
+    a.nome,
+    a.unidade,
+    a.valor_unitario,
+    coalesce(
+      nullif(a.service_key, ''),
+      'srv-' || coalesce(nullif(trim(both '-' from regexp_replace(lower(unaccent(a.nome)), '[^a-z0-9]+', '-', 'g')), ''), a.id::text)
+    ) as service_key
+  from public.atividades a
+  order by
+    coalesce(
+      nullif(a.service_key, ''),
+      'srv-' || coalesce(nullif(trim(both '-' from regexp_replace(lower(unaccent(a.nome)), '[^a-z0-9]+', '-', 'g')), ''), a.id::text)
+    ),
+    a.created_at,
+    a.id
+)
+insert into public.services_metadata (
+  service_key,
+  slug,
+  display_name,
+  canonical_name,
+  unidade,
+  valor_unitario,
+  atividade_id,
+  aliases,
+  source_sheet,
+  last_synced_at
+)
+select
+  service_key,
+  left(service_key, 120),
+  nome,
+  nome,
+  unidade,
+  valor_unitario,
+  id,
+  array[nome],
+  'backfill_atividades',
+  now()
+from atividades_source
+on conflict (service_key) do update
+set
+  display_name = excluded.display_name,
+  canonical_name = excluded.canonical_name,
+  unidade = excluded.unidade,
+  valor_unitario = excluded.valor_unitario,
+  atividade_id = coalesce(public.services_metadata.atividade_id, excluded.atividade_id),
+  aliases = array(
+    select distinct alias
+    from unnest(coalesce(public.services_metadata.aliases, '{}'::text[]) || excluded.aliases) as alias
+    where nullif(trim(alias), '') is not null
+  ),
+  last_synced_at = now();
+
+update public.atividades a
+set
+  service_key = s.service_key,
+  service_metadata_id = sm.id
+from (
+  select
+    id,
+    coalesce(
+      nullif(service_key, ''),
+      'srv-' || coalesce(nullif(trim(both '-' from regexp_replace(lower(unaccent(nome)), '[^a-z0-9]+', '-', 'g')), ''), id::text)
+    ) as service_key
+  from public.atividades
+) s
+join public.services_metadata sm on sm.service_key = s.service_key
+where a.id = s.id
+  and (a.service_metadata_id is distinct from sm.id or a.service_key is distinct from s.service_key);
+
 -- ═══ projetos (fazendas) ═══════════════════════════════════════════════
 create table if not exists public.projetos (
   id          uuid primary key default gen_random_uuid(),
@@ -253,6 +367,10 @@ drop trigger if exists trg_metas_atividades_touch on public.metas_atividades;
 create trigger trg_metas_atividades_touch before update on public.metas_atividades
   for each row execute function public.touch_updated_at();
 
+drop trigger if exists trg_services_metadata_touch on public.services_metadata;
+create trigger trg_services_metadata_touch before update on public.services_metadata
+  for each row execute function public.touch_updated_at();
+
 -- ───── trigger de auditoria ────────────────────────────────────────────
 create or replace function public.fn_audit() returns trigger as $$
 declare
@@ -281,6 +399,7 @@ drop trigger if exists trg_audit_atividades on public.atividades;
 drop trigger if exists trg_audit_metas      on public.metas;
 drop trigger if exists trg_audit_metas_atividades on public.metas_atividades;
 drop trigger if exists trg_audit_planejamento on public.planejamento;
+drop trigger if exists trg_audit_services_metadata on public.services_metadata;
 create trigger trg_audit_producao   after insert or update or delete on public.producao
   for each row execute function public.fn_audit();
 create trigger trg_audit_maquinas   after insert or update or delete on public.maquinas
@@ -292,6 +411,8 @@ create trigger trg_audit_metas      after insert or update or delete on public.m
 create trigger trg_audit_metas_atividades after insert or update or delete on public.metas_atividades
   for each row execute function public.fn_audit();
 create trigger trg_audit_planejamento after insert or update or delete on public.planejamento
+  for each row execute function public.fn_audit();
+create trigger trg_audit_services_metadata after insert or update or delete on public.services_metadata
   for each row execute function public.fn_audit();
 
 -- ───── helpers RLS ─────────────────────────────────────────────────────
@@ -533,6 +654,7 @@ create trigger trg_sync_planejamento_progress
 alter table public.profiles    enable row level security;
 alter table public.equipes     enable row level security;
 alter table public.atividades  enable row level security;
+alter table public.services_metadata enable row level security;
 alter table public.projetos    enable row level security;
 alter table public.producao    enable row level security;
 alter table public.planejamento enable row level security;
@@ -556,7 +678,7 @@ create policy profiles_admin_write on public.profiles
 do $$
 declare t text;
 begin
-  for t in select unnest(array['equipes','atividades','projetos','metas','metas_atividades','maquinas','planejamento']) loop
+  for t in select unnest(array['equipes','atividades','services_metadata','projetos','metas','metas_atividades','maquinas','planejamento']) loop
     execute format('drop policy if exists %I_read on public.%I', t, t);
     execute format('drop policy if exists %I_admin_write on public.%I', t, t);
     execute format('create policy %I_read on public.%I for select using (auth.uid() is not null)', t, t);

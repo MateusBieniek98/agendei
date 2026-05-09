@@ -1,6 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { insumosToColumns } from "@/lib/insumos";
+import {
+  configuredSyncTokens,
+  isAuthorizedSyncRequest,
+  syncTokenMissingMessage,
+} from "@/lib/sync-auth";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -56,15 +61,6 @@ const HEADERS = [
   "Atualizado em",
 ];
 
-function bearer(req: NextRequest) {
-  const header = req.headers.get("authorization") ?? "";
-  return header.toLowerCase().startsWith("bearer ") ? header.slice(7).trim() : "";
-}
-
-function requestedToken(req: NextRequest) {
-  return bearer(req) || req.nextUrl.searchParams.get("token") || "";
-}
-
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -76,15 +72,14 @@ function addDaysISO(days: number) {
 }
 
 export async function GET(req: NextRequest) {
-  const expectedToken = process.env.GOOGLE_SHEETS_SYNC_TOKEN;
-  if (!expectedToken) {
+  if (configuredSyncTokens().length === 0) {
     return NextResponse.json(
-      { error: "GOOGLE_SHEETS_SYNC_TOKEN não configurado no servidor." },
+      { error: syncTokenMissingMessage() },
       { status: 500 }
     );
   }
 
-  if (requestedToken(req) !== expectedToken) {
+  if (!isAuthorizedSyncRequest(req)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
