@@ -14,13 +14,13 @@ export default async function FieldLayout({
 
   return (
     <ToastProvider>
-      <div className="min-h-screen pb-24">
+      <div className="app-scroll-area with-bottom-nav bg-[var(--color-ink-50)]">
         <TopBar
           title="GN — Campo"
           subtitle={profile.nome}
           right={<LogoutButton />}
         />
-        <main className="mx-auto max-w-5xl px-4 py-4">{children}</main>
+        <main className="mx-auto max-w-5xl px-4 py-4 sm:py-6">{children}</main>
 
         <BottomNav
           items={[

@@ -350,14 +350,20 @@ export default function LancamentosTable({
 
       {editing && (
         <div
-          className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50"
+          className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-black/40 p-3 pb-[max(env(safe-area-inset-bottom),12px)] pt-[max(env(safe-area-inset-top),12px)] sm:items-center sm:p-4"
           onClick={() => setEditing(null)}
         >
           <div
-            className="bg-white rounded-2xl w-full max-w-md p-6 space-y-3"
+            className="max-h-[calc(100dvh_-_24px_-_env(safe-area-inset-top)_-_env(safe-area-inset-bottom))] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl sm:p-6"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-lg font-bold">Editar lançamento</h3>
+            <div className="sticky top-0 -mx-5 -mt-5 mb-3 border-b border-[var(--color-ink-100)] bg-white px-5 py-4 sm:-mx-6 sm:-mt-6 sm:px-6">
+              <h3 className="text-lg font-bold">Editar lançamento</h3>
+              <p className="mt-1 text-xs font-semibold text-[var(--color-ink-500)]">
+                Ajuste os dados e salve sem perder a posição da página.
+              </p>
+            </div>
+            <div className="space-y-3">
             <Input
               label="Data"
               type="date"
@@ -402,11 +408,12 @@ export default function LancamentosTable({
               value={editing.observacoes ?? ""}
               onChange={(e) => setEditing({ ...editing, observacoes: e.target.value })}
             />
-            <div className="grid grid-cols-2 gap-2 pt-2">
-              <Button variant="ghost" onClick={() => setEditing(null)}>
-                Cancelar
-              </Button>
-              <Button onClick={salvarEdit}>Salvar</Button>
+              <div className="sticky bottom-0 -mx-5 -mb-5 grid grid-cols-2 gap-2 border-t border-[var(--color-ink-100)] bg-white px-5 py-4 sm:-mx-6 sm:-mb-6 sm:px-6">
+                <Button variant="ghost" onClick={() => setEditing(null)}>
+                  Cancelar
+                </Button>
+                <Button onClick={salvarEdit}>Salvar</Button>
+              </div>
             </div>
           </div>
         </div>

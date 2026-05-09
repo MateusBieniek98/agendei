@@ -24,7 +24,7 @@ export default async function AdminLayout({
   const profile = await requireRole(["admin"]);
   return (
     <ToastProvider>
-      <div className="flex min-h-screen">
+      <div className="app-scroll-area flex bg-[var(--color-ink-50)]">
         <Sidebar items={items} user={{ nome: profile.nome, role: "admin" }} />
         <div className="flex-1 min-w-0">
           <div className="md:hidden">
@@ -35,7 +35,7 @@ export default async function AdminLayout({
             />
             <MobileSectionNav items={items} />
           </div>
-          <main className="overflow-x-hidden px-3 py-4 pb-24 sm:px-4 md:p-8">
+          <main className="overflow-x-clip px-3 py-4 pb-24 sm:px-4 md:p-8">
             {children}
           </main>
         </div>

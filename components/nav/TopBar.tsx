@@ -14,13 +14,13 @@ export default function TopBar({
   showLogo?: boolean;
 }) {
   return (
-    <header className="sticky top-0 z-30 bg-white border-b border-[var(--color-ink-300)]">
-      <div className="flex items-center gap-3 px-4 py-3">
+    <header className="sticky top-0 z-30 border-b border-[var(--color-ink-300)] bg-white/95 pt-[var(--app-top-safe-area)] shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/85">
+      <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3">
         {showLogo && <Logo size={32} variant="color" />}
         <div className="flex-1 min-w-0">
           {title && <h1 className="text-base font-bold truncate">{title}</h1>}
           {subtitle && (
-            <p className="truncate text-xs font-bold text-[var(--color-ink-600)]">{subtitle}</p>
+            <p className="truncate text-xs font-bold text-[var(--color-ink-500)]">{subtitle}</p>
           )}
         </div>
         {right}

@@ -9,13 +9,13 @@ export default async function GestorLayout({
 }) {
   const profile = await requireRole(["gestor", "admin"]);
   return (
-    <div className="min-h-screen">
+    <div className="app-scroll-area bg-[var(--color-ink-50)]">
       <TopBar
         title="GN — Visão executiva"
         subtitle={profile.nome}
         right={<LogoutButton />}
       />
-      <main className="px-4 md:px-8 py-6 max-w-6xl mx-auto">{children}</main>
+      <main className="mx-auto max-w-6xl px-4 py-6 md:px-8">{children}</main>
     </div>
   );
 }
