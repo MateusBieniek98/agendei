@@ -7,9 +7,10 @@ import Badge from "@/components/ui/Badge";
 import { brl, ddmmyyyy } from "@/lib/format";
 import { LinhaChart } from "./GestorCharts";
 import PeriodoFiltro, { type PeriodoState } from "@/components/dashboard/PeriodoFiltro";
+import PlanejamentoField from "@/app/(field)/planejamento/PlanejamentoField";
 import type { MachineStatus } from "@/lib/types";
 
-type Aba = "faturamento" | "manutencao";
+type Aba = "faturamento" | "manutencao" | "planejamento";
 
 type Manut = {
   id: string;
@@ -51,8 +52,9 @@ type DashboardData = {
 };
 
 const ABAS: { value: Aba; label: string }[] = [
-  { value: "faturamento", label: "Faturamento" },
-  { value: "manutencao",  label: "Manutenção"  },
+  { value: "faturamento",  label: "Faturamento"  },
+  { value: "manutencao",   label: "Manutenção"   },
+  { value: "planejamento", label: "Planejamento" },
 ];
 
 const STATUS_OPTS: { value: MachineStatus; label: string }[] = [
@@ -84,8 +86,8 @@ export default function GestorDashboard() {
         sp.set("de", periodo.de);
         sp.set("ate", periodo.ate);
       }
-      const r  = await fetch(`/api/dashboard?${sp.toString()}`);
-      const j  = (await r.json()) as DashboardData & { error?: string };
+      const r = await fetch(`/api/dashboard?${sp.toString()}`);
+      const j = (await r.json()) as DashboardData & { error?: string };
       if (!r.ok || j.error) throw new Error(j.error ?? r.statusText);
       if (!j.periodo) throw new Error("resposta inválida do dashboard");
       setData(j);
@@ -116,7 +118,7 @@ export default function GestorDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [periodo.preset, periodo.de, periodo.ate]);
 
-  if (!data) {
+  if (!data && aba !== "planejamento") {
     return (
       <div className="space-y-6">
         <PeriodoFiltro value={periodo} onChange={setPeriodo} />
@@ -129,8 +131,8 @@ export default function GestorDashboard() {
 
   return (
     <div className="space-y-6">
-      {/* Tab selector — 2 abas */}
-      <div className="grid grid-cols-2 gap-2 rounded-xl bg-[var(--color-ink-100)] p-1">
+      {/* Tab selector */}
+      <div className="grid grid-cols-3 gap-2 rounded-xl bg-[var(--color-ink-100)] p-1">
         {ABAS.map((a) => (
           <button
             key={a.value}
@@ -147,14 +149,14 @@ export default function GestorDashboard() {
         ))}
       </div>
 
-      {erro && (
+      {erro && aba !== "planejamento" && (
         <Card className="p-3 text-sm font-bold text-[var(--color-danger-500)]">
           {erro}
         </Card>
       )}
 
       {/* ── Faturamento ── */}
-      {aba === "faturamento" && (
+      {aba === "faturamento" && data && (
         <div className="space-y-6">
           <PeriodoFiltro value={periodo} onChange={setPeriodo} loading={loading} />
 
@@ -226,7 +228,7 @@ export default function GestorDashboard() {
       )}
 
       {/* ── Manutenção ── */}
-      {aba === "manutencao" && (
+      {aba === "manutencao" && data && (
         <div className="space-y-4">
           <div className="grid grid-cols-3 gap-3 text-center">
             <Card className="p-3">
@@ -322,6 +324,11 @@ export default function GestorDashboard() {
             )}
           </Card>
         </div>
+      )}
+
+      {/* ── Planejamento — mesmo componente do encarregado, sem filtro de equipe ── */}
+      {aba === "planejamento" && (
+        <PlanejamentoField equipeId={null} profileNome="" />
       )}
     </div>
   );
