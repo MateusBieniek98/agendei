@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
@@ -10,72 +10,80 @@ import { searchItems } from "@/components/ui/ListControls";
 import { INSUMOS_CATALOGO, insumoCatalogDisplay, normalizeInsumoInput } from "@/lib/insumos";
 import type { Atividade, Equipe, Projeto } from "@/lib/types";
 
-/* ── Autocomplete de insumo com lista vertical ── */
-function InsumoAutocomplete({
-  value,
+/* ── Card de insumo com sugestões inline ── */
+function InsumoCard({
+  insumo,
+  index,
   onChange,
-  placeholder,
 }: {
-  value: string;
-  onChange: (v: string) => void;
-  placeholder: string;
+  insumo: { nome: string; quantidade: string };
+  index: number;
+  onChange: (campo: "nome" | "quantidade", valor: string) => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const wrapRef = useRef<HTMLDivElement>(null);
+  const [focado, setFocado] = useState(false);
 
   const sugestoes = useMemo(() => {
-    const q = value.trim().toLowerCase();
+    const q = insumo.nome.trim().toLowerCase();
     if (q.length < 2) return [];
     return INSUMOS_CATALOGO.filter((i) =>
       insumoCatalogDisplay(i).toLowerCase().includes(q)
     ).slice(0, 8);
-  }, [value]);
+  }, [insumo.nome]);
 
-  function selecionar(display: string) {
-    onChange(display);
-    setOpen(false);
-  }
-
-  useEffect(() => {
-    function fora(e: MouseEvent) {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", fora);
-    return () => document.removeEventListener("mousedown", fora);
-  }, []);
+  const mostrarLista = focado && sugestoes.length > 0;
 
   return (
-    <div ref={wrapRef} className="relative min-w-0 flex-1">
-      <input
-        value={value}
-        onChange={(e) => { onChange(e.target.value); setOpen(true); }}
-        onFocus={() => setOpen(true)}
-        placeholder={placeholder}
-        autoComplete="off"
-        className="w-full border-r border-[var(--border)] bg-transparent px-2 py-2 text-sm font-bold outline-none"
-        style={{ color: "var(--text-primary)" }}
-      />
-      {open && sugestoes.length > 0 && (
+    <div
+      className="rounded-lg border border-[var(--border)]"
+      style={{ background: "var(--bg-card-alt)" }}
+    >
+      {/* Linha principal: nome | qtd */}
+      <div className="flex">
+        <input
+          value={insumo.nome}
+          onChange={(e) => onChange("nome", e.target.value)}
+          onFocus={() => setFocado(true)}
+          onBlur={() => setTimeout(() => setFocado(false), 150)}
+          placeholder={`Insumo ${index + 1}`}
+          autoComplete="off"
+          className="min-w-0 flex-1 border-r border-[var(--border)] bg-transparent px-2 py-2 text-sm font-bold outline-none"
+          style={{ color: "var(--text-primary)" }}
+        />
+        <input
+          type="number"
+          inputMode="decimal"
+          step="0.01"
+          min="0"
+          value={insumo.quantidade}
+          onChange={(e) => onChange("quantidade", e.target.value)}
+          placeholder="Qtd"
+          className="w-20 shrink-0 bg-transparent px-2 py-2 text-sm font-bold outline-none"
+          style={{ color: "var(--text-primary)" }}
+        />
+      </div>
+
+      {/* Sugestões inline — aparecem abaixo da linha, empurrando o conteúdo */}
+      {mostrarLista && (
         <ul
-          className="absolute left-0 right-0 top-full z-50 overflow-hidden rounded-b-lg shadow-lg"
-          style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderTop: "none" }}
+          className="border-t border-[var(--border)]"
+          style={{ background: "var(--bg-card)" }}
         >
-          {sugestoes.map((insumo, i) => {
-            const display = insumoCatalogDisplay(insumo);
+          {sugestoes.map((item, i) => {
+            const display = insumoCatalogDisplay(item);
             return (
-              <li key={i}>
+              <li
+                key={i}
+                style={{ borderTop: i > 0 ? "1px solid var(--border)" : "none" }}
+              >
                 <button
                   type="button"
-                  onMouseDown={() => selecionar(display)}
-                  onTouchStart={() => selecionar(display)}
-                  className="w-full px-3 py-2.5 text-left text-xs font-semibold transition active:opacity-60"
-                  style={{
-                    color: "var(--text-primary)",
-                    borderTop: i > 0 ? "1px solid var(--border)" : "none",
-                    background: "transparent",
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    onChange("nome", display);
+                    setFocado(false);
                   }}
+                  className="w-full px-3 py-2.5 text-left text-xs font-semibold active:opacity-60"
+                  style={{ color: "var(--text-primary)", background: "transparent" }}
                 >
                   {display}
                 </button>
@@ -626,28 +634,12 @@ export default function LancamentoForm({
             </p>
             <div className="flex flex-col gap-2">
               {insumos.map((insumo, index) => (
-                <div
+                <InsumoCard
                   key={index}
-                  className="flex overflow-hidden rounded-lg border border-[var(--border)]"
-                  style={{ background: "var(--bg-card-alt)" }}
-                >
-                  <InsumoAutocomplete
-                    value={insumo.nome}
-                    onChange={(v) => alterarInsumo(index, "nome", v)}
-                    placeholder={`Insumo ${index + 1}`}
-                  />
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    step="0.01"
-                    min="0"
-                    value={insumo.quantidade}
-                    onChange={(e) => alterarInsumo(index, "quantidade", e.target.value)}
-                    placeholder="Qtd"
-                    className="w-20 shrink-0 bg-transparent px-2 py-2 text-sm font-bold outline-none"
-                    style={{ color: "var(--text-primary)" }}
-                  />
-                </div>
+                  insumo={insumo}
+                  index={index}
+                  onChange={(campo, valor) => alterarInsumo(index, campo, valor)}
+                />
               ))}
             </div>
             <button
