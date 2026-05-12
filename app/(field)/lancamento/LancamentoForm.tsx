@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
@@ -9,6 +9,84 @@ import { brl, todayISO } from "@/lib/format";
 import { searchItems } from "@/components/ui/ListControls";
 import { INSUMOS_CATALOGO, insumoCatalogDisplay, normalizeInsumoInput } from "@/lib/insumos";
 import type { Atividade, Equipe, Projeto } from "@/lib/types";
+
+/* ── Autocomplete de insumo com lista vertical ── */
+function InsumoAutocomplete({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  const sugestoes = useMemo(() => {
+    const q = value.trim().toLowerCase();
+    if (q.length < 2) return [];
+    return INSUMOS_CATALOGO.filter((i) =>
+      insumoCatalogDisplay(i).toLowerCase().includes(q)
+    ).slice(0, 8);
+  }, [value]);
+
+  function selecionar(display: string) {
+    onChange(display);
+    setOpen(false);
+  }
+
+  useEffect(() => {
+    function fora(e: MouseEvent) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", fora);
+    return () => document.removeEventListener("mousedown", fora);
+  }, []);
+
+  return (
+    <div ref={wrapRef} className="relative min-w-0 flex-1">
+      <input
+        value={value}
+        onChange={(e) => { onChange(e.target.value); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+        placeholder={placeholder}
+        autoComplete="off"
+        className="w-full border-r border-[var(--border)] bg-transparent px-2 py-2 text-sm font-bold outline-none"
+        style={{ color: "var(--text-primary)" }}
+      />
+      {open && sugestoes.length > 0 && (
+        <ul
+          className="absolute left-0 right-0 top-full z-50 overflow-hidden rounded-b-lg shadow-lg"
+          style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderTop: "none" }}
+        >
+          {sugestoes.map((insumo, i) => {
+            const display = insumoCatalogDisplay(insumo);
+            return (
+              <li key={i}>
+                <button
+                  type="button"
+                  onMouseDown={() => selecionar(display)}
+                  onTouchStart={() => selecionar(display)}
+                  className="w-full px-3 py-2.5 text-left text-xs font-semibold transition active:opacity-60"
+                  style={{
+                    color: "var(--text-primary)",
+                    borderTop: i > 0 ? "1px solid var(--border)" : "none",
+                    background: "transparent",
+                  }}
+                >
+                  {display}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 const STEPS = [
   { id: 1, label: "Onde / Quem" },
@@ -384,12 +462,6 @@ export default function LancamentoForm({
 
   return (
     <form onSubmit={salvar} className="space-y-4">
-      <datalist id="gn-insumos-catalogo">
-        {INSUMOS_CATALOGO.map((insumo) => (
-          <option key={`${insumo.codigo ?? insumo.grupo}-${insumo.nome}`} value={insumoCatalogDisplay(insumo)} />
-        ))}
-      </datalist>
-
       {/* Lançamento Rápido */}
       {ultimoLancamento && step === 1 && (
         <LancamentoRapido
@@ -559,13 +631,10 @@ export default function LancamentoForm({
                   className="flex overflow-hidden rounded-lg border border-[var(--border)]"
                   style={{ background: "var(--bg-card-alt)" }}
                 >
-                  <input
-                    list="gn-insumos-catalogo"
+                  <InsumoAutocomplete
                     value={insumo.nome}
-                    onChange={(e) => alterarInsumo(index, "nome", e.target.value)}
+                    onChange={(v) => alterarInsumo(index, "nome", v)}
                     placeholder={`Insumo ${index + 1}`}
-                    className="min-w-0 flex-1 border-r border-[var(--border)] bg-transparent px-2 py-2 text-sm font-bold outline-none"
-                    style={{ color: "var(--text-primary)" }}
                   />
                   <input
                     type="number"
