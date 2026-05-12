@@ -144,6 +144,18 @@ html[data-theme="dark"] {
   --warn-bg:        #1c1300;
   --danger:         #f87171;
   --danger-bg:      #2d0a0a;
+
+  /* ink scale invertido para dark mode */
+  --color-ink-900: #f8fafc;
+  --color-ink-800: #f1f5f9;
+  --color-ink-700: #e2e8f0;
+  --color-ink-600: #cbd5e1;
+  --color-ink-500: #94a3b8;
+  --color-ink-400: #64748b;
+  --color-ink-300: #334155;
+  --color-ink-200: #1e293b;
+  --color-ink-100: #0f1a2e;
+  --color-ink-50:  #060d1a;
 }
 
 /* ──────────────────────────────────────────────────────────
