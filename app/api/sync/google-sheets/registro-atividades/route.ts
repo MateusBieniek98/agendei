@@ -388,10 +388,11 @@ async function importRow(
   const data = parseDateISO(valueAt(row, headers, ["Data"]));
   const atividadeNome = cleanText(valueAt(row, headers, ["Serviço", "Servico", "Atividade"]));
   const projetoNome = cleanText(valueAt(row, headers, ["Projeto", "Fazenda"]));
-  const talhao = cleanText(valueAt(row, headers, ["Talhão", "Talhao"]));
+  // talhão é opcional — planilhas sem essa coluna usam string vazia
+  const talhao = cleanText(valueAt(row, headers, ["Talhão", "Talhao", "Talhao/Área", "Area", "Área"])) || "";
   const equipeNome = cleanText(valueAt(row, headers, ["Equipe", "Frente"]));
   const encarregado = cleanText(valueAt(row, headers, ["Encarregado", "Lançado por", "Lancado por"]));
-  const quantidade = parseNumberBR(valueAt(row, headers, ["Produção", "Producao", "Quantidade"]));
+  const quantidade = parseNumberBR(valueAt(row, headers, ["Produção", "Producao", "Quantidade", "Qtd", "QTD"]));
   const descarte = parseNumberBR(valueAt(row, headers, ["Descarte"]));
   const faturamentoPlanilha = parseNumberBR(
     valueAt(row, headers, ["Faturamento da Atividade", "Faturamento"])
@@ -405,12 +406,13 @@ async function importRow(
   const sourceId = explicitSourceId(row) || hashSource(row, headers, sheetName);
   const origemChave = `${sourceKey(spreadsheetName)}:${sourceKey(sheetName)}:${sourceId}`;
 
-  if (!data || !atividadeNome || !projetoNome || !talhao || !quantidade || quantidade <= 0) {
+  // talhão não é mais obrigatório — aceita planilhas sem essa coluna
+  if (!data || !atividadeNome || !projetoNome || !quantidade || quantidade <= 0) {
     return {
       sourceId,
       rowNumber: line,
       status: "ignored",
-      message: "Linha ignorada: data, serviço, projeto, talhão ou produção inválidos.",
+      message: `Linha ignorada: campos obrigatórios ausentes (data=${data ?? "null"}, serviço="${atividadeNome}", projeto="${projetoNome}", produção=${quantidade ?? "null"}).`,
     };
   }
 

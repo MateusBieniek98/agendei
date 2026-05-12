@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { ThemeProvider } from "@/components/theme/ThemeProvider";
 
 export const metadata: Metadata = {
   title: {
@@ -17,7 +18,10 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#2f80ed",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#2f80ed" },
+    { media: "(prefers-color-scheme: dark)",  color: "#0f1a2e" },
+  ],
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -28,9 +32,30 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="pt-BR">
-      <body className="min-h-screen bg-[var(--color-ink-50)] text-[var(--color-ink-900)]">
-        {children}
+    <html lang="pt-BR" suppressHydrationWarning>
+      <head>
+        {/* Script inline: tema + registro do service worker */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              try {
+                var t = localStorage.getItem('gn-theme');
+                if (!t) t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+                document.documentElement.setAttribute('data-theme', t);
+              } catch(e) {}
+              if ('serviceWorker' in navigator) {
+                window.addEventListener('load', function() {
+                  navigator.serviceWorker.register('/sw.js').catch(function(){});
+                });
+              }
+            `,
+          }}
+        />
+      </head>
+      <body className="min-h-screen" style={{ background: "var(--bg-page)", color: "var(--text-primary)" }}>
+        <ThemeProvider>
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   );

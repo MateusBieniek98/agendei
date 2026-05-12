@@ -3,17 +3,18 @@ import Sidebar from "@/components/nav/Sidebar";
 import TopBar from "@/components/nav/TopBar";
 import LogoutButton from "@/components/nav/LogoutButton";
 import MobileSectionNav from "@/components/nav/MobileSectionNav";
+import FAB from "@/components/nav/FAB";
 import { ToastProvider } from "@/components/ui/Toast";
 
 const items = [
-  { href: "/admin", label: "Dashboard", icon: <DashIcon /> },
-  { href: "/admin/lancamentos", label: "Lançamentos", icon: <ListIcon /> },
-  { href: "/admin/atividades", label: "Atividades", icon: <TagIcon /> },
-  { href: "/admin/equipes", label: "Equipes", icon: <UsersIcon /> },
-  { href: "/admin/maquinas", label: "Máquinas", icon: <CogIcon /> },
+  { href: "/admin",              label: "Dashboard",    icon: <DashIcon /> },
+  { href: "/admin/lancamentos",  label: "Lançamentos",  icon: <ListIcon /> },
+  { href: "/admin/atividades",   label: "Atividades",   icon: <TagIcon /> },
+  { href: "/admin/equipes",      label: "Equipes",      icon: <UsersIcon /> },
+  { href: "/admin/maquinas",     label: "Máquinas",     icon: <CogIcon /> },
   { href: "/admin/planejamento", label: "Planejamento", icon: <CalendarIcon /> },
-  { href: "/admin/metas", label: "Metas", icon: <TargetIcon /> },
-  { href: "/admin/usuarios", label: "Usuários", icon: <UserIcon /> },
+  { href: "/admin/metas",        label: "Metas",        icon: <TargetIcon /> },
+  { href: "/admin/usuarios",     label: "Usuários",     icon: <UserIcon /> },
 ];
 
 export default async function AdminLayout({
@@ -24,7 +25,7 @@ export default async function AdminLayout({
   const profile = await requireRole(["admin"]);
   return (
     <ToastProvider>
-      <div className="app-scroll-area flex bg-[var(--color-ink-50)]">
+      <div className="app-scroll-area flex" style={{ background: "var(--bg-page)" }}>
         <Sidebar items={items} user={{ nome: profile.nome, role: "admin" }} />
         <div className="flex-1 min-w-0">
           <div className="md:hidden">
@@ -35,16 +36,20 @@ export default async function AdminLayout({
             />
             <MobileSectionNav items={items} />
           </div>
-          <main className="overflow-x-clip px-3 py-4 pb-24 sm:px-4 md:p-8">
+          <main
+            className="overflow-x-clip px-3 py-4 pb-24 sm:px-4 md:p-8"
+            style={{ color: "var(--text-primary)" }}
+          >
             {children}
           </main>
         </div>
       </div>
+      <FAB />
     </ToastProvider>
   );
 }
 
-/* ──── ícones inline (sem dep externa) ──── */
+/* ──── ícones inline ──── */
 function DashIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"

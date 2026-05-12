@@ -1,41 +1,226 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
-import { Card } from "@/components/ui/Card";
-import ListControls, { searchItems, visibleItems } from "@/components/ui/ListControls";
-import Badge from "@/components/ui/Badge";
 import { useToast } from "@/components/ui/Toast";
-import type { Equipe } from "@/lib/types";
+import { brl, todayISO } from "@/lib/format";
+import type { Equipe, Producao } from "@/lib/types";
 
+const FILTER_KEY = "gn:equipes-filtro";
+
+/* ── Sparkline 7 dias ─────────────────────────────────── */
+function Sparkline({ values, color = "var(--accent)" }: { values: number[]; color?: string }) {
+  const n = values.length;
+  if (n === 0) return null;
+  const max = Math.max(...values, 1);
+  const W = 72, H = 28, gap = 2;
+  const barW = (W - gap * (n - 1)) / n;
+
+  return (
+    <svg
+      width={W}
+      height={H}
+      viewBox={`0 0 ${W} ${H}`}
+      style={{ display: "block", overflow: "visible" }}
+    >
+      {values.map((v, i) => {
+        const h = Math.max(3, (v / max) * H);
+        const x = i * (barW + gap);
+        const y = H - h;
+        return (
+          <rect
+            key={i}
+            x={x}
+            y={y}
+            width={barW}
+            height={h}
+            rx={2}
+            style={{ fill: color, opacity: v === 0 ? 0.2 : 0.85 }}
+          />
+        );
+      })}
+    </svg>
+  );
+}
+
+/* ── Utilitário: últimos N dias ISO ────────────────────── */
+function lastNDays(n: number): string[] {
+  const days: string[] = [];
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const tz = d.getTimezoneOffset();
+    days.push(new Date(d.getTime() - tz * 60_000).toISOString().slice(0, 10));
+  }
+  return days;
+}
+
+/* ── Card de equipe ────────────────────────────────────── */
+function EquipeCard({
+  equipe,
+  producoesDaEquipe,
+  days,
+  onEdit,
+  onInativar,
+}: {
+  equipe: Equipe;
+  producoesDaEquipe: Producao[];
+  days: string[];
+  onEdit: () => void;
+  onInativar: () => void;
+}) {
+  // Aggregate production per day
+  const porDia = useMemo(() => {
+    const map: Record<string, number> = {};
+    days.forEach((d) => { map[d] = 0; });
+    producoesDaEquipe.forEach((p) => {
+      if (map[p.data] !== undefined) {
+        map[p.data] += (p.quantidade ?? 0) * (p.valor_unitario_snapshot ?? 0);
+      }
+    });
+    return days.map((d) => map[d]);
+  }, [producoesDaEquipe, days]);
+
+  const totalSemana = porDia.reduce((s, v) => s + v, 0);
+  const diasAtivos  = porDia.filter((v) => v > 0).length;
+  const hasActivity = totalSemana > 0;
+
+  return (
+    <div
+      className="rounded-2xl p-4 flex flex-col gap-3 animate-fade-in"
+      style={{
+        background: "var(--bg-card)",
+        border: `1.5px solid ${equipe.ativo ? "var(--border)" : "var(--border)"}`,
+        opacity: equipe.ativo ? 1 : 0.6,
+      }}
+    >
+      {/* Header */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p
+            className="font-bold text-sm leading-tight truncate"
+            style={{ color: "var(--text-primary)" }}
+          >
+            {equipe.nome}
+          </p>
+          {equipe.descricao && (
+            <p className="text-xs mt-0.5 truncate" style={{ color: "var(--text-muted)" }}>
+              {equipe.descricao}
+            </p>
+          )}
+        </div>
+        <span
+          className="shrink-0 text-xs font-bold px-2 py-0.5 rounded-full"
+          style={{
+            background: equipe.ativo ? "var(--success-bg, #f0fdf4)" : "var(--bg-page)",
+            color:      equipe.ativo ? "var(--success)" : "var(--text-muted)",
+            border:     `1px solid ${equipe.ativo ? "var(--success)" : "var(--border)"}`,
+          }}
+        >
+          {equipe.ativo ? "ativa" : "inativa"}
+        </span>
+      </div>
+
+      {/* Sparkline + total */}
+      <div className="flex items-end justify-between gap-2">
+        {hasActivity ? (
+          <div>
+            <Sparkline values={porDia} />
+            <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
+              {diasAtivos}d ativo esta semana
+            </p>
+          </div>
+        ) : (
+          <div
+            className="rounded-lg px-3 py-2 text-xs"
+            style={{ background: "var(--bg-page)", color: "var(--text-muted)" }}
+          >
+            Sem produção nos últimos 7 dias
+          </div>
+        )}
+        <div className="text-right shrink-0">
+          <p className="text-sm font-extrabold" style={{ color: "var(--accent)" }}>
+            {brl(totalSemana)}
+          </p>
+          <p className="text-xs" style={{ color: "var(--text-muted)" }}>7 dias</p>
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="flex gap-2 pt-1 border-t" style={{ borderColor: "var(--border)" }}>
+        <button
+          onClick={onEdit}
+          className="flex-1 text-xs font-semibold py-1.5 rounded-lg border"
+          style={{
+            color: "var(--accent)",
+            borderColor: "var(--accent)",
+            background: "transparent",
+          }}
+        >
+          Editar
+        </button>
+        {equipe.ativo && (
+          <button
+            onClick={onInativar}
+            className="flex-1 text-xs font-semibold py-1.5 rounded-lg border"
+            style={{
+              color: "var(--danger)",
+              borderColor: "var(--danger)",
+              background: "transparent",
+            }}
+          >
+            Inativar
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ── Page ──────────────────────────────────────────────── */
 export default function EquipesPage() {
   const { toast } = useToast();
   const [items, setItems] = useState<Equipe[]>([]);
+  const [producoes, setProducoes] = useState<Producao[]>([]);
   const [editing, setEditing] = useState<Partial<Equipe> | null>(null);
   const [busca, setBusca] = useState("");
-  const [statusFiltro, setStatusFiltro] = useState("");
-  const [expandida, setExpandida] = useState(false);
+  const [statusFiltro, setStatusFiltro] = useState(() => {
+    if (typeof window !== "undefined") return localStorage.getItem(FILTER_KEY) ?? "ativas";
+    return "ativas";
+  });
+  const [loading, setLoading] = useState(true);
+
+  const days = useMemo(() => lastNDays(7), []);
 
   async function carregar() {
+    setLoading(true);
     try {
-      const r = await fetch("/api/equipes");
-      const j = await r.json();
-      if (!r.ok || j.error) throw new Error(j.error ?? r.statusText);
-      setItems(Array.isArray(j.items) ? (j.items as Equipe[]) : []);
+      const dataIni = days[0];
+      const dataFim = todayISO();
+      const [er, pr] = await Promise.all([
+        fetch("/api/equipes").then((r) => r.json()),
+        fetch(`/api/producao?data_de=${dataIni}&data_ate=${dataFim}`).then((r) => r.json()),
+      ]);
+      if (!er.items) throw new Error(er.error ?? "erro");
+      setItems(Array.isArray(er.items) ? (er.items as Equipe[]) : []);
+      setProducoes(Array.isArray(pr.items) ? (pr.items as Producao[]) : []);
     } catch (err) {
-      setItems([]);
-      toast(`Erro ao carregar equipes: ${(err as Error).message}`, "error");
+      toast(`Erro ao carregar: ${(err as Error).message}`, "error");
+    } finally {
+      setLoading(false);
     }
   }
-  useEffect(() => {
-    carregar();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  useEffect(() => { carregar(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+
+  function setFiltro(v: string) {
+    setStatusFiltro(v);
+    localStorage.setItem(FILTER_KEY, v);
+  }
 
   async function salvar() {
     if (!editing?.nome) { toast("Informe o nome.", "error"); return; }
-    const url = editing.id ? `/api/equipes/${editing.id}` : "/api/equipes";
+    const url    = editing.id ? `/api/equipes/${editing.id}` : "/api/equipes";
     const method = editing.id ? "PATCH" : "POST";
     const r = await fetch(url, {
       method,
@@ -48,8 +233,7 @@ export default function EquipesPage() {
     });
     if (!r.ok) {
       const j = await r.json().catch(() => ({}));
-      toast(`Erro: ${j.error ?? r.statusText}`, "error");
-      return;
+      toast(`Erro: ${j.error ?? r.statusText}`, "error"); return;
     }
     toast("Equipe salva.", "success");
     setEditing(null);
@@ -64,135 +248,140 @@ export default function EquipesPage() {
     carregar();
   }
 
-  const filtradas = searchItems(
-    items.filter((e) =>
-      statusFiltro === "ativas" ? e.ativo : statusFiltro === "inativas" ? !e.ativo : true
-    ),
-    busca,
-    [(e) => e.nome, (e) => e.descricao]
+  const filtradas = items.filter((e) => {
+    if (statusFiltro === "ativas"   && !e.ativo) return false;
+    if (statusFiltro === "inativas" &&  e.ativo) return false;
+    if (busca) {
+      const q = busca.toLowerCase();
+      if (!e.nome.toLowerCase().includes(q) &&
+          !(e.descricao ?? "").toLowerCase().includes(q)) return false;
+    }
+    return true;
+  });
+
+  const totalAtivas  = items.filter((e) => e.ativo).length;
+  const totalInativas = items.filter((e) => !e.ativo).length;
+
+  // Summary: total R$ esta semana across all teams
+  const totalSemana = producoes.reduce(
+    (s, p) => s + (p.quantidade ?? 0) * (p.valor_unitario_snapshot ?? 0), 0
   );
-  const visiveis = visibleItems(filtradas, expandida, 20);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
+      {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Equipes / frentes</h1>
-          <p className="text-sm font-semibold text-[var(--color-ink-600)]">Cadastre as frentes de trabalho.</p>
+          <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>
+            Equipes / Frentes
+          </h1>
+          <p className="text-sm mt-0.5" style={{ color: "var(--text-muted)" }}>
+            Frentes de trabalho com desempenho dos últimos 7 dias.
+          </p>
         </div>
-        <Button className="w-full sm:w-auto" onClick={() => setEditing({ nome: "", descricao: "" })}>
-          + Nova
+        <Button
+          className="w-full sm:w-auto"
+          onClick={() => setEditing({ nome: "", descricao: "", ativo: true })}
+        >
+          + Nova equipe
         </Button>
       </div>
 
-      <Card>
-        <div className="border-b border-[var(--color-ink-100)] p-4">
-          <ListControls
-            search={busca}
-            onSearchChange={setBusca}
-            expanded={expandida}
-            onExpandedChange={setExpandida}
-            total={filtradas.length}
-            visible={visiveis.length}
-            label="Pesquisar equipes"
-            placeholder="Nome ou descrição"
+      {/* Summary strip */}
+      <div className="grid grid-cols-3 gap-3">
+        {[
+          { label: "Ativas",          value: totalAtivas,              color: "var(--success)" },
+          { label: "Inativas",        value: totalInativas,            color: "var(--text-muted)" },
+          { label: "Faturamento 7d",  value: brl(totalSemana),         color: "var(--accent)", wide: true },
+        ].map((s) => (
+          <div
+            key={s.label}
+            className="rounded-xl p-3 text-center"
+            style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}
           >
-            <div className="grid grid-cols-1 gap-3 sm:max-w-xs">
-              <label className="text-sm font-bold text-[var(--color-ink-900)]">
-                Status
-                <select
-                  value={statusFiltro}
-                  onChange={(e) => setStatusFiltro(e.target.value)}
-                  className="mt-1 h-12 w-full rounded-xl border-2 border-[var(--color-ink-300)] bg-white px-3 text-base font-bold text-[var(--color-ink-900)] shadow-sm"
-                >
-                  <option value="">todas</option>
-                  <option value="ativas">ativas</option>
-                  <option value="inativas">inativas</option>
-                </select>
-              </label>
-            </div>
-          </ListControls>
-        </div>
-        <div className="divide-y divide-[var(--color-ink-100)] lg:hidden">
-          {visiveis.map((e) => (
-            <div key={e.id} className="p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="break-words text-base font-bold text-[var(--color-ink-900)]">
-                    {e.nome}
-                  </p>
-                  <p className="mt-1 break-words text-sm font-semibold text-[var(--color-ink-700)]">
-                    {e.descricao || "Sem descrição"}
-                  </p>
-                </div>
-                {e.ativo ? <Badge tone="success">ativa</Badge> : <Badge>inativa</Badge>}
-              </div>
-              <div className="mt-4 grid grid-cols-2 gap-2">
-                <Button variant="secondary" onClick={() => setEditing(e)}>
-                  Editar
-                </Button>
-                {e.ativo ? (
-                  <Button variant="danger" onClick={() => excluir(e.id)}>
-                    Inativar
-                  </Button>
-                ) : (
-                  <Button variant="ghost" disabled>
-                    Inativa
-                  </Button>
-                )}
-              </div>
-            </div>
+            <p className="text-xl font-extrabold" style={{ color: s.color }}>{s.value}</p>
+            <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{s.label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-wrap gap-2 items-center">
+        <input
+          className="flex-1 min-w-[160px] h-9 rounded-xl border px-3 text-sm"
+          style={{
+            background: "var(--bg-card)",
+            color: "var(--text-primary)",
+            borderColor: "var(--border)",
+          }}
+          placeholder="Pesquisar equipes..."
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+        />
+        <div className="flex gap-1">
+          {[
+            { v: "",         label: "Todas"    },
+            { v: "ativas",   label: `Ativas (${totalAtivas})`   },
+            { v: "inativas", label: `Inativas (${totalInativas})` },
+          ].map((f) => (
+            <button
+              key={f.v}
+              onClick={() => setFiltro(f.v)}
+              className="px-3 h-9 rounded-xl text-xs font-semibold border transition-all"
+              style={{
+                background:  statusFiltro === f.v ? "var(--accent)" : "var(--bg-card)",
+                color:       statusFiltro === f.v ? "#fff" : "var(--text-secondary)",
+                borderColor: statusFiltro === f.v ? "var(--accent)" : "var(--border)",
+              }}
+            >
+              {f.label}
+            </button>
           ))}
-          {filtradas.length === 0 && (
-            <div className="p-6 text-center text-sm font-semibold text-[var(--color-ink-600)]">
-              Nenhuma equipe encontrada neste filtro.
-            </div>
-          )}
         </div>
+      </div>
 
-        <div className="hidden overflow-x-auto lg:block">
-          <table className="w-full text-sm">
-            <thead className="bg-[var(--color-ink-50)] text-[var(--color-ink-500)] text-left">
-              <tr>
-                <th className="px-4 py-2 font-medium">Nome</th>
-                <th className="px-4 py-2 font-medium">Descrição</th>
-                <th className="px-4 py-2 font-medium">Status</th>
-                <th className="px-4 py-2"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {visiveis.map((e) => (
-                <tr key={e.id} className="border-t border-[var(--color-ink-100)]">
-                  <td className="px-4 py-2">{e.nome}</td>
-                  <td className="px-4 py-2 text-[var(--color-ink-700)]">{e.descricao}</td>
-                  <td className="px-4 py-2">
-                    {e.ativo ? <Badge tone="success">ativa</Badge> : <Badge>inativa</Badge>}
-                  </td>
-                  <td className="px-4 py-2 text-right whitespace-nowrap">
-                    <button
-                      onClick={() => setEditing(e)}
-                      className="text-[var(--color-gn-700)] hover:underline mr-3"
-                    >editar</button>
-                    {e.ativo && (
-                      <button
-                        onClick={() => excluir(e.id)}
-                        className="text-[var(--color-danger-500)] hover:underline"
-                      >inativar</button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {/* Grid */}
+      {loading ? (
+        <div className="text-center py-12 text-sm" style={{ color: "var(--text-muted)" }}>
+          Carregando...
         </div>
-      </Card>
+      ) : filtradas.length === 0 ? (
+        <div
+          className="rounded-2xl p-8 text-center text-sm"
+          style={{ background: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--text-muted)" }}
+        >
+          Nenhuma equipe encontrada.
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+          {filtradas.map((e) => (
+            <EquipeCard
+              key={e.id}
+              equipe={e}
+              producoesDaEquipe={producoes.filter((p) => p.equipe_id === e.id)}
+              days={days}
+              onEdit={() => setEditing(e)}
+              onInativar={() => excluir(e.id)}
+            />
+          ))}
+        </div>
+      )}
 
+      {/* Modal */}
       {editing && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50"
-             onClick={() => setEditing(null)}>
-          <div className="bg-white rounded-2xl w-full max-w-md p-6 space-y-3"
-               onClick={(ev) => ev.stopPropagation()}>
-            <h3 className="text-lg font-bold">{editing.id ? "Editar" : "Nova"} equipe</h3>
+        <div
+          className="fixed inset-0 flex items-center justify-center p-4 z-50"
+          style={{ background: "rgba(0,0,0,0.45)" }}
+          onClick={() => setEditing(null)}
+        >
+          <div
+            className="rounded-2xl w-full max-w-md p-6 space-y-3"
+            style={{ background: "var(--bg-card)" }}
+            onClick={(ev) => ev.stopPropagation()}
+          >
+            <h3 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>
+              {editing.id ? "Editar" : "Nova"} equipe
+            </h3>
             <Input
               label="Nome"
               value={editing.nome ?? ""}
