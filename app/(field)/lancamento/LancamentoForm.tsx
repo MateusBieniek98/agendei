@@ -37,7 +37,6 @@ function InsumoCard({
       className="rounded-lg border border-[var(--border)]"
       style={{ background: "var(--bg-card-alt)" }}
     >
-      {/* Linha principal: nome | qtd */}
       <div className="flex">
         <input
           value={insumo.nome}
@@ -62,7 +61,6 @@ function InsumoCard({
         />
       </div>
 
-      {/* Sugestões inline — aparecem abaixo da linha, empurrando o conteúdo */}
       {mostrarLista && (
         <ul
           className="border-t border-[var(--border)]"
@@ -313,33 +311,87 @@ function LancamentoRapido({
   );
 }
 
+/* ── Banner de pré-preenchimento do planejamento ── */
+function BannerPlanejamento({
+  atividadeNome,
+  projetoNome,
+  talhao,
+  onDescartar,
+}: {
+  atividadeNome: string;
+  projetoNome: string;
+  talhao: string;
+  onDescartar: () => void;
+}) {
+  return (
+    <div
+      className="rounded-2xl p-4 mb-2 animate-slide-up flex items-start justify-between gap-3"
+      style={{ background: "var(--success-bg)", border: "1px solid var(--success)" }}
+    >
+      <div>
+        <p className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: "var(--success)" }}>
+          📋 Iniciando atividade planejada
+        </p>
+        <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+          {atividadeNome}
+        </p>
+        <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+          {projetoNome}{talhao ? ` · Talhão ${talhao}` : ""}
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={onDescartar}
+        className="text-xs font-bold shrink-0"
+        style={{ color: "var(--text-muted)" }}
+      >
+        ✕
+      </button>
+    </div>
+  );
+}
+
 /* ── Formulário principal ── */
 export default function LancamentoForm({
   equipes,
   atividades,
   projetos,
+  initialAtividadeId,
+  initialProjetoId,
+  initialTalhao,
 }: {
   equipes: Equipe[];
   atividades: Atividade[];
   projetos: Projeto[];
+  initialAtividadeId?: string;
+  initialProjetoId?: string;
+  initialTalhao?: string;
 }) {
   const { toast } = useToast();
   const [step, setStep] = useState<StepId>(1);
   const [ultimoLancamento, setUltimoLancamento] = useState<Partial<FormData> | null>(null);
+  const [temPrefill, setTemPrefill] = useState(
+    !!(initialAtividadeId || initialProjetoId || initialTalhao)
+  );
 
-  // Form state
-  const [data, setData] = useState(todayISO());
-  const [equipeId, setEquipeId] = useState(equipes[0]?.id ?? "");
-  const [projetoId, setProjetoId] = useState(projetos[0]?.id ?? "");
-  const [talhao, setTalhao] = useState("");
-  const [atividadeId, setAtividadeId] = useState(atividades[0]?.id ?? "");
+  // Form state — initial values from URL params when coming from Planejamento
+  const [data,      setData]      = useState(todayISO());
+  const [equipeId,  setEquipeId]  = useState(equipes[0]?.id ?? "");
+  const [projetoId, setProjetoId] = useState(initialProjetoId ?? projetos[0]?.id ?? "");
+  const [talhao,    setTalhao]    = useState(() => {
+    if (!initialTalhao) return "";
+    // ensure mask format
+    const raw = initialTalhao.replace(/\D/g, "").slice(0, 5);
+    return raw.length > 3 ? `${raw.slice(0, 3)}-${raw.slice(3)}` : raw;
+  });
+  const [atividadeId,    setAtividadeId]    = useState(initialAtividadeId ?? atividades[0]?.id ?? "");
   const [atividadeBusca, setAtividadeBusca] = useState("");
-  const [projetoBusca, setProjetoBusca] = useState("");
-  const [qtd, setQtd] = useState("");
-  const [descarte, setDescarte] = useState("");
-  const [insumos, setInsumos] = useState(emptyInsumos);
-  const [obs, setObs] = useState("");
-  const [enviando, setEnviando] = useState(false);
+  const [projetoBusca,   setProjetoBusca]   = useState("");
+  const [qtd,            setQtd]            = useState("");
+  const [descarte,       setDescarte]       = useState("");
+  const [insumos,        setInsumos]        = useState(emptyInsumos);
+  const [obs,            setObs]            = useState("");
+  const [enviando,       setEnviando]       = useState(false);
 
   useEffect(() => {
     setUltimoLancamento(loadUltimoLancamento());
@@ -382,7 +434,6 @@ export default function LancamentoForm({
   const insumosHint =
     insumosValidos.length > 0 ? `${insumosValidos.length} adicionado${insumosValidos.length > 1 ? "s" : ""}` : undefined;
 
-  // Validação por step
   const talhaoValido = /^\d{3}-\d{2}$/.test(talhao.trim());
   const canAdvance: Record<StepId, boolean> = {
     1: !!equipeId && !!projetoId && talhaoValido,
@@ -396,6 +447,7 @@ export default function LancamentoForm({
 
   function limpar() {
     setQtd(""); setTalhao(""); setDescarte(""); setInsumos(emptyInsumos()); setObs("");
+    setTemPrefill(false);
   }
 
   async function enviarDados(formData: object) {
@@ -412,7 +464,6 @@ export default function LancamentoForm({
       }
       return true;
     } catch (err) {
-      // Salva offline
       try {
         const pend = JSON.parse(localStorage.getItem("gn:pendentes") ?? "[]");
         pend.push({ ...formData, ts: Date.now() });
@@ -473,10 +524,23 @@ export default function LancamentoForm({
     if (ok) toast("Lançamento rápido registrado!", "success");
   }
 
+  const prefillAtividade = temPrefill ? atividades.find((a) => a.id === atividadeId) : null;
+  const prefillProjeto   = temPrefill ? projetos.find((p) => p.id === projetoId) : null;
+
   return (
     <form onSubmit={salvar} className="space-y-4">
-      {/* Lançamento Rápido */}
-      {ultimoLancamento && step === 1 && (
+      {/* Banner de planejamento */}
+      {temPrefill && prefillAtividade && prefillProjeto && step === 1 && (
+        <BannerPlanejamento
+          atividadeNome={prefillAtividade.nome}
+          projetoNome={prefillProjeto.nome}
+          talhao={talhao}
+          onDescartar={() => setTemPrefill(false)}
+        />
+      )}
+
+      {/* Lançamento Rápido — só mostra se não tem prefill */}
+      {!temPrefill && ultimoLancamento && step === 1 && (
         <LancamentoRapido
           ultimo={ultimoLancamento}
           equipes={equipes}
@@ -524,7 +588,6 @@ export default function LancamentoForm({
             label="Talhão *"
             value={talhao}
             onChange={(e) => {
-              // Máscara automática: 000-00
               const raw = e.target.value.replace(/\D/g, "").slice(0, 5);
               const masked = raw.length > 3 ? `${raw.slice(0, 3)}-${raw.slice(3)}` : raw;
               setTalhao(masked);
@@ -577,7 +640,6 @@ export default function LancamentoForm({
             placeholder="Ex.: 3.5"
           />
 
-          {/* Preview de valor */}
           {valorEstimado > 0 && (
             <div
               className="rounded-xl px-4 py-3 animate-fade-in"
@@ -617,7 +679,6 @@ export default function LancamentoForm({
       {/* ── STEP 3: Recursos ── */}
       {step === 3 && (
         <div className="space-y-4 animate-fade-in">
-          {/* Resumo do que foi selecionado */}
           <div
             className="rounded-xl px-4 py-3 space-y-1"
             style={{ background: "var(--bg-card-alt)", border: "1px solid var(--border)" }}
@@ -639,7 +700,6 @@ export default function LancamentoForm({
             )}
           </div>
 
-          {/* Insumos — accordion */}
           <Accordion title="Insumos utilizados" hint={insumosHint}>
             <p className="text-xs" style={{ color: "var(--text-muted)" }}>
               Digite parte do código ou nome. Não aparece para o gestor.
@@ -674,7 +734,6 @@ export default function LancamentoForm({
             />
           </Accordion>
 
-          {/* Observações — accordion */}
           <Accordion title="Observações" hint={obs ? "preenchido" : undefined}>
             <Input
               label="Observações"
