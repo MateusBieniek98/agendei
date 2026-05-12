@@ -386,7 +386,7 @@ export default function GestorDashboard() {
                     </span>
                     {e.nome}
                   </span>
-                  <span className="text-slate-950 dark:text-slate-50 font-bold tabular">{brl(e.faturamento)}</span>
+                  <span className="font-bold tabular text-[var(--color-ink-900)]">{brl(e.faturamento)}</span>
                 </li>
               ))}
             </ol>
