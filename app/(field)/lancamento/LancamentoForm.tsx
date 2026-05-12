@@ -383,8 +383,9 @@ export default function LancamentoForm({
     insumosValidos.length > 0 ? `${insumosValidos.length} adicionado${insumosValidos.length > 1 ? "s" : ""}` : undefined;
 
   // Validação por step
+  const talhaoValido = /^\d{3}-\d{2}$/.test(talhao.trim());
   const canAdvance: Record<StepId, boolean> = {
-    1: !!equipeId && !!projetoId,
+    1: !!equipeId && !!projetoId && talhaoValido,
     2: !!atividadeId && !!qtd && Number(qtd) > 0,
     3: true,
   };
@@ -431,6 +432,10 @@ export default function LancamentoForm({
     e.preventDefault();
     if (!equipeId || !atividadeId || !projetoId || !qtd || Number(qtd) <= 0) {
       toast("Preencha todos os campos obrigatórios.", "error");
+      return;
+    }
+    if (!talhaoValido) {
+      toast("Talhão inválido. Use o formato 000-00 (ex.: 018-01).", "error");
       return;
     }
     const formData = {
@@ -516,10 +521,17 @@ export default function LancamentoForm({
             placeholder="Selecione…"
           />
           <Input
-            label="Talhão (opcional)"
+            label="Talhão *"
             value={talhao}
-            onChange={(e) => setTalhao(e.target.value)}
-            placeholder="Ex.: 017-01"
+            onChange={(e) => {
+              // Máscara automática: 000-00
+              const raw = e.target.value.replace(/\D/g, "").slice(0, 5);
+              const masked = raw.length > 3 ? `${raw.slice(0, 3)}-${raw.slice(3)}` : raw;
+              setTalhao(masked);
+            }}
+            placeholder="Ex.: 018-01"
+            hint={talhao && !talhaoValido ? "Formato: 000-00 (ex.: 018-01)" : undefined}
+            inputMode="numeric"
           />
           <button
             type="button"
