@@ -23,12 +23,15 @@ export async function GET(req: NextRequest) {
     .order("data_limite", { ascending: true })
     .order("created_at", { ascending: false });
 
-  const ano = sp.get("ano");
-  const mes = sp.get("mes");
-  const status = sp.get("status");
-  if (ano) q = q.eq("ano", Number(ano));
-  if (mes) q = q.eq("mes", Number(mes));
+  const ano      = sp.get("ano");
+  const mes      = sp.get("mes");
+  const status   = sp.get("status");
+  const equipeId = sp.get("equipe_id");
+
+  if (ano)      q = q.eq("ano",      Number(ano));
+  if (mes)      q = q.eq("mes",      Number(mes));
   if (status && isPlanningStatus(status)) q = q.eq("status", status);
+  if (equipeId) q = q.eq("equipe_id", equipeId);
 
   const { data, error } = await q.limit(800);
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
