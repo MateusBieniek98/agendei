@@ -552,27 +552,35 @@ export default function LancamentoForm({
             <p className="text-xs" style={{ color: "var(--text-muted)" }}>
               Digite parte do código ou nome. Não aparece para o gestor.
             </p>
-            {insumos.map((insumo, index) => (
-              <div key={index} className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_7rem]">
-                <Input
-                  label={`Insumo ${index + 1}`}
-                  list="gn-insumos-catalogo"
-                  value={insumo.nome}
-                  onChange={(e) => alterarInsumo(index, "nome", e.target.value)}
-                  placeholder="Ex.: 90000775 ou GEL"
-                />
-                <Input
-                  label="Qtd"
-                  type="number"
-                  inputMode="decimal"
-                  step="0.01"
-                  min="0"
-                  value={insumo.quantidade}
-                  onChange={(e) => alterarInsumo(index, "quantidade", e.target.value)}
-                  placeholder="0"
-                />
-              </div>
-            ))}
+            <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
+              {insumos.map((insumo, index) => (
+                <div
+                  key={index}
+                  className="overflow-hidden rounded-lg border border-[var(--border)]"
+                  style={{ background: "var(--bg-card-alt)" }}
+                >
+                  <input
+                    list="gn-insumos-catalogo"
+                    value={insumo.nome}
+                    onChange={(e) => alterarInsumo(index, "nome", e.target.value)}
+                    placeholder={`Insumo ${index + 1}`}
+                    className="w-full border-b border-[var(--border)] bg-transparent px-2 py-1 text-xs font-bold outline-none"
+                    style={{ color: "var(--text-primary)" }}
+                  />
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    step="0.01"
+                    min="0"
+                    value={insumo.quantidade}
+                    onChange={(e) => alterarInsumo(index, "quantidade", e.target.value)}
+                    placeholder="Qtd"
+                    className="w-full bg-transparent px-2 py-1 text-xs font-bold outline-none"
+                    style={{ color: "var(--text-primary)" }}
+                  />
+                </div>
+              ))}
+            </div>
             <button
               type="button"
               onClick={() => setInsumos((v) => [...v, { nome: "", quantidade: "" }])}
