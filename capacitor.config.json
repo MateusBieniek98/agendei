@@ -3,7 +3,7 @@
   "appName": "GN Silvicultura",
   "webDir": "public",
   "server": {
-    "url": "https://www.appdamarei.com",
+    "url": "https://agendei-rho.vercel.app",
     "cleartext": false
   },
   "plugins": {

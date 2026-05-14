@@ -11,7 +11,7 @@
     "apk:add": "npx cap add android",
     "apk:sync": "npx cap sync android",
     "apk:open": "npx cap open android",
-    "apk:build:debug": "npm run apk:sync && cd android && ./gradlew assembleDebug",
+    "apk:build:debug": "JAVA_HOME=\"/Applications/Android Studio.app/Contents/jbr/Contents/Home\" npm run apk:sync && cd android && JAVA_HOME=\"/Applications/Android Studio.app/Contents/jbr/Contents/Home\" ./gradlew assembleDebug",
     "db:reset": "echo 'Rode lib/db/schema.sql e lib/db/seed.sql no SQL editor do Supabase'"
   },
   "dependencies": {

@@ -19,13 +19,14 @@ export default function TopBar({
 }) {
   return (
     <header
-      className="sticky top-0 z-30"
+      className="sticky top-0 z-50"
       style={{
         background: "var(--bg-card)",
         borderBottom: "1px solid var(--border)",
+        paddingTop: "max(var(--app-top-safe-area), 6px)",
       }}
     >
-      <div className="flex items-center gap-3 px-4 py-3">
+      <div className="flex min-h-[64px] items-center gap-3 px-4 py-2.5">
         {showLogo && <Logo size={32} variant="color" />}
         <div className="flex-1 min-w-0">
           {title && (
@@ -45,7 +46,7 @@ export default function TopBar({
             </p>
           )}
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex shrink-0 items-center gap-2">
           <SyncStatus />
           {showThemeToggle && <ThemeToggle />}
           {right}
