@@ -10,6 +10,92 @@ import { searchItems } from "@/components/ui/ListControls";
 import { INSUMOS_CATALOGO, insumoCatalogDisplay, normalizeInsumoInput } from "@/lib/insumos";
 import type { Atividade, Equipe, Projeto } from "@/lib/types";
 
+/* ── Card de insumo com sugestões inline ── */
+function InsumoCard({
+  insumo,
+  index,
+  onChange,
+}: {
+  insumo: { nome: string; quantidade: string };
+  index: number;
+  onChange: (campo: "nome" | "quantidade", valor: string) => void;
+}) {
+  const [focado, setFocado] = useState(false);
+
+  const sugestoes = useMemo(() => {
+    const q = insumo.nome.trim().toLowerCase();
+    if (q.length < 2) return [];
+    return INSUMOS_CATALOGO.filter((i) =>
+      insumoCatalogDisplay(i).toLowerCase().includes(q)
+    ).slice(0, 8);
+  }, [insumo.nome]);
+
+  const mostrarLista = focado && sugestoes.length > 0;
+
+  return (
+    <div
+      className="rounded-lg border border-[var(--border)]"
+      style={{ background: "var(--bg-card-alt)" }}
+    >
+      {/* Linha principal: nome | qtd */}
+      <div className="flex">
+        <input
+          value={insumo.nome}
+          onChange={(e) => onChange("nome", e.target.value)}
+          onFocus={() => setFocado(true)}
+          onBlur={() => setTimeout(() => setFocado(false), 150)}
+          placeholder={`Insumo ${index + 1}`}
+          autoComplete="off"
+          className="min-w-0 flex-1 border-r border-[var(--border)] bg-transparent px-2 py-2 text-sm font-bold outline-none"
+          style={{ color: "var(--text-primary)" }}
+        />
+        <input
+          type="number"
+          inputMode="decimal"
+          step="0.01"
+          min="0"
+          value={insumo.quantidade}
+          onChange={(e) => onChange("quantidade", e.target.value)}
+          placeholder="Qtd"
+          className="w-20 shrink-0 bg-transparent px-2 py-2 text-sm font-bold outline-none"
+          style={{ color: "var(--text-primary)" }}
+        />
+      </div>
+
+      {/* Sugestões inline — aparecem abaixo da linha, empurrando o conteúdo */}
+      {mostrarLista && (
+        <ul
+          className="border-t border-[var(--border)]"
+          style={{ background: "var(--bg-card)" }}
+        >
+          {sugestoes.map((item, i) => {
+            const display = insumoCatalogDisplay(item);
+            return (
+              <li
+                key={i}
+                style={{ borderTop: i > 0 ? "1px solid var(--border)" : "none" }}
+              >
+                <button
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    onChange("nome", display);
+                    setFocado(false);
+                  }}
+                  className="w-full px-3 py-2.5 text-left text-xs font-semibold active:opacity-60"
+                  style={{ color: "var(--text-primary)", background: "transparent" }}
+                >
+                  {display}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 const STEPS = [
   { id: 1, label: "Onde / Quem" },
   { id: 2, label: "O Quê" },
@@ -297,8 +383,9 @@ export default function LancamentoForm({
     insumosValidos.length > 0 ? `${insumosValidos.length} adicionado${insumosValidos.length > 1 ? "s" : ""}` : undefined;
 
   // Validação por step
+  const talhaoValido = /^\d{3}-\d{2}$/.test(talhao.trim());
   const canAdvance: Record<StepId, boolean> = {
-    1: !!equipeId && !!projetoId,
+    1: !!equipeId && !!projetoId && talhaoValido,
     2: !!atividadeId && !!qtd && Number(qtd) > 0,
     3: true,
   };
@@ -347,6 +434,10 @@ export default function LancamentoForm({
       toast("Preencha todos os campos obrigatórios.", "error");
       return;
     }
+    if (!talhaoValido) {
+      toast("Talhão inválido. Use o formato 000-00 (ex.: 018-01).", "error");
+      return;
+    }
     const formData = {
       data, equipe_id: equipeId, atividade_id: atividadeId,
       projeto_id: projetoId, talhao: talhao.trim(),
@@ -384,12 +475,6 @@ export default function LancamentoForm({
 
   return (
     <form onSubmit={salvar} className="space-y-4">
-      <datalist id="gn-insumos-catalogo">
-        {INSUMOS_CATALOGO.map((insumo) => (
-          <option key={`${insumo.codigo ?? insumo.grupo}-${insumo.nome}`} value={insumoCatalogDisplay(insumo)} />
-        ))}
-      </datalist>
-
       {/* Lançamento Rápido */}
       {ultimoLancamento && step === 1 && (
         <LancamentoRapido
@@ -436,10 +521,17 @@ export default function LancamentoForm({
             placeholder="Selecione…"
           />
           <Input
-            label="Talhão (opcional)"
+            label="Talhão *"
             value={talhao}
-            onChange={(e) => setTalhao(e.target.value)}
-            placeholder="Ex.: 017-01"
+            onChange={(e) => {
+              // Máscara automática: 000-00
+              const raw = e.target.value.replace(/\D/g, "").slice(0, 5);
+              const masked = raw.length > 3 ? `${raw.slice(0, 3)}-${raw.slice(3)}` : raw;
+              setTalhao(masked);
+            }}
+            placeholder="Ex.: 018-01"
+            hint={talhao && !talhaoValido ? "Formato: 000-00 (ex.: 018-01)" : undefined}
+            inputMode="numeric"
           />
           <button
             type="button"
@@ -552,33 +644,14 @@ export default function LancamentoForm({
             <p className="text-xs" style={{ color: "var(--text-muted)" }}>
               Digite parte do código ou nome. Não aparece para o gestor.
             </p>
-            <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
+            <div className="flex flex-col gap-2">
               {insumos.map((insumo, index) => (
-                <div
+                <InsumoCard
                   key={index}
-                  className="overflow-hidden rounded-lg border border-[var(--border)]"
-                  style={{ background: "var(--bg-card-alt)" }}
-                >
-                  <input
-                    list="gn-insumos-catalogo"
-                    value={insumo.nome}
-                    onChange={(e) => alterarInsumo(index, "nome", e.target.value)}
-                    placeholder={`Insumo ${index + 1}`}
-                    className="w-full border-b border-[var(--border)] bg-transparent px-2 py-1 text-xs font-bold outline-none"
-                    style={{ color: "var(--text-primary)" }}
-                  />
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    step="0.01"
-                    min="0"
-                    value={insumo.quantidade}
-                    onChange={(e) => alterarInsumo(index, "quantidade", e.target.value)}
-                    placeholder="Qtd"
-                    className="w-full bg-transparent px-2 py-1 text-xs font-bold outline-none"
-                    style={{ color: "var(--text-primary)" }}
-                  />
-                </div>
+                  insumo={insumo}
+                  index={index}
+                  onChange={(campo, valor) => alterarInsumo(index, campo, valor)}
+                />
               ))}
             </div>
             <button

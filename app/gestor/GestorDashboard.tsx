@@ -82,6 +82,11 @@ const ABAS: { value: Aba; label: string }[] = [
   { value: "planejamento", label: "Planejamento" },
 ];
 
+type GestorDashboardProps = {
+  mostrarManutencao?: boolean;
+  mostrarPlanejamento?: boolean;
+};
+
 const STATUS_OPTS: { value: MachineStatus; label: string }[] = [
   { value: "operando", label: "Operando" },
   { value: "parada", label: "Parada" },
@@ -215,7 +220,10 @@ function PlanejamentoLista({
   );
 }
 
-export default function GestorDashboard() {
+export default function GestorDashboard({
+  mostrarManutencao = true,
+  mostrarPlanejamento = true,
+}: GestorDashboardProps) {
   const [aba, setAba] = useState<Aba>("faturamento");
   const [periodo, setPeriodo] = useState<PeriodoState>({ preset: "ciclo_atual" });
   const [data, setData] = useState<DashboardData | null>(null);
@@ -235,12 +243,14 @@ export default function GestorDashboard() {
       }
       const [r, ar] = await Promise.all([
         fetch(`/api/dashboard?${sp.toString()}`),
-        fetch("/api/planejamento/alertas"),
+        mostrarPlanejamento ? fetch("/api/planejamento/alertas") : Promise.resolve(null),
       ]);
       const j = (await r.json()) as DashboardData & { error?: string };
-      const aj = (await ar.json()) as AlertasPlanejamento & { error?: string };
+      const aj = ar
+        ? ((await ar.json()) as AlertasPlanejamento & { error?: string })
+        : null;
       if (!r.ok || j.error) throw new Error(j.error ?? r.statusText);
-      if (!ar.ok || aj.error) throw new Error(aj.error ?? ar.statusText);
+      if (ar && (!ar.ok || aj?.error)) throw new Error(aj?.error ?? ar.statusText);
       if (!j.periodo) throw new Error("resposta inválida do dashboard");
       setData(j);
       setAlertas(aj);
@@ -297,25 +307,37 @@ export default function GestorDashboard() {
         faturamentoPlanejado(p.quantidade_prevista, p.atividades)),
     0
   );
+  const abasDisponiveis = mostrarPlanejamento
+    ? ABAS
+    : ABAS.filter((a) => a.value !== "planejamento");
+  const abasVisiveis = mostrarManutencao
+    ? abasDisponiveis
+    : abasDisponiveis.filter((a) => a.value !== "manutencao");
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-3 gap-2 rounded-xl bg-[var(--color-ink-100)] p-1">
-        {ABAS.map((a) => (
-          <button
-            key={a.value}
-            onClick={() => setAba(a.value)}
-            className={
-              "h-11 rounded-lg text-sm font-bold transition " +
-              (aba === a.value
-                ? "bg-white text-[var(--color-gn-700)] shadow-sm"
-                : "text-[var(--color-ink-700)]")
-            }
-          >
-            {a.label}
-          </button>
-        ))}
-      </div>
+      {abasVisiveis.length > 1 && (
+        <div
+          className={`grid gap-2 rounded-xl bg-[var(--color-ink-100)] p-1 ${
+            abasVisiveis.length === 2 ? "grid-cols-2" : "grid-cols-3"
+          }`}
+        >
+          {abasVisiveis.map((a) => (
+            <button
+              key={a.value}
+              onClick={() => setAba(a.value)}
+              className={
+                "h-11 rounded-lg text-sm font-bold transition " +
+                (aba === a.value
+                  ? "bg-white text-[var(--color-gn-700)] shadow-sm"
+                  : "text-[var(--color-ink-700)]")
+              }
+            >
+              {a.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {erro && (
         <Card className="p-3 text-sm font-bold text-[var(--color-danger-500)]">
@@ -386,7 +408,7 @@ export default function GestorDashboard() {
                     </span>
                     {e.nome}
                   </span>
-                  <span className="text-slate-950 dark:text-slate-50 font-bold tabular">{brl(e.faturamento)}</span>
+                  <span className="font-bold tabular text-[var(--color-ink-900)]">{brl(e.faturamento)}</span>
                 </li>
               ))}
             </ol>
@@ -394,7 +416,7 @@ export default function GestorDashboard() {
         </div>
       )}
 
-      {aba === "manutencao" && (
+      {mostrarManutencao && aba === "manutencao" && (
         <div className="space-y-4">
           <div className="grid grid-cols-3 gap-3 text-center">
             <Card className="p-3">
@@ -492,7 +514,7 @@ export default function GestorDashboard() {
         </div>
       )}
 
-      {aba === "planejamento" && (
+      {mostrarPlanejamento && aba === "planejamento" && (
         <div className="space-y-4">
           <Card className="flex flex-col gap-4 p-5 md:flex-row md:items-center md:justify-between">
             <div>
