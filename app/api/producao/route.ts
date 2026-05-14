@@ -3,6 +3,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
+import { notifyApontamentosSheet } from "@/lib/google-sheets-apontamentos";
 import { optionalNumber, sanitizeInsumos } from "@/lib/insumos";
 import { syncPlanningProgressForProduction } from "@/lib/planning-progress";
 
@@ -95,8 +96,13 @@ export async function POST(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   const syncError = await syncPlanningProgressForProduction(supabase, data);
+  const sheetsSyncError = await notifyApontamentosSheet("criado", data.id);
   return NextResponse.json(
-    { item: data, planejamento_sync_error: syncError?.message ?? null },
+    {
+      item: data,
+      planejamento_sync_error: syncError?.message ?? null,
+      sheets_sync_error: sheetsSyncError,
+    },
     { status: 201 }
   );
 }

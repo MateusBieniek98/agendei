@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 
-const SYNC_TOKEN_ENV_NAMES = ["SHARED_SYNC_TOKEN"] as const;
+const SYNC_TOKEN_ENV_NAMES = ["SHARED_SYNC_TOKEN", "GOOGLE_SHEETS_SYNC_TOKEN"] as const;
 
 function bearer(req: NextRequest) {
   const header = req.headers.get("authorization") ?? "";
@@ -17,6 +17,10 @@ export function configuredSyncTokens() {
   );
 }
 
+export function primarySyncToken() {
+  return configuredSyncTokens()[0] ?? "";
+}
+
 export function isAuthorizedSyncRequest(req: NextRequest) {
   const token = requestedSyncToken(req);
   if (!token) return false;
@@ -24,5 +28,5 @@ export function isAuthorizedSyncRequest(req: NextRequest) {
 }
 
 export function syncTokenMissingMessage() {
-  return "SHARED_SYNC_TOKEN nao configurado no servidor. Configure SHARED_SYNC_TOKEN no Vercel.";
+  return "Token de sincronizacao nao configurado no servidor. Configure SHARED_SYNC_TOKEN ou GOOGLE_SHEETS_SYNC_TOKEN no Vercel.";
 }

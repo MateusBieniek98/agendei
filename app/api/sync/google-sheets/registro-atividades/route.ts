@@ -485,11 +485,43 @@ async function importRow(
     importado_em: new Date().toISOString(),
   };
 
-  const { data: saved, error } = await supabase
+  const { data: existingByKey, error: existingByKeyError } = await supabase
     .from("producao")
-    .upsert(payload, { onConflict: "origem_chave" })
-    .select("id, projeto_id, talhao, atividade_id")
-    .single();
+    .select("id")
+    .eq("origem_chave", origemChave)
+    .maybeSingle();
+  if (existingByKeyError) throw new Error(existingByKeyError.message);
+
+  let existingId = cleanText(existingByKey?.id);
+
+  // Compatibilidade com importações antigas, feitas antes da coluna GN Source ID.
+  // Isso evita duplicar apontamentos quando o script novo passa a usar uma chave fixa.
+  if (!existingId && line) {
+    const { data: existingByLine, error: existingByLineError } = await supabase
+      .from("producao")
+      .select("id")
+      .eq("origem_planilha", spreadsheetName)
+      .eq("origem_aba", sheetName)
+      .eq("origem_linha", line)
+      .maybeSingle();
+    if (existingByLineError) throw new Error(existingByLineError.message);
+    existingId = cleanText(existingByLine?.id);
+  }
+
+  const mutation = existingId
+    ? supabase
+        .from("producao")
+        .update(payload)
+        .eq("id", existingId)
+        .select("id, projeto_id, talhao, atividade_id")
+        .single()
+    : supabase
+        .from("producao")
+        .upsert(payload, { onConflict: "origem_chave" })
+        .select("id, projeto_id, talhao, atividade_id")
+        .single();
+
+  const { data: saved, error } = await mutation;
 
   if (error) throw new Error(error.message);
   const savedRow = saved as {

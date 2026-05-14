@@ -3,6 +3,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
+import { notifyApontamentosSheet } from "@/lib/google-sheets-apontamentos";
 import { optionalNumber, sanitizeInsumos } from "@/lib/insumos";
 import { syncPlanningProgressForProduction } from "@/lib/planning-progress";
 
@@ -50,10 +51,12 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     syncPlanningProgressForProduction(supabase, anterior),
     syncPlanningProgressForProduction(supabase, data),
   ]);
+  const sheetsSyncError = await notifyApontamentosSheet("editado", data.id);
 
   return NextResponse.json({
     item: data,
     planejamento_sync_error: syncErrors.find(Boolean)?.message ?? null,
+    sheets_sync_error: sheetsSyncError,
   });
 }
 
@@ -72,5 +75,10 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
   const { error } = await supabase.from("producao").delete().eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   const syncError = await syncPlanningProgressForProduction(supabase, anterior);
-  return NextResponse.json({ ok: true, planejamento_sync_error: syncError?.message ?? null });
+  const sheetsSyncError = await notifyApontamentosSheet("excluido", id);
+  return NextResponse.json({
+    ok: true,
+    planejamento_sync_error: syncError?.message ?? null,
+    sheets_sync_error: sheetsSyncError,
+  });
 }
