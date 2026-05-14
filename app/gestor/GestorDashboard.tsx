@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Button from "@/components/ui/Button";
 import { Card, StatCard } from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
-import { brl, ddmmyyyy, num } from "@/lib/format";
+import { brl, ddmmyyyy } from "@/lib/format";
 import { LinhaChart } from "./GestorCharts";
 import PeriodoFiltro, { type PeriodoState } from "@/components/dashboard/PeriodoFiltro";
-import type { MachineStatus, PlanningStatus } from "@/lib/types";
+import PlanejamentoField from "@/app/(field)/planejamento/PlanejamentoField";
+import type { MachineStatus } from "@/lib/types";
 
 type Aba = "faturamento" | "manutencao" | "planejamento";
 
@@ -50,35 +50,9 @@ type DashboardData = {
   manutencoesAbertas: Manut[];
 };
 
-type PlanejamentoItem = {
-  id: string;
-  ano: number;
-  mes: number;
-  talhao: string;
-  quantidade_prevista: number | null;
-  data_inicio: string | null;
-  data_limite: string;
-  status: PlanningStatus;
-  observacoes: string | null;
-  projetos: { nome: string } | null;
-  atividades: { nome: string; unidade: string; valor_unitario: number } | null;
-  equipes: { nome: string } | null;
-  quantidade_realizada: number;
-  pct_realizado: number;
-  faturamento_planejado: number;
-};
-
-type AlertasPlanejamento = {
-  hoje: string;
-  horizonte: string;
-  atrasados: PlanejamentoItem[];
-  noPrazo: PlanejamentoItem[];
-  futuros: PlanejamentoItem[];
-};
-
 const ABAS: { value: Aba; label: string }[] = [
-  { value: "faturamento", label: "Faturamento" },
-  { value: "manutencao", label: "Manutenção" },
+  { value: "faturamento",  label: "Faturamento"  },
+  { value: "manutencao",   label: "Manutenção"   },
   { value: "planejamento", label: "Planejamento" },
 ];
 
@@ -88,148 +62,26 @@ type GestorDashboardProps = {
 };
 
 const STATUS_OPTS: { value: MachineStatus; label: string }[] = [
-  { value: "operando", label: "Operando" },
-  { value: "parada", label: "Parada" },
+  { value: "operando",           label: "Operando"           },
+  { value: "parada",             label: "Parada"             },
   { value: "manutencao_urgente", label: "Manutenção urgente" },
 ];
 
 function statusManut(status: Manut["status"]) {
-  if (status === "aberto") return <Badge tone="danger">aberto</Badge>;
+  if (status === "aberto")       return <Badge tone="danger">aberto</Badge>;
   if (status === "em_andamento") return <Badge tone="warning">em andamento</Badge>;
   return <Badge tone="neutral">resolvido</Badge>;
-}
-
-function statusPlanejamento(status: PlanningStatus) {
-  if (status === "concluido") return <Badge tone="success">concluído</Badge>;
-  if (status === "em_execucao") return <Badge tone="warning">em execução</Badge>;
-  if (status === "cancelado") return <Badge tone="neutral">cancelado</Badge>;
-  return <Badge tone="info">planejado</Badge>;
-}
-
-function faturamentoPlanejado(
-  quantidade: number | null | undefined,
-  atividade: { valor_unitario: number } | null | undefined
-) {
-  return Number(quantidade ?? 0) * Number(atividade?.valor_unitario ?? 0);
-}
-
-function progressoWidth(pct: number | null | undefined) {
-  return `${Math.min(Math.max(Number(pct ?? 0), 0), 100)}%`;
-}
-
-function PlanejamentoProgressBar({ item }: { item: PlanejamentoItem }) {
-  const prevista = Number(item.quantidade_prevista ?? 0);
-  const realizada = Number(item.quantidade_realizada ?? 0);
-  const pct = Number(item.pct_realizado ?? 0);
-  const unidade = item.atividades?.unidade ?? "un.";
-
-  return (
-    <div className="mt-3">
-      <div className="mb-1 flex items-center justify-between gap-3 text-xs font-bold text-[var(--color-ink-700)]">
-        <span>
-          Realizado: {num(realizada)} de {num(prevista)} {unidade}
-        </span>
-        <span className="text-[var(--color-gn-700)] tabular">{pct.toFixed(1)}%</span>
-      </div>
-      <div
-        className="h-3 w-full overflow-hidden rounded-full bg-white/70"
-        title={`${pct.toFixed(1)}% realizado`}
-      >
-        <div
-          className="h-full rounded-full bg-[var(--color-gn-500)] transition-all"
-          style={{ width: progressoWidth(pct) }}
-        />
-      </div>
-      {pct >= 100 && (
-        <p className="mt-1 text-xs font-bold text-[var(--color-forest-700)]">
-          100% realizado.
-        </p>
-      )}
-    </div>
-  );
-}
-
-function PlanejamentoLista({
-  titulo,
-  items,
-  prioridade,
-}: {
-  titulo: string;
-  items: PlanejamentoItem[];
-  prioridade: "alta" | "normal" | "baixa";
-}) {
-  const box =
-    prioridade === "alta"
-      ? "border-[var(--color-danger-500)] bg-red-50"
-      : prioridade === "normal"
-        ? "border-amber-300 bg-amber-50"
-        : "border-[var(--color-ink-200)] bg-white";
-  const totalPrevisto = items.reduce(
-    (s, p) => s + (p.faturamento_planejado ?? faturamentoPlanejado(p.quantidade_prevista, p.atividades)),
-    0
-  );
-
-  return (
-    <Card className="p-5">
-      <div className="flex items-center justify-between gap-3">
-        <h3 className="font-bold text-[var(--color-ink-900)]">{titulo}</h3>
-        <div className="text-right">
-          <p className="text-sm font-bold text-[var(--color-ink-700)]">
-            {items.length}
-          </p>
-          <p className="text-xs font-bold text-[var(--color-gn-700)] tabular">
-            {brl(totalPrevisto)}
-          </p>
-        </div>
-      </div>
-      <div className="mt-3 space-y-3">
-        {items.map((p) => (
-          <div key={p.id} className={`rounded-xl border-2 p-4 ${box}`}>
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="font-bold text-[var(--color-ink-900)]">
-                {p.projetos?.nome ?? "Projeto"} · Talhão {p.talhao}
-              </p>
-              {statusPlanejamento(p.status)}
-            </div>
-            <p className="mt-1 text-sm font-semibold text-[var(--color-ink-800)]">
-              {p.atividades?.nome ?? "Atividade"} · prazo {ddmmyyyy(p.data_limite)}
-            </p>
-            <p className="text-xs font-semibold text-[var(--color-ink-600)]">
-              {p.equipes?.nome ?? "Equipe não definida"}
-              {p.quantidade_prevista != null && p.atividades
-                ? ` · previsto ${num(p.quantidade_prevista)} ${p.atividades.unidade}`
-                : ""}
-            </p>
-            <p className="mt-1 text-sm font-bold text-[var(--color-gn-700)] tabular">
-              Faturamento planejado:{" "}
-              {brl(p.faturamento_planejado ?? faturamentoPlanejado(p.quantidade_prevista, p.atividades))}
-            </p>
-            <PlanejamentoProgressBar item={p} />
-            {p.observacoes && (
-              <p className="mt-2 text-sm text-[var(--color-ink-700)]">{p.observacoes}</p>
-            )}
-          </div>
-        ))}
-        {items.length === 0 && (
-          <p className="py-4 text-center text-sm font-semibold text-[var(--color-ink-600)]">
-            Sem itens nesta faixa.
-          </p>
-        )}
-      </div>
-    </Card>
-  );
 }
 
 export default function GestorDashboard({
   mostrarManutencao = true,
   mostrarPlanejamento = true,
 }: GestorDashboardProps) {
-  const [aba, setAba] = useState<Aba>("faturamento");
+  const [aba,     setAba]     = useState<Aba>("faturamento");
   const [periodo, setPeriodo] = useState<PeriodoState>({ preset: "ciclo_atual" });
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [alertas, setAlertas] = useState<AlertasPlanejamento | null>(null);
+  const [data,    setData]    = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [erro, setErro] = useState<string | null>(null);
+  const [erro,    setErro]    = useState<string | null>(null);
 
   async function carregar() {
     setLoading(true);
@@ -241,22 +93,13 @@ export default function GestorDashboard({
         sp.set("de", periodo.de);
         sp.set("ate", periodo.ate);
       }
-      const [r, ar] = await Promise.all([
-        fetch(`/api/dashboard?${sp.toString()}`),
-        mostrarPlanejamento ? fetch("/api/planejamento/alertas") : Promise.resolve(null),
-      ]);
+      const r = await fetch(`/api/dashboard?${sp.toString()}`);
       const j = (await r.json()) as DashboardData & { error?: string };
-      const aj = ar
-        ? ((await ar.json()) as AlertasPlanejamento & { error?: string })
-        : null;
       if (!r.ok || j.error) throw new Error(j.error ?? r.statusText);
-      if (ar && (!ar.ok || aj?.error)) throw new Error(aj?.error ?? ar.statusText);
       if (!j.periodo) throw new Error("resposta inválida do dashboard");
       setData(j);
-      setAlertas(aj);
     } catch (err) {
       setData(null);
-      setAlertas(null);
       setErro((err as Error).message);
     } finally {
       setLoading(false);
@@ -282,7 +125,7 @@ export default function GestorDashboard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [periodo.preset, periodo.de, periodo.ate]);
 
-  if (!data) {
+  if (!data && aba !== "planejamento") {
     return (
       <div className="space-y-6">
         <PeriodoFiltro value={periodo} onChange={setPeriodo} />
@@ -293,29 +136,15 @@ export default function GestorDashboard({
     );
   }
 
-  const totalAlertas =
-    (alertas?.atrasados.length ?? 0) + (alertas?.noPrazo.length ?? 0);
-  const planejamentoAberto = [
-    ...(alertas?.atrasados ?? []),
-    ...(alertas?.noPrazo ?? []),
-    ...(alertas?.futuros ?? []),
-  ];
-  const faturamentoPlanejadoAberto = planejamentoAberto.reduce(
-    (s, p) =>
-      s +
-      (p.faturamento_planejado ??
-        faturamentoPlanejado(p.quantidade_prevista, p.atividades)),
-    0
-  );
-  const abasDisponiveis = mostrarPlanejamento
-    ? ABAS
-    : ABAS.filter((a) => a.value !== "planejamento");
-  const abasVisiveis = mostrarManutencao
-    ? abasDisponiveis
-    : abasDisponiveis.filter((a) => a.value !== "manutencao");
+  const abasVisiveis = ABAS.filter((a) => {
+    if (!mostrarManutencao && a.value === "manutencao") return false;
+    if (!mostrarPlanejamento && a.value === "planejamento") return false;
+    return true;
+  });
 
   return (
     <div className="space-y-6">
+      {/* Tab selector */}
       {abasVisiveis.length > 1 && (
         <div
           className={`grid gap-2 rounded-xl bg-[var(--color-ink-100)] p-1 ${
@@ -339,19 +168,20 @@ export default function GestorDashboard({
         </div>
       )}
 
-      {erro && (
+      {erro && aba !== "planejamento" && (
         <Card className="p-3 text-sm font-bold text-[var(--color-danger-500)]">
           {erro}
         </Card>
       )}
 
-      {aba === "faturamento" && (
+      {/* ── Faturamento ── */}
+      {aba === "faturamento" && data && (
         <div className="space-y-6">
           <PeriodoFiltro value={periodo} onChange={setPeriodo} loading={loading} />
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <StatCard label="Faturamento — hoje" value={brl(data.hoje)} tone="positive" />
-            <StatCard label="Total no período" value={brl(data.total)} hint={data.periodo.label} />
+            <StatCard label="Total no período"   value={brl(data.total)} hint={data.periodo.label} />
             <StatCard
               label="Média diária"
               value={brl(data.mediaDia)}
@@ -416,7 +246,8 @@ export default function GestorDashboard({
         </div>
       )}
 
-      {mostrarManutencao && aba === "manutencao" && (
+      {/* ── Manutenção ── */}
+      {mostrarManutencao && aba === "manutencao" && data && (
         <div className="space-y-4">
           <div className="grid grid-cols-3 gap-3 text-center">
             <Card className="p-3">
@@ -514,46 +345,9 @@ export default function GestorDashboard({
         </div>
       )}
 
+      {/* ── Planejamento — mesmo componente do encarregado, sem filtro de equipe ── */}
       {mostrarPlanejamento && aba === "planejamento" && (
-        <div className="space-y-4">
-          <Card className="flex flex-col gap-4 p-5 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h3 className="font-bold">Alertas do planejamento</h3>
-              <p className="text-sm font-semibold text-[var(--color-ink-600)]">
-                {totalAlertas} item{totalAlertas === 1 ? "" : "s"} pedindo atenção.
-              </p>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
-              <div className="rounded-xl bg-[var(--color-gn-50)] px-4 py-3">
-                <p className="text-xs font-bold uppercase text-[var(--color-gn-700)]">
-                  Faturamento planejado em aberto
-                </p>
-                <p className="mt-1 text-2xl font-bold text-[var(--color-gn-700)] tabular">
-                  {brl(faturamentoPlanejadoAberto)}
-                </p>
-              </div>
-              <Button onClick={carregar} loading={loading}>
-                Gerar alertas
-              </Button>
-            </div>
-          </Card>
-
-          <PlanejamentoLista
-            titulo="Prioridade alta: passou do prazo"
-            items={alertas?.atrasados ?? []}
-            prioridade="alta"
-          />
-          <PlanejamentoLista
-            titulo="No prazo: executar nos próximos 3 dias"
-            items={alertas?.noPrazo ?? []}
-            prioridade="normal"
-          />
-          <PlanejamentoLista
-            titulo="Próximas atividades"
-            items={alertas?.futuros ?? []}
-            prioridade="baixa"
-          />
-        </div>
+        <PlanejamentoField equipeId={null} profileNome="" />
       )}
     </div>
   );

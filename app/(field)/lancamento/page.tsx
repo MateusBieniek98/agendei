@@ -9,7 +9,7 @@ function dedupeAtividadesPorNome(atividades: Atividade[]) {
   return atividades.filter((atividade) => {
     const chave = atividade.nome
       .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[̀-ͯ]/g, "")
       .replace(/\s+/g, " ")
       .trim()
       .toLowerCase();
@@ -20,8 +20,14 @@ function dedupeAtividadesPorNome(atividades: Atividade[]) {
   });
 }
 
-export default async function LancamentoPage() {
+export default async function LancamentoPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ atividade_id?: string; projeto_id?: string; talhao?: string }>;
+}) {
   const supabase = await createSupabaseServer();
+  const params   = await searchParams;
+
   const [{ data: equipes }, { data: atividades }, { data: projetos }] = await Promise.all([
     supabase.from("equipes").select("*").eq("ativo", true).order("nome"),
     supabase.from("atividades").select("*").eq("ativo", true).order("nome"),
@@ -40,6 +46,9 @@ export default async function LancamentoPage() {
         equipes={(equipes ?? []) as Equipe[]}
         atividades={dedupeAtividadesPorNome((atividades ?? []) as Atividade[])}
         projetos={(projetos ?? []) as Projeto[]}
+        initialAtividadeId={params.atividade_id}
+        initialProjetoId={params.projeto_id}
+        initialTalhao={params.talhao}
       />
     </div>
   );
