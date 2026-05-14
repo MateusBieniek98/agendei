@@ -28,19 +28,23 @@ const GN_EXPORT_API_URL = GN_APP_BASE_URL + '/api/sync/google-sheets/apontamento
 const GN_HEALTH_API_URL = GN_APP_BASE_URL + '/api/health';
 
 function onOpen() {
-  SpreadsheetApp.getUi()
-    .createMenu('GN App')
-    .addItem('Instalar automação completa', 'instalarAutomacaoCompletaGN')
-    .addSeparator()
-    .addItem('Importar Registro para App agora', 'importarRegistroAtividadesParaAppGN')
-    .addItem('Atualizar Apontamentos App agora', 'atualizarApontamentosAppGN')
-    .addItem('Rodar fluxo completo agora', 'rodarFluxoCompletoGN')
-    .addSeparator()
-    .addItem('Validar Registro sem gravar', 'validarRegistroAtividadesGN')
-    .addItem('Teste de conexão', 'testeConexaoGN')
-    .addSeparator()
-    .addItem('Remover automações', 'removerAutomacoesGN')
-    .addToUi();
+  try {
+    SpreadsheetApp.getUi()
+      .createMenu('GN App')
+      .addItem('Instalar automação completa', 'instalarAutomacaoCompletaGN')
+      .addSeparator()
+      .addItem('Importar Registro para App agora', 'importarRegistroAtividadesParaAppGN')
+      .addItem('Atualizar Apontamentos App agora', 'atualizarApontamentosAppGN')
+      .addItem('Rodar fluxo completo agora', 'rodarFluxoCompletoGN')
+      .addSeparator()
+      .addItem('Validar Registro sem gravar', 'validarRegistroAtividadesGN')
+      .addItem('Teste de conexão', 'testeConexaoGN')
+      .addSeparator()
+      .addItem('Remover automações', 'removerAutomacoesGN')
+      .addToUi();
+  } catch (erro) {
+    escreverLogGN('Menu GN App não foi criado neste contexto. Abra a planilha ou execute instalarAutomacaoCompletaGN diretamente.');
+  }
 }
 
 /**
@@ -60,13 +64,23 @@ function doPost(e) {
       return criarJsonGN_({ ok: false, error: 'unauthorized' });
     }
 
+    const acao = String(body.acao || 'atualizar_apontamentos').trim();
+
     escreverLogGN(
       'Webhook recebido do app: ' +
+      acao +
+      ' · ' +
       String(body.evento || 'evento') +
       (body.producaoId ? ' · ' + body.producaoId : '')
     );
-    atualizarApontamentosAppGN();
-    return criarJsonGN_({ ok: true, updated_at: new Date().toISOString() });
+
+    if (acao === 'rodar_fluxo_completo') {
+      rodarFluxoCompletoGN();
+    } else {
+      atualizarApontamentosAppGN();
+    }
+
+    return criarJsonGN_({ ok: true, acao: acao, updated_at: new Date().toISOString() });
   } catch (erro) {
     escreverLogGN('ERRO doPost: ' + erro.message);
     return criarJsonGN_({ ok: false, error: erro.message });

@@ -1,10 +1,16 @@
 import { primarySyncToken } from "@/lib/sync-auth";
 
-type SheetsProductionEvent = "criado" | "editado" | "excluido";
+type SheetsProductionEvent = "criado" | "editado" | "excluido" | "manual";
+export type SheetsSyncAction = "atualizar_apontamentos" | "rodar_fluxo_completo";
 
 export async function notifyApontamentosSheet(
   evento: SheetsProductionEvent,
-  producaoId?: string | null
+  producaoId?: string | null,
+  options: {
+    acao?: SheetsSyncAction;
+    solicitadoPor?: string | null;
+    timeoutMs?: number;
+  } = {}
 ) {
   const webhookUrl =
     process.env.GOOGLE_SHEETS_APONTAMENTOS_WEBHOOK_URL?.trim() ||
@@ -26,13 +32,15 @@ export async function notifyApontamentosSheet(
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         token,
+        acao: options.acao ?? "atualizar_apontamentos",
         evento,
         producaoId: producaoId ?? null,
+        solicitadoPor: options.solicitadoPor ?? null,
         origem: "gn-app",
         timestamp: new Date().toISOString(),
       }),
       cache: "no-store",
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(options.timeoutMs ?? 8000),
     });
 
     const text = await response.text().catch(() => "");

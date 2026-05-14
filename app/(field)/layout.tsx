@@ -24,10 +24,10 @@ export default async function FieldLayout({
 
         <BottomNav
           items={[
-            { href: "/resumo",         label: "Resumo",       icon: <IconChart /> },
+            { href: "/sincronizar",    label: "Sync",         icon: <IconSync /> },
+            { href: "/resumo",         label: "Resultados",   icon: <IconChart /> },
             { href: "/lancamento",     label: "Lançar",       icon: <IconPlus /> },
             { href: "/planejamento",   label: "Plano",        icon: <IconCalendar /> },
-            { href: "/maquinas",       label: "Máquinas",     icon: <IconWrench /> },
             { href: "/historico",      label: "Hoje",         icon: <IconList /> },
           ]}
         />
@@ -61,6 +61,17 @@ function IconPlus() {
     </svg>
   );
 }
+function IconSync() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+         strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
+      <path d="M21 12a9 9 0 0 1-15.5 6.2" />
+      <path d="M3 12a9 9 0 0 1 15.5-6.2" />
+      <path d="M18 3v4h-4" />
+      <path d="M6 21v-4h4" />
+    </svg>
+  );
+}
 function IconChart() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
@@ -75,14 +86,6 @@ function IconCalendar() {
          strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
       <rect x="3" y="4" width="18" height="18" rx="2" />
       <path d="M16 2v4M8 2v4M3 10h18" />
-    </svg>
-  );
-}
-function IconWrench() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-         strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
-      <path d="M14.7 6.3a4 4 0 0 0-5.6 5.6l-6 6 2 2 6-6a4 4 0 0 0 5.6-5.6l-2.6 2.6-2-2 2.6-2.6Z" />
     </svg>
   );
 }

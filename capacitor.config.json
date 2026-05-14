@@ -1,0 +1,17 @@
+{
+  "appId": "br.com.gnsilvicultura.app",
+  "appName": "GN Silvicultura",
+  "webDir": "public",
+  "server": {
+    "url": "https://www.appdamarei.com",
+    "cleartext": false
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1200,
+      "backgroundColor": "#061020",
+      "androidSplashResourceName": "splash",
+      "showSpinner": false
+    }
+  }
+}

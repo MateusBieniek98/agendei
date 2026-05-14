@@ -8,9 +8,16 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "apk:add": "npx cap add android",
+    "apk:sync": "npx cap sync android",
+    "apk:open": "npx cap open android",
+    "apk:build:debug": "npm run apk:sync && cd android && ./gradlew assembleDebug",
     "db:reset": "echo 'Rode lib/db/schema.sql e lib/db/seed.sql no SQL editor do Supabase'"
   },
   "dependencies": {
+    "@capacitor/android": "^8.3.4",
+    "@capacitor/cli": "^8.3.4",
+    "@capacitor/core": "^8.3.4",
     "@supabase/auth-helpers-nextjs": "^0.15.0",
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.103.0",
