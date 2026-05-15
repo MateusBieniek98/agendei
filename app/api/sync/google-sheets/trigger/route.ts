@@ -18,6 +18,12 @@ export async function POST(req: NextRequest) {
   if (!profile) {
     return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
   }
+  if (profile.role !== "admin") {
+    return NextResponse.json(
+      { error: "A sincronização com a planilha é restrita ao administrador." },
+      { status: 403 }
+    );
+  }
 
   const body = await req.json().catch(() => ({}));
   const acao = String(body.acao ?? "atualizar_apontamentos") as SheetsSyncAction;

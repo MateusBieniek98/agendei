@@ -7,7 +7,6 @@ const QUEUE_KEY = "gn:pendentes";
 const LAST_SYNC_KEY = "gn:last-manual-sync";
 
 type PendingItem = Record<string, unknown>;
-type SyncAction = "atualizar_apontamentos" | "rodar_fluxo_completo";
 
 function readQueue(): PendingItem[] {
   try {
@@ -35,10 +34,8 @@ function formatDateTime(value: string | null) {
 
 export default function SyncHome({
   nome,
-  role,
 }: {
   nome: string;
-  role: "encarregado" | "admin" | "gestor";
 }) {
   const [online, setOnline] = useState(true);
   const [pending, setPending] = useState(0);
@@ -113,46 +110,13 @@ export default function SyncHome({
         text: `${failed.length} lançamento(s) ainda não foram enviados. Verifique a conexão e tente novamente.`,
       });
     } else {
+      const now = new Date().toISOString();
+      localStorage.setItem(LAST_SYNC_KEY, now);
+      setLastSync(now);
       setMessage({ type: "ok", text: "Lançamentos offline enviados com sucesso." });
     }
 
     setBusy(null);
-  }
-
-  async function triggerSheets(action: SyncAction) {
-    setBusy(action);
-    setMessage(null);
-
-    try {
-      const response = await fetch("/api/sync/google-sheets/trigger", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ acao: action }),
-      });
-      const payload = await response.json().catch(() => ({}));
-
-      if (!response.ok || payload.ok === false) {
-        throw new Error(payload.error || "Falha ao sincronizar com a planilha.");
-      }
-
-      const now = new Date().toISOString();
-      localStorage.setItem(LAST_SYNC_KEY, now);
-      setLastSync(now);
-      setMessage({
-        type: "ok",
-        text:
-          action === "rodar_fluxo_completo"
-            ? "Fluxo completo executado: planilha, app e Apontamentos App sincronizados."
-            : "Aba Apontamentos App atualizada com os dados do app.",
-      });
-    } catch (error) {
-      setMessage({
-        type: "error",
-        text: error instanceof Error ? error.message : String(error),
-      });
-    } finally {
-      setBusy(null);
-    }
   }
 
   const loading = busy !== null;
@@ -170,7 +134,7 @@ export default function SyncHome({
                 {saudacao}
               </h1>
               <p className="mt-2 max-w-sm text-sm font-semibold text-slate-300">
-                Atualize os apontamentos, envie lançamentos pendentes e confira se o app está pronto para uso em campo.
+                Envie lançamentos pendentes do celular e confira se o app está pronto para uso em campo.
               </p>
             </div>
             <div
@@ -218,32 +182,6 @@ export default function SyncHome({
               Usa a fila local salva quando o sinal cai.
             </span>
           </button>
-
-          <button
-            type="button"
-            disabled={loading || !online}
-            onClick={() => triggerSheets("atualizar_apontamentos")}
-            className="min-h-[64px] rounded-2xl border border-white/10 bg-white/[0.08] px-5 text-left text-base font-black text-white transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {busy === "atualizar_apontamentos" ? "Atualizando planilha..." : "Atualizar aba Apontamentos App"}
-            <span className="block text-xs font-bold text-slate-400">
-              Envia para a planilha tudo que já está no Supabase.
-            </span>
-          </button>
-
-          {(role === "admin" || role === "encarregado") && (
-            <button
-              type="button"
-              disabled={loading || !online}
-              onClick={() => triggerSheets("rodar_fluxo_completo")}
-              className="min-h-[64px] rounded-2xl border border-blue-400/30 bg-blue-400/10 px-5 text-left text-base font-black text-blue-100 transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {busy === "rodar_fluxo_completo" ? "Sincronizando tudo..." : "Sincronizar planilha e app"}
-              <span className="block text-xs font-bold text-blue-200/75">
-                Importa Registro de atividades e atualiza Apontamentos App.
-              </span>
-            </button>
-          )}
         </section>
 
         <section className="grid grid-cols-2 gap-3">

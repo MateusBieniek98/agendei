@@ -9,7 +9,6 @@ export default async function SincronizarPage() {
   return (
     <SyncHome
       nome={profile.nome}
-      role={profile.role}
     />
   );
 }
