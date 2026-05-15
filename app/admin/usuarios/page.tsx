@@ -10,7 +10,13 @@ import Badge from "@/components/ui/Badge";
 import { useToast } from "@/components/ui/Toast";
 import type { Equipe, Profile, UserRole } from "@/lib/types";
 
-type ProfileWithEquipe = Profile & { equipes: { nome: string } | null };
+type ProfileWithEquipe = Profile & {
+  equipes: { nome: string } | null;
+  profile_missing?: boolean;
+  auth_missing?: boolean;
+  last_sign_in_at?: string | null;
+  email_confirmed_at?: string | null;
+};
 
 const ROLES: { value: UserRole; label: string }[] = [
   { value: "encarregado", label: "Encarregado" },
@@ -83,10 +89,36 @@ export default function UsuariosPage() {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ id, ...body }),
     });
-    if (!r.ok) toast("Erro ao atualizar.", "error");
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) toast(`Erro ao atualizar: ${j.error ?? r.statusText}`, "error");
     else {
       toast("Atualizado.", "success");
       carregar();
+    }
+  }
+
+  async function excluirUsuario(usuario: ProfileWithEquipe) {
+    const ok = window.confirm(
+      `Excluir ${usuario.nome}?\n\nEssa ação remove o usuário do login e do cadastro do app.`
+    );
+    if (!ok) return;
+
+    setEnviando(true);
+    try {
+      const r = await fetch("/api/usuarios", {
+        method: "DELETE",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ id: usuario.id }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        toast(`Erro ao excluir: ${j.error ?? r.statusText}`, "error");
+        return;
+      }
+      toast("Usuário excluído.", "success");
+      carregar();
+    } finally {
+      setEnviando(false);
     }
   }
 
@@ -266,6 +298,16 @@ export default function UsuariosPage() {
                   </p>
                   <div className="mt-2">
                     <Badge tone={roleTone(u.role)}>{roleLabel(u.role)}</Badge>
+                    {u.profile_missing && (
+                      <span className="ml-2">
+                        <Badge tone="warning">perfil pendente</Badge>
+                      </span>
+                    )}
+                    {u.auth_missing && (
+                      <span className="ml-2">
+                        <Badge tone="danger">auth ausente</Badge>
+                      </span>
+                    )}
                   </div>
                 </div>
                 {u.ativo ? (
@@ -309,7 +351,7 @@ export default function UsuariosPage() {
                 </label>
               </div>
 
-              <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
                 <Button variant="secondary" onClick={() => setResetando(u)}>
                   Resetar senha
                 </Button>
@@ -318,6 +360,13 @@ export default function UsuariosPage() {
                   onClick={() => patch(u.id, { ativo: !u.ativo })}
                 >
                   {u.ativo ? "Desativar" : "Ativar"}
+                </Button>
+                <Button
+                  variant="danger"
+                  onClick={() => excluirUsuario(u)}
+                  disabled={enviando}
+                >
+                  Excluir
                 </Button>
               </div>
             </div>
@@ -344,7 +393,19 @@ export default function UsuariosPage() {
             <tbody>
               {visiveis.map((u) => (
                 <tr key={u.id} className="border-t border-[var(--color-ink-100)]">
-                  <td className="px-4 py-2">{u.nome}</td>
+                  <td className="px-4 py-2">
+                    <div className="font-semibold text-[var(--color-ink-900)]">
+                      {u.nome}
+                    </div>
+                    {(u.profile_missing || u.auth_missing) && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {u.profile_missing && (
+                          <Badge tone="warning">perfil pendente</Badge>
+                        )}
+                        {u.auth_missing && <Badge tone="danger">auth ausente</Badge>}
+                      </div>
+                    )}
+                  </td>
                   <td className="px-4 py-2 text-[var(--color-ink-700)]">{u.email}</td>
                   <td className="px-4 py-2">
                     <select
@@ -395,6 +456,15 @@ export default function UsuariosPage() {
                       onClick={() => patch(u.id, { ativo: !u.ativo })}
                     >
                       {u.ativo ? "desativar" : "ativar"}
+                    </Button>
+                    <Button
+                      className="ml-2"
+                      variant="danger"
+                      size="sm"
+                      onClick={() => excluirUsuario(u)}
+                      disabled={enviando}
+                    >
+                      excluir
                     </Button>
                   </td>
                 </tr>
