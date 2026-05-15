@@ -32,6 +32,11 @@ function knownProfileFromEmail(id: string, email?: string | null): Profile | nul
   return null;
 }
 
+function onlyActiveProfile(profile: Profile | null): Profile | null {
+  if (!profile || profile.ativo === false) return null;
+  return profile;
+}
+
 /** Carrega o profile do usuário autenticado, ou null. */
 export async function getCurrentProfile(): Promise<Profile | null> {
   const supabase = await createSupabaseServer();
@@ -43,7 +48,9 @@ export async function getCurrentProfile(): Promise<Profile | null> {
     .select("*")
     .eq("id", auth.user.id)
     .maybeSingle();
-  return (data as Profile) ?? knownProfileFromEmail(auth.user.id, auth.user.email);
+  return onlyActiveProfile(
+    (data as Profile | null) ?? knownProfileFromEmail(auth.user.id, auth.user.email)
+  );
 }
 
 /** Carrega sessão e profile separadamente para diagnosticar redirects. */
@@ -63,7 +70,9 @@ export async function getCurrentAuthContext(): Promise<{
 
   return {
     hasUser: true,
-    profile: (data as Profile) ?? knownProfileFromEmail(auth.user.id, auth.user.email),
+    profile: onlyActiveProfile(
+      (data as Profile | null) ?? knownProfileFromEmail(auth.user.id, auth.user.email)
+    ),
   };
 }
 

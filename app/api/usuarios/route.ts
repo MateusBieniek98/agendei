@@ -39,6 +39,11 @@ type ProfileRow = {
   equipes: { nome: string } | null;
 };
 
+type SupabaseAdminClient = Exclude<
+  ReturnType<typeof createAdminClient>,
+  { error: string }
+>["client"];
+
 function createAdminClient() {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -157,6 +162,58 @@ async function listProfilesFallback(warning: string) {
     items: data ?? [],
     warning,
     source: "profiles_fallback",
+  });
+}
+
+async function deactivateUserProfile(
+  admin: SupabaseAdminClient,
+  id: string,
+  reason: string
+) {
+  const updated = await admin
+    .from("profiles")
+    .update({
+      ativo: false,
+      equipe_id: null,
+    })
+    .eq("id", id)
+    .select(PROFILE_WITH_EQUIPE_SELECT)
+    .maybeSingle();
+
+  if (updated.error) {
+    return NextResponse.json({ error: updated.error.message }, { status: 400 });
+  }
+
+  if (!updated.data) {
+    return NextResponse.json(
+      { error: "Usuário não encontrado no cadastro do app." },
+      { status: 404 }
+    );
+  }
+
+  const authLookup = await admin.auth.admin.getUserById(id).catch(() => null);
+  const currentMetadata =
+    authLookup && !authLookup.error && authLookup.data.user
+      ? ((authLookup.data.user.user_metadata ?? {}) as Record<string, unknown>)
+      : {};
+
+  await admin.auth.admin
+    .updateUserById(id, {
+      user_metadata: {
+        ...currentMetadata,
+        ativo: false,
+        desativado_em: new Date().toISOString(),
+      },
+    })
+    .catch(() => {});
+
+  return NextResponse.json({
+    ok: true,
+    mode: "deactivated",
+    item: updated.data,
+    message:
+      "Usuário desativado. O histórico foi preservado e este acesso não entra mais no app.",
+    detail: reason,
   });
 }
 
@@ -338,14 +395,18 @@ export async function DELETE(req: NextRequest) {
   if (authDelete.error) {
     const message = authDelete.error.message.toLowerCase();
     if (!message.includes("not found") && !message.includes("user not found")) {
-      return NextResponse.json({ error: authDelete.error.message }, { status: 400 });
+      return deactivateUserProfile(admin, id, authDelete.error.message);
     }
   }
 
   const profileDelete = await admin.from("profiles").delete().eq("id", id);
   if (profileDelete.error) {
-    return NextResponse.json({ error: profileDelete.error.message }, { status: 400 });
+    return deactivateUserProfile(admin, id, profileDelete.error.message);
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({
+    ok: true,
+    mode: "deleted",
+    message: "Usuário excluído.",
+  });
 }

@@ -125,7 +125,7 @@ export default function UsuariosPage() {
 
   async function excluirUsuario(usuario: ProfileWithEquipe) {
     const ok = window.confirm(
-      `Excluir ${usuario.nome}?\n\nEssa ação remove o usuário do login e do cadastro do app.`
+      `Excluir ${usuario.nome}?\n\nSe existir histórico de apontamentos, manutenções ou auditoria, o usuário será desativado para preservar os dados.`
     );
     if (!ok) return;
 
@@ -141,7 +141,7 @@ export default function UsuariosPage() {
         toast(`Erro ao excluir: ${j.error ?? r.statusText}`, "error");
         return;
       }
-      toast("Usuário excluído.", "success");
+      toast(j.message ?? "Usuário excluído.", "success");
       carregar();
     } finally {
       setEnviando(false);
