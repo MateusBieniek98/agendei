@@ -14,6 +14,7 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 const ROLES: UserRole[] = ["encarregado", "admin", "gestor"];
+const PROFILE_WITH_EQUIPE_SELECT = "*, equipes:equipes!profiles_equipe_fk(nome)";
 
 type ListUsersClient = {
   auth: {
@@ -139,7 +140,7 @@ async function listProfilesFallback(warning: string) {
   const supabase = await createSupabaseServer();
   const { data, error } = await supabase
     .from("profiles")
-    .select("*, equipes(nome)")
+    .select(PROFILE_WITH_EQUIPE_SELECT)
     .order("nome");
 
   if (error) {
@@ -174,7 +175,7 @@ export async function GET() {
     const admin = adminResult.client;
     const [authUsers, profilesResult] = await Promise.all([
       listAllAuthUsers(admin),
-      admin.from("profiles").select("*, equipes(nome)").order("nome"),
+      admin.from("profiles").select(PROFILE_WITH_EQUIPE_SELECT).order("nome"),
     ]);
 
     if (profilesResult.error) {
@@ -244,7 +245,7 @@ export async function PATCH(req: NextRequest) {
 
   const existing = await admin
     .from("profiles")
-    .select("*, equipes(nome)")
+    .select(PROFILE_WITH_EQUIPE_SELECT)
     .eq("id", id)
     .maybeSingle();
 
@@ -278,7 +279,7 @@ export async function PATCH(req: NextRequest) {
         },
         { onConflict: "id" }
       )
-      .select("*, equipes(nome)")
+      .select(PROFILE_WITH_EQUIPE_SELECT)
       .single();
 
     if (upsert.error) {
@@ -292,7 +293,7 @@ export async function PATCH(req: NextRequest) {
     .from("profiles")
     .update(patch)
     .eq("id", id)
-    .select("*, equipes(nome)")
+    .select(PROFILE_WITH_EQUIPE_SELECT)
     .single();
 
   if (updated.error) {
