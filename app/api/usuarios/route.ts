@@ -7,6 +7,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient, type User } from "@supabase/supabase-js";
 import { getCurrentProfile } from "@/lib/auth";
+import { createSupabaseServer } from "@/lib/supabase/server";
 import type { UserRole } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -134,13 +135,39 @@ async function listAllAuthUsers(admin: ListUsersClient) {
   return users;
 }
 
+async function listProfilesFallback(warning: string) {
+  const supabase = await createSupabaseServer();
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("*, equipes(nome)")
+    .order("nome");
+
+  if (error) {
+    return NextResponse.json(
+      {
+        error: error.message,
+        warning,
+      },
+      { status: 400 }
+    );
+  }
+
+  return NextResponse.json({
+    items: data ?? [],
+    warning,
+    source: "profiles_fallback",
+  });
+}
+
 export async function GET() {
   const auth = await requireAdmin();
   if ("response" in auth) return auth.response;
 
   const adminResult = createAdminClient();
   if ("error" in adminResult) {
-    return NextResponse.json({ error: adminResult.error }, { status: 500 });
+    return listProfilesFallback(
+      adminResult.error ?? "SUPABASE_SERVICE_ROLE_KEY nao configurada no servidor."
+    );
   }
 
   try {
@@ -151,9 +178,8 @@ export async function GET() {
     ]);
 
     if (profilesResult.error) {
-      return NextResponse.json(
-        { error: profilesResult.error.message },
-        { status: 400 }
+      return listProfilesFallback(
+        `Falha ao consultar usuarios com service role. Mostrando profiles como fallback. Detalhe: ${profilesResult.error.message}`
       );
     }
 
@@ -177,11 +203,15 @@ export async function GET() {
     }
 
     merged.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
-    return NextResponse.json({ items: merged });
+    return NextResponse.json({
+      items: merged,
+      source: "auth_admin",
+    });
   } catch (error) {
-    return NextResponse.json(
-      { error: (error as Error).message },
-      { status: 400 }
+    return listProfilesFallback(
+      `Falha ao consultar Supabase Auth. Mostrando profiles como fallback. Detalhe: ${
+        (error as Error).message
+      }`
     );
   }
 }

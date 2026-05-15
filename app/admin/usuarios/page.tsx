@@ -54,6 +54,9 @@ export default function UsuariosPage() {
   const { toast } = useToast();
   const [items, setItems] = useState<ProfileWithEquipe[]>([]);
   const [equipes, setEquipes] = useState<Equipe[]>([]);
+  const [carregando, setCarregando] = useState(true);
+  const [erroCarregamento, setErroCarregamento] = useState("");
+  const [avisoCarregamento, setAvisoCarregamento] = useState("");
   const [criando, setCriando] = useState(false);
   const [novo, setNovo] = useState<NovoUsuario>(NOVO_VAZIO);
   const [enviando, setEnviando] = useState(false);
@@ -65,17 +68,40 @@ export default function UsuariosPage() {
   const [expandida, setExpandida] = useState(false);
 
   async function carregar() {
+    setCarregando(true);
+    setErroCarregamento("");
+    setAvisoCarregamento("");
     try {
-      const [u, e] = await Promise.all([
-        fetch("/api/usuarios").then((r) => r.json()),
-        fetch("/api/equipes").then((r) => r.json()),
+      const [usuariosResponse, equipesResponse] = await Promise.all([
+        fetch("/api/usuarios", { cache: "no-store" }),
+        fetch("/api/equipes", { cache: "no-store" }),
       ]);
+
+      const [u, e] = await Promise.all([
+        usuariosResponse.json().catch(() => ({})),
+        equipesResponse.json().catch(() => ({})),
+      ]);
+
+      if (!usuariosResponse.ok) {
+        throw new Error(u.error ?? `Falha ao carregar usuários (${usuariosResponse.status})`);
+      }
+      if (!equipesResponse.ok) {
+        throw new Error(e.error ?? `Falha ao carregar equipes (${equipesResponse.status})`);
+      }
+
       setItems(Array.isArray(u.items) ? (u.items as ProfileWithEquipe[]) : []);
       setEquipes(Array.isArray(e.items) ? (e.items as Equipe[]) : []);
+      if (typeof u.warning === "string" && u.warning) {
+        setAvisoCarregamento(u.warning);
+      }
     } catch (err) {
       setItems([]);
       setEquipes([]);
-      toast(`Erro ao carregar usuários: ${(err as Error).message}`, "error");
+      const message = (err as Error).message;
+      setErroCarregamento(message);
+      toast(`Erro ao carregar usuários: ${message}`, "error");
+    } finally {
+      setCarregando(false);
     }
   }
   useEffect(() => {
@@ -249,6 +275,16 @@ export default function UsuariosPage() {
 
       <Card>
         <div className="border-b border-[var(--color-ink-100)] p-4">
+          {erroCarregamento && (
+            <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-bold text-red-700">
+              Falha ao carregar usuários: {erroCarregamento}
+            </div>
+          )}
+          {avisoCarregamento && (
+            <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-800">
+              {avisoCarregamento}
+            </div>
+          )}
           <ListControls
             search={busca}
             onSearchChange={setBusca}
@@ -283,6 +319,11 @@ export default function UsuariosPage() {
           </ListControls>
         </div>
         <div className="divide-y divide-[var(--color-ink-100)] lg:hidden">
+          {carregando && (
+            <div className="p-6 text-center text-sm font-semibold text-[var(--color-ink-600)]">
+              Carregando usuários...
+            </div>
+          )}
           {visiveis.map((u) => (
             <div key={u.id} className="p-4">
               <div className="flex items-start justify-between gap-3">
@@ -371,7 +412,7 @@ export default function UsuariosPage() {
               </div>
             </div>
           ))}
-          {filtrados.length === 0 && (
+          {!carregando && filtrados.length === 0 && (
             <div className="p-6 text-center text-sm font-semibold text-[var(--color-ink-600)]">
               Nenhum usuário encontrado neste filtro.
             </div>
@@ -391,6 +432,13 @@ export default function UsuariosPage() {
               </tr>
             </thead>
             <tbody>
+              {carregando && (
+                <tr>
+                  <td colSpan={6} className="px-4 py-6 text-center text-[var(--color-ink-500)]">
+                    Carregando usuários...
+                  </td>
+                </tr>
+              )}
               {visiveis.map((u) => (
                 <tr key={u.id} className="border-t border-[var(--color-ink-100)]">
                   <td className="px-4 py-2">
@@ -469,7 +517,7 @@ export default function UsuariosPage() {
                   </td>
                 </tr>
               ))}
-              {filtrados.length === 0 && (
+              {!carregando && filtrados.length === 0 && (
                 <tr>
                   <td colSpan={6} className="px-4 py-6 text-center text-[var(--color-ink-500)]">
                     Nenhum usuário encontrado neste filtro.
