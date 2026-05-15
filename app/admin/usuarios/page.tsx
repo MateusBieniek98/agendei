@@ -64,7 +64,7 @@ export default function UsuariosPage() {
   const [novaSenha, setNovaSenha] = useState("");
   const [busca, setBusca] = useState("");
   const [roleFiltro, setRoleFiltro] = useState("");
-  const [statusFiltro, setStatusFiltro] = useState("");
+  const [statusFiltro, setStatusFiltro] = useState("ativos");
   const [expandida, setExpandida] = useState(false);
 
   async function carregar() {
@@ -125,7 +125,7 @@ export default function UsuariosPage() {
 
   async function excluirUsuario(usuario: ProfileWithEquipe) {
     const ok = window.confirm(
-      `Excluir ${usuario.nome}?\n\nSe existir histórico de apontamentos, manutenções ou auditoria, o usuário será desativado para preservar os dados.`
+      `Excluir ${usuario.nome}?\n\nUsuários sem histórico serão removidos. Se existir apontamento, manutenção ou auditoria, o acesso será desativado e sairá da lista principal para preservar os dados.`
     );
     if (!ok) return;
 
@@ -142,7 +142,8 @@ export default function UsuariosPage() {
         return;
       }
       toast(j.message ?? "Usuário excluído.", "success");
-      carregar();
+      if (j.mode === "deactivated") setStatusFiltro("ativos");
+      await carregar();
     } finally {
       setEnviando(false);
     }
@@ -310,9 +311,9 @@ export default function UsuariosPage() {
                   onChange={(e) => setStatusFiltro(e.target.value)}
                   className="mt-1 h-12 w-full rounded-xl border-2 border-[var(--color-ink-300)] bg-white px-3 text-base font-bold text-[var(--color-ink-900)] shadow-sm"
                 >
-                  <option value="">todos</option>
                   <option value="ativos">ativos</option>
                   <option value="inativos">inativos</option>
+                  <option value="">todos</option>
                 </select>
               </label>
             </div>
