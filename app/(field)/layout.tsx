@@ -1,4 +1,5 @@
 import { requireRole } from "@/lib/auth";
+import Link from "next/link";
 import TopBar from "@/components/nav/TopBar";
 import BottomNav from "@/components/nav/BottomNav";
 import LogoutButton from "@/components/nav/LogoutButton";
@@ -18,17 +19,27 @@ export default async function FieldLayout({
         <TopBar
           title="GN — Campo"
           subtitle={profile.nome}
-          right={<LogoutButton />}
+          right={
+            <div className="flex items-center gap-2">
+              <Link
+                href="/catalogo"
+                className="hidden min-h-11 items-center rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] px-3 text-sm font-bold text-[var(--text-primary)] shadow-sm sm:inline-flex"
+              >
+                Início
+              </Link>
+              <LogoutButton />
+            </div>
+          }
         />
         <main className="mx-auto max-w-5xl px-4 py-4 sm:py-6">{children}</main>
 
         <BottomNav
           items={[
+            { href: "/catalogo",       label: "Início",       icon: <IconHome /> },
             { href: "/sincronizar",    label: "Sync",         icon: <IconSync /> },
             { href: "/resumo",         label: "Resultados",   icon: <IconChart /> },
             { href: "/lancamento",     label: "Lançar",       icon: <IconPlus /> },
             { href: "/planejamento",   label: "Plano",        icon: <IconCalendar /> },
-            { href: "/historico",      label: "Hoje",         icon: <IconList /> },
           ]}
         />
 
@@ -61,6 +72,15 @@ function IconPlus() {
     </svg>
   );
 }
+function IconHome() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+         strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
+      <path d="m3 11 9-8 9 8" />
+      <path d="M5 10v10h14V10" />
+    </svg>
+  );
+}
 function IconSync() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
@@ -86,14 +106,6 @@ function IconCalendar() {
          strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
       <rect x="3" y="4" width="18" height="18" rx="2" />
       <path d="M16 2v4M8 2v4M3 10h18" />
-    </svg>
-  );
-}
-function IconList() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-         strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
-      <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
     </svg>
   );
 }

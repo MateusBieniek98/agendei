@@ -23,7 +23,7 @@ export default function BottomNav({ items }: { items: Item[] }) {
             <li key={it.href} className="flex-1">
               <Link
                 href={it.href}
-                className="flex min-h-[72px] flex-col items-center justify-center gap-1 px-1 py-2 text-[11px] font-bold transition-colors sm:text-xs"
+                className="flex min-h-[76px] touch-manipulation flex-col items-center justify-center gap-1 px-1 py-2 text-[11px] font-bold leading-tight transition-colors sm:text-xs"
                 style={{
                   color: active ? "var(--bottomnav-active)" : "var(--bottomnav-text)",
                 }}
@@ -35,7 +35,7 @@ export default function BottomNav({ items }: { items: Item[] }) {
                 >
                   {it.icon}
                 </span>
-                <span>{it.label}</span>
+                <span className="max-w-full truncate">{it.label}</span>
               </Link>
             </li>
           );

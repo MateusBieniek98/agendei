@@ -4,7 +4,7 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient, type Session } from "@supabase/supabase-js";
-import { ROLE_HOME, type UserRole } from "@/lib/types";
+import type { UserRole } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  const target = from && from !== "/login" ? from : ROLE_HOME[role];
+  const target = from && from !== "/login" ? from : "/catalogo";
   const response = NextResponse.redirect(new URL(target, req.url), {
     status: 303,
   });

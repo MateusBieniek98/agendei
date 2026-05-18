@@ -22,9 +22,9 @@ const variants: Record<Variant, string> = {
   primary:
     "bg-[var(--color-gn-600)] text-white hover:bg-[var(--color-gn-700)] shadow-sm",
   secondary:
-    "bg-white text-[var(--color-gn-700)] border border-[var(--color-ink-300)] hover:bg-[var(--color-ink-50)]",
+    "bg-[var(--bg-elevated)] text-[var(--accent)] border border-[var(--border)] hover:bg-[var(--bg-hover)]",
   ghost:
-    "bg-transparent text-[var(--color-ink-700)] hover:bg-[var(--color-ink-100)]",
+    "bg-transparent text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]",
   danger:
     "bg-[var(--color-danger-500)] text-white hover:opacity-90 shadow-sm",
 };

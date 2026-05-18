@@ -1,6 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
-import { ROLE_HOME, type UserRole } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -25,8 +24,7 @@ export async function GET(req: NextRequest) {
   }
 
   const from = req.nextUrl.searchParams.get("from");
-  const role = profile.role as UserRole;
-  const target = from && from !== "/login" ? from : ROLE_HOME[role];
+  const target = from && from !== "/login" ? from : "/catalogo";
 
   return NextResponse.redirect(new URL(target, req.url), { status: 303 });
 }
