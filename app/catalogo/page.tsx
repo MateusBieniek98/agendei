@@ -12,6 +12,7 @@ type CatalogItem = {
   href: string;
   accent: string;
   meta: string;
+  cta: string;
 };
 
 const catalogByRole: Record<UserRole, CatalogItem[]> = {
@@ -22,6 +23,7 @@ const catalogByRole: Record<UserRole, CatalogItem[]> = {
       href: "/admin",
       accent: "from-blue-500 to-cyan-400",
       meta: "Controle geral",
+      cta: "Abrir painel",
     },
     {
       title: "Campo",
@@ -29,13 +31,15 @@ const catalogByRole: Record<UserRole, CatalogItem[]> = {
       href: "/sincronizar",
       accent: "from-emerald-500 to-lime-300",
       meta: "Operacao diaria",
+      cta: "Abrir campo",
     },
     {
       title: "Gestor",
       subtitle: "Faturamento, alertas, maquinas e visao executiva.",
-      href: "/gestor",
+      href: "/gestor?tab=faturamento",
       accent: "from-amber-400 to-orange-500",
       meta: "Decisao rapida",
+      cta: "Ver executivo",
     },
     {
       title: "Texto da entrada",
@@ -43,6 +47,7 @@ const catalogByRole: Record<UserRole, CatalogItem[]> = {
       href: "/admin/entrada",
       accent: "from-violet-500 to-fuchsia-500",
       meta: "Branding",
+      cta: "Editar entrada",
     },
   ],
   encarregado: [
@@ -52,6 +57,7 @@ const catalogByRole: Record<UserRole, CatalogItem[]> = {
       href: "/sincronizar",
       accent: "from-blue-500 to-cyan-400",
       meta: "Primeiro passo",
+      cta: "Sincronizar",
     },
     {
       title: "Lancar producao",
@@ -59,6 +65,7 @@ const catalogByRole: Record<UserRole, CatalogItem[]> = {
       href: "/lancamento",
       accent: "from-emerald-500 to-lime-300",
       meta: "Campo",
+      cta: "Lançar agora",
     },
     {
       title: "Manutencao",
@@ -66,6 +73,7 @@ const catalogByRole: Record<UserRole, CatalogItem[]> = {
       href: "/maquinas",
       accent: "from-red-500 to-amber-400",
       meta: "Pedido rapido",
+      cta: "Abrir manut.",
     },
     {
       title: "Resultados",
@@ -73,6 +81,7 @@ const catalogByRole: Record<UserRole, CatalogItem[]> = {
       href: "/resumo",
       accent: "from-amber-400 to-orange-500",
       meta: "Seu acesso",
+      cta: "Ver resultados",
     },
     {
       title: "Plano",
@@ -80,29 +89,33 @@ const catalogByRole: Record<UserRole, CatalogItem[]> = {
       href: "/planejamento",
       accent: "from-violet-500 to-fuchsia-500",
       meta: "Proximas frentes",
+      cta: "Ver plano",
     },
   ],
   gestor: [
     {
       title: "Visao executiva",
-      subtitle: "Faturamento, meta, tendencia e producao diaria.",
-      href: "/gestor",
+      subtitle: "Abre direto nos KPIs de faturamento, meta e tendencia.",
+      href: "/gestor?tab=faturamento",
       accent: "from-blue-500 to-cyan-400",
       meta: "Resumo",
+      cta: "Ver faturamento",
     },
     {
       title: "Alertas",
-      subtitle: "Maquinas com problema e planejamentos fora do prazo.",
-      href: "/gestor",
+      subtitle: "Abre direto nas maquinas com problema e pendencias.",
+      href: "/gestor?tab=manutencao",
       accent: "from-red-500 to-amber-400",
       meta: "Acao necessaria",
+      cta: "Ver alertas",
     },
     {
       title: "Planejamento",
-      subtitle: "Priorize o que esta previsto, atrasado ou em execucao.",
-      href: "/gestor",
+      subtitle: "Abre direto no plano previsto, atrasado ou em execucao.",
+      href: "/gestor?tab=planejamento",
       accent: "from-emerald-500 to-lime-300",
       meta: "Estrategia",
+      cta: "Ver planejamento",
     },
   ],
 };
@@ -156,8 +169,8 @@ export default async function CatalogoPage() {
               Selecione sua area de trabalho
             </h1>
             <p className="mt-3 text-base font-bold leading-7 text-blue-50/80">
-              Cards grandes, alto contraste e caminhos diretos para reduzir
-              cliques no celular e manter a operacao rapida no desktop.
+              Escolha uma acao para abrir exatamente a tela de trabalho certa,
+              sem passar por caminhos intermediarios.
             </p>
           </div>
 
@@ -189,7 +202,7 @@ export default async function CatalogoPage() {
                     </p>
                   </div>
                   <span className="inline-flex w-fit items-center rounded-full border border-white/15 bg-white/10 px-3 py-2 text-sm font-black text-white">
-                    Abrir
+                    {item.cta}
                     <svg
                       viewBox="0 0 24 24"
                       fill="none"

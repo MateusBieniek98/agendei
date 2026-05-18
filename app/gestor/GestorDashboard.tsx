@@ -9,7 +9,8 @@ import PeriodoFiltro, { type PeriodoState } from "@/components/dashboard/Periodo
 import PlanejamentoField from "@/app/(field)/planejamento/PlanejamentoField";
 import type { MachineStatus } from "@/lib/types";
 
-type Aba = "faturamento" | "manutencao" | "planejamento";
+export type GestorDashboardAba = "faturamento" | "manutencao" | "planejamento";
+type Aba = GestorDashboardAba;
 
 type Manut = {
   id: string;
@@ -57,6 +58,7 @@ const ABAS: { value: Aba; label: string }[] = [
 ];
 
 type GestorDashboardProps = {
+  initialAba?: Aba;
   mostrarManutencao?: boolean;
   mostrarPlanejamento?: boolean;
 };
@@ -73,11 +75,24 @@ function statusManut(status: Manut["status"]) {
   return <Badge tone="neutral">resolvido</Badge>;
 }
 
+function normalizarAba(
+  aba: Aba,
+  mostrarManutencao: boolean,
+  mostrarPlanejamento: boolean,
+): Aba {
+  if (aba === "manutencao" && !mostrarManutencao) return "faturamento";
+  if (aba === "planejamento" && !mostrarPlanejamento) return "faturamento";
+  return aba;
+}
+
 export default function GestorDashboard({
+  initialAba = "faturamento",
   mostrarManutencao = true,
   mostrarPlanejamento = true,
 }: GestorDashboardProps) {
-  const [aba,     setAba]     = useState<Aba>("faturamento");
+  const [aba,     setAba]     = useState<Aba>(() =>
+    normalizarAba(initialAba, mostrarManutencao, mostrarPlanejamento),
+  );
   const [periodo, setPeriodo] = useState<PeriodoState>({ preset: "ciclo_atual" });
   const [data,    setData]    = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -124,6 +139,10 @@ export default function GestorDashboard({
     carregar();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [periodo.preset, periodo.de, periodo.ate]);
+
+  useEffect(() => {
+    setAba(normalizarAba(initialAba, mostrarManutencao, mostrarPlanejamento));
+  }, [initialAba, mostrarManutencao, mostrarPlanejamento]);
 
   if (!data && aba !== "planejamento") {
     return (
