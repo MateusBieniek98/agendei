@@ -96,14 +96,6 @@ function LoginShell({
             </Button>
           </form>
 
-          <details className="mt-6 text-xs font-semibold text-[var(--color-ink-700)]">
-            <summary className="cursor-pointer">Credenciais de teste</summary>
-            <ul className="mt-2 space-y-1">
-              <li>encarregado@gn.local · gn123456</li>
-              <li>admin@gn.local · gn123456</li>
-              <li>gestor@gn.local · gn123456</li>
-            </ul>
-          </details>
         </div>
       </section>
     </main>
