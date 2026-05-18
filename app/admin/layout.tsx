@@ -13,7 +13,6 @@ const items = [
   { href: "/admin/equipes",      label: "Equipes",      icon: <UsersIcon /> },
   { href: "/admin/maquinas",     label: "Máquinas",     icon: <CogIcon /> },
   { href: "/admin/planejamento", label: "Planejamento", icon: <CalendarIcon /> },
-  { href: "/admin/sincronizacao", label: "Sincronização", icon: <SyncIcon /> },
   { href: "/admin/metas",        label: "Metas",        icon: <TargetIcon /> },
   { href: "/admin/usuarios",     label: "Usuários",     icon: <UserIcon /> },
 ];
@@ -109,17 +108,6 @@ function CalendarIcon() {
          strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
       <path d="M8 2v4M16 2v4M3 10h18" />
       <rect x="3" y="4" width="18" height="18" rx="2" />
-    </svg>
-  );
-}
-function SyncIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-         strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
-      <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
-      <path d="M3 16v5h5" />
-      <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
-      <path d="M21 8V3h-5" />
     </svg>
   );
 }
