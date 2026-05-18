@@ -17,10 +17,10 @@ export default async function GestorLayout({
         right={
           <div className="flex items-center gap-2">
             <Link
-              href="/catalogo"
+              href="/gestor"
               className="inline-flex min-h-11 items-center rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] px-3 text-sm font-bold text-[var(--text-primary)] shadow-sm"
             >
-              Início
+              Dashboard
             </Link>
             <LogoutButton />
           </div>

@@ -1,5 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
+import { defaultRouteForRole } from "@/lib/navigation";
+import type { UserRole } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +26,11 @@ export async function GET(req: NextRequest) {
   }
 
   const from = req.nextUrl.searchParams.get("from");
-  const target = from && from !== "/login" ? from : "/catalogo";
+  const role = profile.role as UserRole;
+  const target =
+    from && from !== "/login" && from !== "/catalogo"
+      ? from
+      : defaultRouteForRole(role);
 
   return NextResponse.redirect(new URL(target, req.url), { status: 303 });
 }

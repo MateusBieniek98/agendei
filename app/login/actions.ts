@@ -2,6 +2,8 @@
 
 import { redirect } from "next/navigation";
 import { createSupabaseServer } from "@/lib/supabase/server";
+import { defaultRouteForRole } from "@/lib/navigation";
+import type { UserRole } from "@/lib/types";
 
 /**
  * Server Action de login.
@@ -45,7 +47,11 @@ export async function loginAction(
     };
   }
 
-  const target = from && from !== "/login" ? from : "/catalogo";
+  const role = profile.role as UserRole;
+  const target =
+    from && from !== "/login" && from !== "/catalogo"
+      ? from
+      : defaultRouteForRole(role);
 
   // redirect() em Server Action emite a resposta com Set-Cookie + Location.
   redirect(target);

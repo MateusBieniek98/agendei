@@ -1,5 +1,4 @@
 import { requireRole } from "@/lib/auth";
-import Link from "next/link";
 import TopBar from "@/components/nav/TopBar";
 import BottomNav from "@/components/nav/BottomNav";
 import LogoutButton from "@/components/nav/LogoutButton";
@@ -21,12 +20,6 @@ export default async function FieldLayout({
           subtitle={profile.nome}
           right={
             <div className="flex items-center gap-2">
-              <Link
-                href="/catalogo"
-                className="hidden min-h-11 items-center rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] px-3 text-sm font-bold text-[var(--text-primary)] shadow-sm sm:inline-flex"
-              >
-                Início
-              </Link>
               <LogoutButton />
             </div>
           }
@@ -35,7 +28,6 @@ export default async function FieldLayout({
 
         <BottomNav
           items={[
-            { href: "/catalogo",       label: "Início",       icon: <IconHome /> },
             { href: "/sincronizar",    label: "Sync",         icon: <IconSync /> },
             { href: "/resumo",         label: "Resultados",   icon: <IconChart /> },
             { href: "/lancamento",     label: "Lançar",       icon: <IconPlus /> },
@@ -70,15 +62,6 @@ function IconPlus() {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"
          strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
       <circle cx="12" cy="12" r="9" /><path d="M12 8v8M8 12h8" />
-    </svg>
-  );
-}
-function IconHome() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-         strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
-      <path d="m3 11 9-8 9 8" />
-      <path d="M5 10v10h14V10" />
     </svg>
   );
 }
