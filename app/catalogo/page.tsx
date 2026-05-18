@@ -61,6 +61,13 @@ const catalogByRole: Record<UserRole, CatalogItem[]> = {
       meta: "Campo",
     },
     {
+      title: "Manutencao",
+      subtitle: "Reporte problema de maquina e acompanhe OS pendentes.",
+      href: "/maquinas",
+      accent: "from-red-500 to-amber-400",
+      meta: "Pedido rapido",
+    },
+    {
       title: "Resultados",
       subtitle: "Veja seu faturamento, produtividade e apontamentos.",
       href: "/resumo",

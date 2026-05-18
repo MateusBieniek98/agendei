@@ -39,6 +39,7 @@ export default async function FieldLayout({
             { href: "/sincronizar",    label: "Sync",         icon: <IconSync /> },
             { href: "/resumo",         label: "Resultados",   icon: <IconChart /> },
             { href: "/lancamento",     label: "Lançar",       icon: <IconPlus /> },
+            { href: "/maquinas",       label: "Manut.",       icon: <IconWrench /> },
             { href: "/planejamento",   label: "Plano",        icon: <IconCalendar /> },
           ]}
         />
@@ -106,6 +107,15 @@ function IconCalendar() {
          strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
       <rect x="3" y="4" width="18" height="18" rx="2" />
       <path d="M16 2v4M8 2v4M3 10h18" />
+    </svg>
+  );
+}
+function IconWrench() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+         strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
+      <path d="M14.7 6.3a4 4 0 0 0 4.9 4.9l-8.4 8.4a2.1 2.1 0 0 1-3-3l8.4-8.4Z" />
+      <path d="m5 19 2-2" />
     </svg>
   );
 }
