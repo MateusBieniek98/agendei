@@ -4,34 +4,6 @@ import { createSupabaseServer } from "./supabase/server";
 import type { Profile, UserRole } from "./types";
 import { ROLE_HOME } from "./types";
 
-function knownProfileFromEmail(id: string, email?: string | null): Profile | null {
-  const base = {
-    id,
-    email: email ?? "",
-    equipe_id: null,
-    ativo: true,
-    created_at: "",
-    updated_at: "",
-  };
-
-  if (email === "admin@gn.local") {
-    return { ...base, nome: "Maria Souza (Admin)", role: "admin" };
-  }
-  if (email === "gestor@gn.local") {
-    return { ...base, nome: "Carlos Pereira (Gestor)", role: "gestor" };
-  }
-  if (email === "encarregado@gn.local") {
-    return {
-      ...base,
-      nome: "Joao Silva (Encarregado)",
-      role: "encarregado",
-      equipe_id: "11111111-1111-1111-1111-111111111111",
-    };
-  }
-
-  return null;
-}
-
 function onlyActiveProfile(profile: Profile | null): Profile | null {
   if (!profile || profile.ativo === false) return null;
   return profile;
@@ -48,9 +20,7 @@ export async function getCurrentProfile(): Promise<Profile | null> {
     .select("*")
     .eq("id", auth.user.id)
     .maybeSingle();
-  return onlyActiveProfile(
-    (data as Profile | null) ?? knownProfileFromEmail(auth.user.id, auth.user.email)
-  );
+  return onlyActiveProfile((data as Profile | null) ?? null);
 }
 
 /** Carrega sessão e profile separadamente para diagnosticar redirects. */
@@ -70,9 +40,7 @@ export async function getCurrentAuthContext(): Promise<{
 
   return {
     hasUser: true,
-    profile: onlyActiveProfile(
-      (data as Profile | null) ?? knownProfileFromEmail(auth.user.id, auth.user.email)
-    ),
+    profile: onlyActiveProfile((data as Profile | null) ?? null),
   };
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import { useToast } from "@/components/ui/Toast";
@@ -193,7 +193,7 @@ export default function EquipesPage() {
 
   const days = useMemo(() => lastNDays(7), []);
 
-  async function carregar() {
+  const carregar = useCallback(async () => {
     setLoading(true);
     try {
       const dataIni = days[0];
@@ -210,8 +210,9 @@ export default function EquipesPage() {
     } finally {
       setLoading(false);
     }
-  }
-  useEffect(() => { carregar(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+  }, [days, toast]);
+
+  useEffect(() => { void carregar(); }, [carregar]);
 
   function setFiltro(v: string) {
     setStatusFiltro(v);
@@ -237,7 +238,7 @@ export default function EquipesPage() {
     }
     toast("Equipe salva.", "success");
     setEditing(null);
-    carregar();
+    void carregar();
   }
 
   async function excluir(id: string) {
@@ -245,7 +246,7 @@ export default function EquipesPage() {
     const r = await fetch(`/api/equipes/${id}`, { method: "DELETE" });
     if (!r.ok) { toast("Erro.", "error"); return; }
     toast("Equipe inativada.", "success");
-    carregar();
+    void carregar();
   }
 
   const filtradas = items.filter((e) => {

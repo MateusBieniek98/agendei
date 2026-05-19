@@ -19,9 +19,20 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   const supabase = await createSupabaseServer();
   const { data: anterior } = await supabase
     .from("producao")
-    .select("projeto_id, talhao, atividade_id")
+    .select("registrado_por, projeto_id, talhao, atividade_id")
     .eq("id", id)
     .maybeSingle();
+
+  if (!anterior) {
+    return NextResponse.json({ error: "lançamento não encontrado" }, { status: 404 });
+  }
+
+  if (profile.role !== "admin" && anterior.registrado_por !== profile.id) {
+    return NextResponse.json(
+      { error: "apenas admin ou o autor do lançamento podem editar" },
+      { status: 403 }
+    );
+  }
 
   const allowed: Record<string, unknown> = {};
   for (const k of [

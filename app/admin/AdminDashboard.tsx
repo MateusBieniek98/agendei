@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Card, StatCard } from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import AlertasCriticos, { type Alerta } from "@/components/dashboard/AlertasCriticos";
 import { brl, ddmmyyyy } from "@/lib/format";

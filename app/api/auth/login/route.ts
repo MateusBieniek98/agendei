@@ -20,13 +20,6 @@ function encodeSupabaseSession(session: Session) {
   return `base64-${Buffer.from(JSON.stringify(session)).toString("base64url")}`;
 }
 
-function roleFromEmail(email: string): UserRole | null {
-  if (email === "admin@gn.local") return "admin";
-  if (email === "gestor@gn.local") return "gestor";
-  if (email === "encarregado@gn.local") return "encarregado";
-  return null;
-}
-
 export async function POST(req: NextRequest) {
   const form = await req.formData();
   const email = String(form.get("email") ?? "").trim();
@@ -70,15 +63,13 @@ export async function POST(req: NextRequest) {
     .eq("id", data.user.id)
     .maybeSingle();
 
-  const role =
-    (profile?.role as UserRole | undefined) ?? roleFromEmail(data.user.email ?? "");
-
-  if (!role) {
+  if (!profile?.role) {
     return NextResponse.redirect(new URL("/login?erro=perfil", req.url), {
       status: 303,
     });
   }
 
+  const role = profile.role as UserRole;
   const target =
     from && from !== "/login" && from !== "/catalogo"
       ? from

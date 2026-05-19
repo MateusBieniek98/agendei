@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
@@ -169,7 +169,7 @@ export default function MaquinasAdminPage() {
   });
   const [tabManut, setTabManut] = useState<"abertas" | "todas">("abertas");
 
-  async function carregar() {
+  const carregar = useCallback(async () => {
     try {
       const [mr, mn] = await Promise.all([
         fetch("/api/maquinas").then((r) => r.json()),
@@ -180,8 +180,9 @@ export default function MaquinasAdminPage() {
     } catch (err) {
       toast(`Erro ao carregar: ${(err as Error).message}`, "error");
     }
-  }
-  useEffect(() => { carregar(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+  }, [toast]);
+
+  useEffect(() => { void carregar(); }, [carregar]);
 
   // Persist filter
   function setFiltro(v: string) {
@@ -211,7 +212,7 @@ export default function MaquinasAdminPage() {
     }
     toast("Máquina salva.", "success");
     setEditing(null);
-    carregar();
+    void carregar();
   }
 
   async function alterarStatus(id: string, status: MachineStatus) {
@@ -221,7 +222,7 @@ export default function MaquinasAdminPage() {
       body: JSON.stringify({ status }),
     });
     if (!r.ok) toast("Erro ao alterar status.", "error");
-    else carregar();
+    else void carregar();
   }
 
   async function resolverManut(id: string) {
@@ -231,7 +232,7 @@ export default function MaquinasAdminPage() {
       body: JSON.stringify({ status: "resolvido" }),
     });
     if (!r.ok) toast("Erro.", "error");
-    else { toast("Marcada como resolvida.", "success"); carregar(); }
+    else { toast("Marcada como resolvida.", "success"); void carregar(); }
   }
 
   // Filter + search

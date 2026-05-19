@@ -1,6 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
+import Image from "next/image";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import type { LoginSettings } from "@/lib/app-settings-shared";
@@ -38,9 +39,11 @@ export default function LoginClient({ settings }: { settings: LoginSettings }) {
       <section className="relative z-10 grid min-h-screen px-5 py-8 md:grid-cols-[1.05fr_0.95fr] md:px-10 lg:px-16">
         <div className="flex min-h-[38vh] flex-col justify-between pb-8 md:min-h-0 md:py-10">
           <div className="inline-flex items-center gap-3">
-            <img
+            <Image
               src="/gn-logo-card.jpeg"
               alt="GN"
+              width={64}
+              height={64}
               className="h-16 w-16 rounded-2xl object-cover shadow-2xl ring-1 ring-white/20"
             />
             <div>

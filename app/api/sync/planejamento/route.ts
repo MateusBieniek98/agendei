@@ -48,8 +48,7 @@ type PlanejamentoPayload = {
 type EntityRow = { id: string; nome: string; ativo?: boolean; unidade?: string; valor_unitario?: number | string | null };
 type EntityMap = Map<string, EntityRow>;
 
-const PLANNING_STATUSES = ["planejado", "em_execucao", "concluido", "cancelado"] as const;
-type PlanningStatus = (typeof PLANNING_STATUSES)[number];
+type PlanningStatus = "planejado" | "em_execucao" | "concluido" | "cancelado";
 
 // ─── helpers de texto ─────────────────────────────────────────────────────────
 

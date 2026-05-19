@@ -161,10 +161,8 @@ function CardItem({
 
 export default function PlanejamentoField({
   equipeId,
-  profileNome,
 }: {
   equipeId: string | null;
-  profileNome: string;
 }) {
   const router = useRouter();
   const [items,   setItems]   = useState<PlanejamentoRow[]>([]);

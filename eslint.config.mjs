@@ -7,6 +7,10 @@ const eslintConfig = defineConfig([
   ...nextTs,
   globalIgnores([
     ".next/**",
+    "android/.gradle/**",
+    "android/app/build/**",
+    "android/build/**",
+    "docs/**",
     "out/**",
     "build/**",
     "next-env.d.ts",

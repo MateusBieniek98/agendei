@@ -8,9 +8,6 @@ export default async function PlanejamentoFieldPage() {
   const profile = await getCurrentProfile();
   if (!profile) redirect("/login");
   return (
-    <PlanejamentoField
-      equipeId={profile.equipe_id}
-      profileNome={profile.nome}
-    />
+    <PlanejamentoField equipeId={profile.equipe_id} />
   );
 }

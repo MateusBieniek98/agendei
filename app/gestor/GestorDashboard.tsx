@@ -366,7 +366,7 @@ export default function GestorDashboard({
 
       {/* ── Planejamento — mesmo componente do encarregado, sem filtro de equipe ── */}
       {mostrarPlanejamento && aba === "planejamento" && (
-        <PlanejamentoField equipeId={null} profileNome="" />
+        <PlanejamentoField equipeId={null} />
       )}
     </div>
   );

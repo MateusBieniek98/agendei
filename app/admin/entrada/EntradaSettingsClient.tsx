@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import {
@@ -187,9 +188,11 @@ export default function EntradaSettingsClient() {
           />
           <div className="relative flex h-full flex-col justify-between">
             <div className="flex items-center gap-3">
-              <img
+              <Image
                 src="/gn-logo-card.jpeg"
                 alt="GN"
+                width={56}
+                height={56}
                 className="h-14 w-14 rounded-2xl object-cover ring-1 ring-white/20"
               />
               <div>
