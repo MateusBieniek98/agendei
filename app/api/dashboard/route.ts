@@ -6,6 +6,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
 import {
+  dataOperacionalISO,
   resolvePreset,
   diasDecorridos,
   diasRestantes,
@@ -31,7 +32,7 @@ export async function GET(req: NextRequest) {
 
   const supabase = await createSupabaseServer();
   const today = new Date();
-  const hoje = today.toISOString().slice(0, 10);
+  const hoje = dataOperacionalISO(today);
 
   // Faturamento por dia no período
   const { data: serie } = await supabase
