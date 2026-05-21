@@ -134,8 +134,8 @@ Abra http://localhost:3000 → faça login com qualquer um dos 3 usuários.
 ## Regras de negócio implementadas
 
 - **Faturamento** = `Σ (quantidade × valor_unitario_snapshot)` — o valor é
-  capturado **no momento do lançamento**, então alterar a tabela de
-  atividades depois não afeta o histórico.
+  capturado no lançamento e recalculado nos apontamentos da atividade quando
+  a tarifa é alterada em **Atividades**.
 - **% da meta** = `produção do mês ÷ meta mensal × 100`
 - **Meta do próximo dia** = `(meta − faturado) ÷ dias restantes no mês`
 - **RLS por papel**:

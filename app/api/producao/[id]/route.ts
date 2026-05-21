@@ -48,6 +48,19 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   }
   if (body.insumos !== undefined) allowed.insumos = sanitizeInsumos(body.insumos);
   if (body.descarte !== undefined) allowed.descarte = optionalNumber(body.descarte);
+  if (body.atividade_id !== undefined && body.atividade_id !== anterior.atividade_id) {
+    const { data: atividade, error: atividadeError } = await supabase
+      .from("atividades")
+      .select("valor_unitario, ativo")
+      .eq("id", body.atividade_id)
+      .maybeSingle();
+
+    if (atividadeError || !atividade || !atividade.ativo) {
+      return NextResponse.json({ error: "atividade inválida" }, { status: 400 });
+    }
+
+    allowed.valor_unitario_snapshot = atividade.valor_unitario;
+  }
   allowed.editado_por = profile.id;
 
   const { data, error } = await supabase

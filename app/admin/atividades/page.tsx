@@ -51,12 +51,18 @@ export default function AtividadesPage() {
         ativo: editing.ativo ?? true,
       }),
     });
+    const j = await r.json().catch(() => ({}));
     if (!r.ok) {
-      const j = await r.json().catch(() => ({}));
       toast(`Erro: ${j.error ?? r.statusText}`, "error");
       return;
     }
-    toast("Atividade salva.", "success");
+    const recalculadas = Number(j.producao_recalculada ?? 0);
+    toast(
+      recalculadas > 0
+        ? `Atividade salva. ${recalculadas} apontamentos recalculados.`
+        : "Atividade salva.",
+      "success"
+    );
     setEditing(null);
     carregar();
   }
@@ -84,8 +90,8 @@ export default function AtividadesPage() {
         <div>
           <h1 className="text-2xl font-bold">Atividades</h1>
           <p className="text-sm font-semibold text-[var(--color-ink-600)]">
-            Tipos de serviço e seus valores por unidade. O valor é capturado no
-            lançamento — alterações futuras não afetam histórico.
+            Tipos de serviço e seus valores por unidade. Ao alterar uma tarifa,
+            os apontamentos dessa atividade são recalculados automaticamente.
           </p>
         </div>
         <Button

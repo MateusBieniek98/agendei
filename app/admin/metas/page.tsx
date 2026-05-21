@@ -22,6 +22,9 @@ export default function MetasPage() {
   const [mes, setMes] = useState(String(today.getMonth() + 1));
   const [valor, setValor] = useState("");
   const [obs, setObs] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   async function carregar() {
     try {
@@ -37,30 +40,77 @@ export default function MetasPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  function limparFormulario() {
+    setEditingId(null);
+    setAno(String(today.getFullYear()));
+    setMes(String(today.getMonth() + 1));
+    setValor("");
+    setObs("");
+  }
+
+  function editarMeta(meta: Meta) {
+    setEditingId(meta.id);
+    setAno(String(meta.ano));
+    setMes(String(meta.mes));
+    setValor(String(Number(meta.valor_meta)));
+    setObs(meta.observacoes ?? "");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   async function salvar(e: React.FormEvent) {
     e.preventDefault();
     if (!valor || Number(valor) < 0) {
       toast("Informe a meta.", "error");
       return;
     }
-    const r = await fetch("/api/metas", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        ano: Number(ano),
-        mes: Number(mes),
-        valor_meta: Number(valor),
-        observacoes: obs || null,
-      }),
+    setSaving(true);
+    try {
+      const r = await fetch("/api/metas", {
+        method: editingId ? "PUT" : "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          id: editingId,
+          ano: Number(ano),
+          mes: Number(mes),
+          valor_meta: Number(valor),
+          observacoes: obs || null,
+        }),
+      });
+
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        toast(`Erro: ${j.error ?? r.statusText}`, "error");
+        return;
+      }
+
+      toast(editingId ? "Meta mensal atualizada." : "Meta mensal salva.", "success");
+      limparFormulario();
+      carregar();
+    } catch (err) {
+      toast(`Erro: ${(err as Error).message}`, "error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function excluirMeta(meta: Meta) {
+    const periodo = `${MESES[meta.mes - 1]}/${meta.ano}`;
+    if (!confirm(`Excluir a meta de ${periodo}?`)) return;
+
+    setDeletingId(meta.id);
+    const r = await fetch(`/api/metas?id=${encodeURIComponent(meta.id)}`, {
+      method: "DELETE",
     });
+    setDeletingId(null);
+
     if (!r.ok) {
       const j = await r.json().catch(() => ({}));
-      toast(`Erro: ${j.error ?? r.statusText}`, "error");
+      toast(`Erro ao excluir: ${j.error ?? r.statusText}`, "error");
       return;
     }
-    toast("Meta mensal salva.", "success");
-    setValor("");
-    setObs("");
+
+    if (editingId === meta.id) limparFormulario();
+    toast("Meta mensal excluída.", "success");
     carregar();
   }
 
@@ -76,10 +126,12 @@ export default function MetasPage() {
       <Card className="p-5">
         <div className="mb-4">
           <h2 className="text-lg font-bold text-[var(--color-ink-900)]">
-            Definir meta de faturamento
+            {editingId ? "Editar meta de faturamento" : "Definir meta de faturamento"}
           </h2>
           <p className="text-sm font-semibold text-[var(--color-ink-600)]">
-            Usada no dashboard para calcular % atingido e meta do próximo dia.
+            {editingId
+              ? "Ajuste a meta existente e salve a alteração."
+              : "Usada no dashboard para calcular % atingido e meta do próximo dia."}
           </p>
         </div>
         <form onSubmit={salvar} className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
@@ -110,11 +162,18 @@ export default function MetasPage() {
             placeholder="opcional"
           />
           <div className="flex items-end">
-            <Button type="submit" className="w-full">
-              Salvar
+            <Button type="submit" className="w-full" loading={saving}>
+              {editingId ? "Salvar edição" : "Salvar"}
             </Button>
           </div>
         </form>
+        {editingId && (
+          <div className="mt-3 flex justify-end">
+            <Button type="button" variant="ghost" onClick={limparFormulario}>
+              Cancelar edição
+            </Button>
+          </div>
+        )}
       </Card>
 
       <Card>
@@ -144,6 +203,19 @@ export default function MetasPage() {
                     {m.observacoes}
                   </p>
                 )}
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  <Button type="button" variant="secondary" onClick={() => editarMeta(m)}>
+                    Editar
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="danger"
+                    loading={deletingId === m.id}
+                    onClick={() => excluirMeta(m)}
+                  >
+                    Excluir
+                  </Button>
+                </div>
               </div>
             ))
           )}
@@ -157,12 +229,13 @@ export default function MetasPage() {
                 <th className="px-4 py-2 font-bold">Período</th>
                 <th className="px-4 py-2 text-right font-bold">Meta</th>
                 <th className="px-4 py-2 font-bold">Observações</th>
+                <th className="px-4 py-2 text-right font-bold">Ações</th>
               </tr>
             </thead>
             <tbody>
               {items.length === 0 ? (
                 <tr>
-                  <td colSpan={3} className="px-4 py-6 text-center text-[var(--color-ink-500)]">
+                  <td colSpan={4} className="px-4 py-6 text-center text-[var(--color-ink-500)]">
                     Nenhuma meta cadastrada ainda.
                   </td>
                 </tr>
@@ -177,6 +250,27 @@ export default function MetasPage() {
                     </td>
                     <td className="px-4 py-2 font-semibold text-[var(--color-ink-700)]">
                       {m.observacoes}
+                    </td>
+                    <td className="px-4 py-2">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => editarMeta(m)}
+                        >
+                          Editar
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="danger"
+                          loading={deletingId === m.id}
+                          onClick={() => excluirMeta(m)}
+                        >
+                          Excluir
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))
