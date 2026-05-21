@@ -24,71 +24,83 @@ function InsumoCard({
 
   const sugestoes = useMemo(() => {
     const q = insumo.nome.trim().toLowerCase();
-    if (q.length < 2) return [];
+    if (q.length < 1) return [];
     return INSUMOS_CATALOGO.filter((i) =>
       insumoCatalogDisplay(i).toLowerCase().includes(q)
-    ).slice(0, 8);
+    ).slice(0, 6);
   }, [insumo.nome]);
 
   const mostrarLista = focado && sugestoes.length > 0;
 
   return (
     <div
-      className="rounded-lg border border-[var(--border)]"
+      className="rounded-xl border-2 p-3 shadow-sm"
       style={{ background: "var(--bg-card-alt)" }}
     >
-      <div className="flex">
-        <input
-          value={insumo.nome}
-          onChange={(e) => onChange("nome", e.target.value)}
-          onFocus={() => setFocado(true)}
-          onBlur={() => setTimeout(() => setFocado(false), 150)}
-          placeholder={`Insumo ${index + 1}`}
-          autoComplete="off"
-          className="min-w-0 flex-1 border-r border-[var(--border)] bg-transparent px-2 py-2 text-sm font-bold outline-none"
-          style={{ color: "var(--text-primary)" }}
-        />
-        <input
-          type="number"
-          inputMode="decimal"
-          step="0.01"
-          min="0"
-          value={insumo.quantidade}
-          onChange={(e) => onChange("quantidade", e.target.value)}
-          placeholder="Qtd"
-          className="w-20 shrink-0 bg-transparent px-2 py-2 text-sm font-bold outline-none"
-          style={{ color: "var(--text-primary)" }}
-        />
+      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_9rem]">
+        <label className="block">
+          <span
+            className="mb-1 block text-xs font-extrabold uppercase tracking-wide"
+            style={{ color: "var(--text-secondary)" }}
+          >
+            Insumo {index + 1}
+          </span>
+          <input
+            value={insumo.nome}
+            onChange={(e) => onChange("nome", e.target.value)}
+            onFocus={() => setFocado(true)}
+            onBlur={() => setTimeout(() => setFocado(false), 150)}
+            placeholder="Buscar por código ou nome"
+            autoComplete="off"
+            className="h-12 w-full rounded-xl border-2 bg-transparent px-3 text-sm font-bold outline-none"
+            style={{ color: "var(--text-primary)", borderColor: "var(--border)" }}
+          />
+        </label>
+        <label className="block">
+          <span
+            className="mb-1 block text-xs font-extrabold uppercase tracking-wide"
+            style={{ color: "var(--text-secondary)" }}
+          >
+            Qtd
+          </span>
+          <input
+            type="number"
+            inputMode="decimal"
+            step="0.01"
+            min="0"
+            value={insumo.quantidade}
+            onChange={(e) => onChange("quantidade", e.target.value)}
+            placeholder="0"
+            className="h-12 w-full rounded-xl border-2 bg-transparent px-3 text-sm font-bold outline-none"
+            style={{ color: "var(--text-primary)", borderColor: "var(--border)" }}
+          />
+        </label>
       </div>
 
       {mostrarLista && (
-        <ul
-          className="border-t border-[var(--border)]"
-          style={{ background: "var(--bg-card)" }}
+        <div
+          className="mt-3 grid gap-2 rounded-xl border p-2"
+          style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}
         >
           {sugestoes.map((item, i) => {
             const display = insumoCatalogDisplay(item);
             return (
-              <li
+              <button
                 key={i}
-                style={{ borderTop: i > 0 ? "1px solid var(--border)" : "none" }}
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  onChange("nome", display);
+                  setFocado(false);
+                }}
+                className="w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold active:opacity-70"
+                style={{ color: "var(--text-primary)", background: "var(--bg-card-alt)" }}
               >
-                <button
-                  type="button"
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    onChange("nome", display);
-                    setFocado(false);
-                  }}
-                  className="w-full px-3 py-2.5 text-left text-xs font-semibold active:opacity-60"
-                  style={{ color: "var(--text-primary)", background: "transparent" }}
-                >
-                  {display}
-                </button>
-              </li>
+                {display}
+              </button>
             );
           })}
-        </ul>
+        </div>
       )}
     </div>
   );
@@ -307,6 +319,158 @@ function LancamentoRapido({
           Registrar
         </button>
       </div>
+    </div>
+  );
+}
+
+/* ── Seletor pesquisável — melhor para campo e listas grandes ── */
+function SearchablePicker<T>({
+  label,
+  search,
+  onSearchChange,
+  items,
+  selectedId,
+  onSelect,
+  getId,
+  renderTitle,
+  renderSubtitle,
+  placeholder,
+  emptyLabel,
+  limit = 6,
+}: {
+  label: string;
+  search: string;
+  onSearchChange: (value: string) => void;
+  items: T[];
+  selectedId: string;
+  onSelect: (item: T) => void;
+  getId: (item: T) => string;
+  renderTitle: (item: T) => React.ReactNode;
+  renderSubtitle?: (item: T) => React.ReactNode;
+  placeholder: string;
+  emptyLabel: string;
+  limit?: number;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const selected = items.find((item) => getId(item) === selectedId);
+  const orderedItems = selected
+    ? [selected, ...items.filter((item) => getId(item) !== selectedId)]
+    : items;
+  const canToggle = orderedItems.length > limit;
+  const visibleItems = expanded ? orderedItems : orderedItems.slice(0, limit);
+
+  useEffect(() => {
+    setExpanded(false);
+  }, [search]);
+
+  return (
+    <div
+      className="rounded-2xl border-2 p-3 shadow-sm"
+      style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}
+    >
+      <div className="mb-2 flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
+            {label}
+          </p>
+          <p className="text-xs font-semibold" style={{ color: "var(--text-secondary)" }}>
+            {selected ? "Selecionado abaixo" : "Pesquise e toque para selecionar"}
+          </p>
+        </div>
+        <span
+          className="rounded-full px-2.5 py-1 text-xs font-bold"
+          style={{
+            background: selected ? "var(--accent-subtle)" : "var(--bg-card-alt)",
+            color: selected ? "var(--accent)" : "var(--text-muted)",
+          }}
+        >
+          {items.length}
+        </span>
+      </div>
+
+      <Input
+        type="search"
+        value={search}
+        onChange={(e) => onSearchChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") e.preventDefault();
+        }}
+        placeholder={placeholder}
+        aria-label={`Pesquisar ${label.toLowerCase()}`}
+        className="h-12"
+      />
+
+      <div className="mt-3 flex flex-col gap-2" role="listbox" aria-label={label}>
+        {visibleItems.map((item) => {
+          const id = getId(item);
+          const active = id === selectedId;
+          return (
+            <button
+              key={id}
+              type="button"
+              role="option"
+              aria-selected={active}
+              onClick={() => {
+                onSelect(item);
+                onSearchChange("");
+              }}
+              className="w-full rounded-xl border-2 px-3 py-3 text-left transition active:scale-[0.99]"
+              style={{
+                background: active ? "var(--accent-subtle)" : "var(--bg-card-alt)",
+                borderColor: active ? "var(--accent)" : "var(--border)",
+                boxShadow: active ? "0 0 0 2px var(--accent-subtle)" : "none",
+              }}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p
+                    className="break-words text-sm font-extrabold leading-snug"
+                    style={{ color: active ? "var(--accent)" : "var(--text-primary)" }}
+                  >
+                    {renderTitle(item)}
+                  </p>
+                  {renderSubtitle && (
+                    <p
+                      className="mt-1 break-words text-xs font-semibold leading-snug"
+                      style={{ color: "var(--text-secondary)" }}
+                    >
+                      {renderSubtitle(item)}
+                    </p>
+                  )}
+                </div>
+                {active && (
+                  <span
+                    className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-sm font-black text-white"
+                    style={{ background: "var(--accent)" }}
+                  >
+                    ✓
+                  </span>
+                )}
+              </div>
+            </button>
+          );
+        })}
+
+        {visibleItems.length === 0 && (
+          <div
+            className="rounded-xl border px-3 py-4 text-center text-sm font-bold"
+            style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}
+          >
+            {emptyLabel}
+          </div>
+        )}
+      </div>
+
+      {canToggle && (
+        <button
+          type="button"
+          onClick={() => setExpanded((value) => !value)}
+          className="mt-3 w-full rounded-xl px-3 py-2.5 text-sm font-bold transition"
+          style={{ background: "var(--bg-active)", color: "var(--text-primary)" }}
+        >
+          {expanded ? "Recolher opções" : `Mostrar mais ${items.length - limit}`}
+        </button>
+      )}
     </div>
   );
 }
@@ -569,20 +733,17 @@ export default function LancamentoForm({
             options={equipes.map((e) => ({ value: e.id, label: e.nome }))}
             placeholder="Selecione…"
           />
-          <Input
-            label="Buscar projeto"
-            type="search"
-            value={projetoBusca}
-            onChange={(e) => setProjetoBusca(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") e.preventDefault(); }}
-            placeholder="Digite parte da fazenda/projeto"
-          />
-          <Select
+          <SearchablePicker
             label="Projeto"
-            value={projetoId}
-            onChange={(e) => setProjetoId(e.target.value)}
-            options={projetoOptions.map((p) => ({ value: p.id, label: p.nome }))}
-            placeholder="Selecione…"
+            search={projetoBusca}
+            onSearchChange={setProjetoBusca}
+            items={projetoOptions}
+            selectedId={projetoId}
+            onSelect={(projeto) => setProjetoId(projeto.id)}
+            getId={(projeto) => projeto.id}
+            renderTitle={(projeto) => projeto.nome}
+            placeholder="Buscar projeto ou fazenda"
+            emptyLabel="Nenhum projeto encontrado."
           />
           <Input
             label="Talhão *"
@@ -611,23 +772,20 @@ export default function LancamentoForm({
       {/* ── STEP 2: O Quê ── */}
       {step === 2 && (
         <div className="space-y-4 animate-fade-in">
-          <Input
-            label="Buscar atividade"
-            type="search"
-            value={atividadeBusca}
-            onChange={(e) => setAtividadeBusca(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") e.preventDefault(); }}
-            placeholder="Digite parte do serviço"
-          />
-          <Select
+          <SearchablePicker
             label="Atividade / serviço"
-            value={atividadeId}
-            onChange={(e) => setAtividadeId(e.target.value)}
-            options={atividadeOptions.map((a) => ({
-              value: a.id,
-              label: `${a.nome} · ${brl(a.valor_unitario)}/${a.unidade}`,
-            }))}
-            placeholder="Selecione…"
+            search={atividadeBusca}
+            onSearchChange={setAtividadeBusca}
+            items={atividadeOptions}
+            selectedId={atividadeId}
+            onSelect={(atividadeItem) => setAtividadeId(atividadeItem.id)}
+            getId={(atividadeItem) => atividadeItem.id}
+            renderTitle={(atividadeItem) => atividadeItem.nome}
+            renderSubtitle={(atividadeItem) =>
+              `${brl(atividadeItem.valor_unitario)} / ${atividadeItem.unidade}`
+            }
+            placeholder="Buscar pelo nome do serviço"
+            emptyLabel="Nenhuma atividade encontrada."
           />
           <Input
             label={`Quantidade${atividade ? ` (${atividade.unidade})` : ""}`}
