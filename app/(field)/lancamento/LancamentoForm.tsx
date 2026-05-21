@@ -114,37 +114,8 @@ const STEPS = [
 
 type StepId = (typeof STEPS)[number]["id"];
 
-type FormData = {
-  data: string;
-  equipeId: string;
-  projetoId: string;
-  talhao: string;
-  atividadeId: string;
-  qtd: string;
-  descarte: string;
-  insumos: { nome: string; quantidade: string }[];
-  obs: string;
-};
-
-const STORAGE_KEY = "gn:ultimo-lancamento";
-
 function emptyInsumos() {
   return Array.from({ length: 3 }, () => ({ nome: "", quantidade: "" }));
-}
-
-function loadUltimoLancamento(): Partial<FormData> | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
-function saveUltimoLancamento(f: FormData) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(f));
-  } catch {}
 }
 
 /* ── Stepper Header ── */
@@ -255,70 +226,6 @@ function Accordion({
           {children}
         </div>
       )}
-    </div>
-  );
-}
-
-/* ── Lançamento Rápido ── */
-function LancamentoRapido({
-  ultimo,
-  equipes,
-  atividades,
-  projetos,
-  onUsar,
-}: {
-  ultimo: Partial<FormData>;
-  equipes: Equipe[];
-  atividades: Atividade[];
-  projetos: Projeto[];
-  onUsar: (qtd: string) => void;
-}) {
-  const [qtdRapida, setQtdRapida] = useState("");
-  const equipe = equipes.find((e) => e.id === ultimo.equipeId);
-  const atividade = atividades.find((a) => a.id === ultimo.atividadeId);
-  const projeto = projetos.find((p) => p.id === ultimo.projetoId);
-  if (!equipe || !atividade || !projeto) return null;
-
-  return (
-    <div
-      className="rounded-2xl p-4 mb-4 animate-slide-up"
-      style={{ background: "var(--accent-subtle)", border: "1px solid var(--accent)" }}
-    >
-      <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: "var(--accent)" }}>
-        ⚡ Lançamento rápido — repetir último
-      </p>
-      <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-        {atividade.nome} · {projeto.nome}
-      </p>
-      <p className="text-xs mb-3" style={{ color: "var(--text-secondary)" }}>
-        {equipe.nome} {ultimo.talhao ? `· Talhão ${ultimo.talhao}` : ""}
-      </p>
-      <div className="flex gap-2">
-        <input
-          type="number"
-          inputMode="decimal"
-          step="0.01"
-          min="0"
-          value={qtdRapida}
-          onChange={(e) => setQtdRapida(e.target.value)}
-          placeholder={`Qtd (${atividade.unidade})`}
-          className="flex-1 rounded-xl border px-3 py-2 text-sm font-bold"
-          style={{
-            background: "var(--bg-input)",
-            border: "1px solid var(--border)",
-            color: "var(--text-primary)",
-          }}
-        />
-        <button
-          type="button"
-          disabled={!qtdRapida || Number(qtdRapida) <= 0}
-          onClick={() => onUsar(qtdRapida)}
-          className="rounded-xl px-4 py-2 text-sm font-bold text-white transition disabled:opacity-40"
-          style={{ background: "var(--accent)" }}
-        >
-          Registrar
-        </button>
-      </div>
     </div>
   );
 }
@@ -533,7 +440,6 @@ export default function LancamentoForm({
 }) {
   const { toast } = useToast();
   const [step, setStep] = useState<StepId>(1);
-  const [ultimoLancamento, setUltimoLancamento] = useState<Partial<FormData> | null>(null);
   const [temPrefill, setTemPrefill] = useState(
     !!(initialAtividadeId || initialProjetoId || initialTalhao)
   );
@@ -556,10 +462,6 @@ export default function LancamentoForm({
   const [insumos,        setInsumos]        = useState(emptyInsumos);
   const [obs,            setObs]            = useState("");
   const [enviando,       setEnviando]       = useState(false);
-
-  useEffect(() => {
-    setUltimoLancamento(loadUltimoLancamento());
-  }, []);
 
   const atividade = useMemo(
     () => atividades.find((a) => a.id === atividadeId),
@@ -662,30 +564,10 @@ export default function LancamentoForm({
     };
     const ok = await enviarDados(formData);
     if (ok) {
-      saveUltimoLancamento({
-        data, equipeId, projetoId, talhao, atividadeId, qtd,
-        descarte, insumos, obs,
-      });
-      setUltimoLancamento({ data, equipeId, projetoId, talhao, atividadeId });
       toast("Produção registrada!", "success");
       limpar();
       setStep(1);
     }
-  }
-
-  async function lancamentoRapido(qtdRapida: string) {
-    if (!ultimoLancamento) return;
-    const formData = {
-      data: todayISO(),
-      equipe_id: ultimoLancamento.equipeId,
-      atividade_id: ultimoLancamento.atividadeId,
-      projeto_id: ultimoLancamento.projetoId,
-      talhao: ultimoLancamento.talhao ?? "",
-      quantidade: Number(qtdRapida),
-      descarte: null, insumos: [], observacoes: null,
-    };
-    const ok = await enviarDados(formData);
-    if (ok) toast("Lançamento rápido registrado!", "success");
   }
 
   const prefillAtividade = temPrefill ? atividades.find((a) => a.id === atividadeId) : null;
@@ -700,17 +582,6 @@ export default function LancamentoForm({
           projetoNome={prefillProjeto.nome}
           talhao={talhao}
           onDescartar={() => setTemPrefill(false)}
-        />
-      )}
-
-      {/* Lançamento Rápido — só mostra se não tem prefill */}
-      {!temPrefill && ultimoLancamento && step === 1 && (
-        <LancamentoRapido
-          ultimo={ultimoLancamento}
-          equipes={equipes}
-          atividades={atividades}
-          projetos={projetos}
-          onUsar={lancamentoRapido}
         />
       )}
 
