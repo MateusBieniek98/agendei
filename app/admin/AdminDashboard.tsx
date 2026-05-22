@@ -8,6 +8,39 @@ import { brl, ddmmyyyy } from "@/lib/format";
 import { LinhaChart } from "@/app/gestor/GestorCharts";
 import PeriodoFiltro, { type PeriodoState } from "@/components/dashboard/PeriodoFiltro";
 
+type DashboardMode = "admin" | "gestor" | "encarregado";
+
+type DashboardLinks = {
+  maquinas: string;
+  lancamentos: string;
+  metas: string;
+};
+
+const DASHBOARD_LINKS: Record<DashboardMode, DashboardLinks> = {
+  admin: {
+    maquinas: "/admin/maquinas",
+    lancamentos: "/admin/lancamentos",
+    metas: "/admin/metas",
+  },
+  gestor: {
+    maquinas: "/gestor?tab=manutencao",
+    lancamentos: "/gestor",
+    metas: "/gestor",
+  },
+  encarregado: {
+    maquinas: "/maquinas",
+    lancamentos: "/historico",
+    metas: "/resumo",
+  },
+};
+
+type AdminDashboardProps = {
+  mode?: DashboardMode;
+  showExports?: boolean;
+  title?: string;
+  subtitle?: string;
+};
+
 type Manut = {
   id: string;
   descricao: string;
@@ -20,7 +53,10 @@ type Manut = {
 type DashboardData = {
   periodo: {
     de: string; ate: string; label: string;
-    diasTotais: number; diasDecorridos: number; diasRestantes: number;
+    diasTotais: number;
+    diasDecorridos: number;
+    diasRestantes: number;
+    diasRestantesAposHoje: number;
   };
   hoje: number;
   total: number;
@@ -46,7 +82,7 @@ type DashboardData = {
   manutencoesAbertas: Manut[];
 };
 
-function buildAlertas(data: DashboardData): Alerta[] {
+function buildAlertas(data: DashboardData, links: DashboardLinks): Alerta[] {
   const alertas: Alerta[] = [];
   if (data.maquinas.urgentes > 0) {
     alertas.push({
@@ -54,7 +90,7 @@ function buildAlertas(data: DashboardData): Alerta[] {
       tipo: "danger",
       titulo: `${data.maquinas.urgentes} máquina${data.maquinas.urgentes > 1 ? "s" : ""} com manutenção urgente`,
       descricao: "Requer atenção imediata para não paralisar a operação.",
-      href: "/admin/maquinas",
+      href: links.maquinas,
     });
   }
   if (data.maquinas.paradas > 0 && data.maquinas.urgentes === 0) {
@@ -62,7 +98,7 @@ function buildAlertas(data: DashboardData): Alerta[] {
       id: "maq-paradas",
       tipo: "warn",
       titulo: `${data.maquinas.paradas} máquina${data.maquinas.paradas > 1 ? "s" : ""} parada${data.maquinas.paradas > 1 ? "s" : ""}`,
-      href: "/admin/maquinas",
+      href: links.maquinas,
     });
   }
   if (data.hoje === 0 && data.periodo.diasDecorridos > 0) {
@@ -71,22 +107,32 @@ function buildAlertas(data: DashboardData): Alerta[] {
       tipo: "warn",
       titulo: "Nenhum lançamento registrado hoje",
       descricao: "Verifique se os encarregados estão conseguindo acessar o app.",
-      href: "/admin/lancamentos",
+      href: links.lancamentos,
     });
   }
   if (data.meta > 0 && data.pctMeta < 60 && data.periodo.diasDecorridos > 3) {
+    const diasMetaProxDia = data.periodo.diasRestantesAposHoje;
+    const descricaoMeta =
+      diasMetaProxDia > 0
+        ? `Necessário ${brl(data.metaProxDia)}/dia nos ${diasMetaProxDia} dia${diasMetaProxDia === 1 ? "" : "s"} após hoje.`
+        : "Não há dias após hoje neste período.";
     alertas.push({
       id: "meta-baixa",
       tipo: "warn",
       titulo: `Meta ${data.pctMeta.toFixed(0)}% atingida — ritmo abaixo do esperado`,
-      descricao: `Necessário ${brl(data.metaProxDia)}/dia nos ${data.periodo.diasRestantes} dias restantes.`,
-      href: "/admin/metas",
+      descricao: descricaoMeta,
+      href: links.metas,
     });
   }
   return alertas;
 }
 
-export default function AdminDashboard() {
+export default function AdminDashboard({
+  mode = "admin",
+  showExports,
+  title = "Dashboard",
+  subtitle,
+}: AdminDashboardProps) {
   const [periodo, setPeriodo] = useState<PeriodoState>({ preset: "ciclo_atual" });
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -127,7 +173,10 @@ export default function AdminDashboard() {
     return sp.toString();
   })();
 
-  const alertas = data ? buildAlertas(data) : [];
+  const links = DASHBOARD_LINKS[mode];
+  const canManageMetas = mode === "admin";
+  const showExportActions = showExports ?? mode === "admin";
+  const alertas = data ? buildAlertas(data, links) : [];
   const equipesComMeta = data ? data.ranking.filter((e) => e.metaEquipe > 0) : [];
   const equipesDentro = equipesComMeta.filter((e) => e.statusMeta === "dentro").length;
   const equipesAbaixo = equipesComMeta.filter((e) => e.statusMeta === "abaixo").length;
@@ -140,27 +189,29 @@ export default function AdminDashboard() {
       {/* Header */}
       <div className="flex items-end justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>Dashboard</h1>
+          <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>{title}</h1>
           <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-            Visão consolidada da operação · {ddmmyyyy(new Date())}
+            {subtitle ?? `Visão consolidada da operação · ${ddmmyyyy(new Date())}`}
           </p>
         </div>
-        <div className="grid w-full grid-cols-2 gap-2 sm:w-auto">
-          <Link
-            href={`/api/export/xlsx?${expSearch}`}
-            className="rounded-xl px-4 py-2 text-center text-sm font-bold transition hover:opacity-80"
-            style={{ border: "1px solid var(--border)", background: "var(--bg-card)", color: "var(--text-primary)" }}
-          >
-            ↓ Excel
-          </Link>
-          <Link
-            href={`/api/export/csv?${expSearch}`}
-            className="rounded-xl px-4 py-2 text-center text-sm font-bold transition hover:opacity-80"
-            style={{ border: "1px solid var(--border)", background: "var(--bg-card)", color: "var(--text-primary)" }}
-          >
-            ↓ CSV
-          </Link>
-        </div>
+        {showExportActions && (
+          <div className="grid w-full grid-cols-2 gap-2 sm:w-auto">
+            <Link
+              href={`/api/export/xlsx?${expSearch}`}
+              className="rounded-xl px-4 py-2 text-center text-sm font-bold transition hover:opacity-80"
+              style={{ border: "1px solid var(--border)", background: "var(--bg-card)", color: "var(--text-primary)" }}
+            >
+              ↓ Excel
+            </Link>
+            <Link
+              href={`/api/export/csv?${expSearch}`}
+              className="rounded-xl px-4 py-2 text-center text-sm font-bold transition hover:opacity-80"
+              style={{ border: "1px solid var(--border)", background: "var(--bg-card)", color: "var(--text-primary)" }}
+            >
+              ↓ CSV
+            </Link>
+          </div>
+        )}
       </div>
 
       <PeriodoFiltro value={periodo} onChange={setPeriodo} loading={loading} />
@@ -200,7 +251,7 @@ export default function AdminDashboard() {
               tone={data.pctMeta >= 100 ? "positive" : data.pctMeta >= 70 ? "neutral" : "warning"}
               hint={data.meta > 0 ? `Meta: ${brl(data.meta)}` : "sem meta"}
               icon="🎯"
-              href="/admin/metas"
+              href={canManageMetas ? links.metas : undefined}
             />
           </div>
 
@@ -292,7 +343,9 @@ export default function AdminDashboard() {
                 <span className="text-sm mb-1 font-semibold" style={{ color: "var(--text-secondary)" }}>/dia</span>
               </div>
               <p className="mt-1 text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
-                Necessário nos {data.periodo.diasRestantes} dia{data.periodo.diasRestantes !== 1 ? "s" : ""} restante{data.periodo.diasRestantes !== 1 ? "s" : ""} para bater a meta.
+                {data.periodo.diasRestantesAposHoje > 0
+                  ? `Necessário nos ${data.periodo.diasRestantesAposHoje} dia${data.periodo.diasRestantesAposHoje !== 1 ? "s" : ""} após hoje para bater a meta.`
+                  : "Não há dias após hoje neste período."}
               </p>
 
               {/* Termômetro */}
@@ -316,7 +369,7 @@ export default function AdminDashboard() {
 
               {/* Status da frota */}
               {data.maquinas.total > 0 && (
-                <Link href="/admin/maquinas" className="mt-4 flex items-center gap-3 p-3 rounded-xl transition"
+                <Link href={links.maquinas} className="mt-4 flex items-center gap-3 p-3 rounded-xl transition"
                       style={{ background: "var(--bg-card-alt)", border: "1px solid var(--border)" }}>
                   <StatusDot count={data.maquinas.operando} color="var(--success)" label="Operando" />
                   <StatusDot count={data.maquinas.paradas} color="var(--danger)" label="Paradas" />
@@ -332,7 +385,7 @@ export default function AdminDashboard() {
 
             {/* Meta por equipe */}
             <div
-              className="p-5 rounded-2xl"
+              className="p-4 rounded-2xl md:p-5"
               style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
@@ -344,27 +397,29 @@ export default function AdminDashboard() {
                     Compara realizado, projeção do ciclo e meta distribuída.
                   </p>
                 </div>
-                <Link
-                  href="/admin/metas"
-                  className="rounded-lg px-3 py-2 text-xs font-bold transition hover:opacity-80"
-                  style={{ background: "var(--bg-card-alt)", color: "var(--accent)" }}
-                >
-                  ajustar metas
-                </Link>
+                {canManageMetas && (
+                  <Link
+                    href={links.metas}
+                    className="rounded-lg px-3 py-2 text-xs font-bold transition hover:opacity-80"
+                    style={{ background: "var(--bg-card-alt)", color: "var(--accent)" }}
+                  >
+                    ajustar metas
+                  </Link>
+                )}
               </div>
 
               {equipesComMeta.length > 0 ? (
                 <>
-                  <div className="mt-4 grid grid-cols-2 gap-2 text-xs font-bold sm:grid-cols-3">
-                    <div className="rounded-xl p-3" style={{ background: "var(--bg-card-alt)" }}>
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-xs font-bold sm:grid-cols-3">
+                    <div className="rounded-xl p-2.5" style={{ background: "var(--bg-card-alt)" }}>
                       <p style={{ color: "var(--text-muted)" }}>Dentro</p>
                       <p className="text-lg tabular" style={{ color: "var(--success)" }}>{equipesDentro}</p>
                     </div>
-                    <div className="rounded-xl p-3" style={{ background: "var(--bg-card-alt)" }}>
+                    <div className="rounded-xl p-2.5" style={{ background: "var(--bg-card-alt)" }}>
                       <p style={{ color: "var(--text-muted)" }}>Abaixo</p>
                       <p className="text-lg tabular" style={{ color: "var(--warn)" }}>{equipesAbaixo}</p>
                     </div>
-                    <div className="rounded-xl p-3" style={{ background: "var(--bg-card-alt)" }}>
+                    <div className="rounded-xl p-2.5" style={{ background: "var(--bg-card-alt)" }}>
                       <p style={{ color: "var(--text-muted)" }}>Distribuído</p>
                       <p className="text-lg tabular" style={{ color: "var(--text-primary)" }}>
                         {brl(data.metaEquipes.totalMeta)}
@@ -373,17 +428,26 @@ export default function AdminDashboard() {
                   </div>
 
                   {Math.abs(data.metaEquipes.diferenca) > 0.01 && (
-                    <Link
-                      href="/admin/metas"
-                      className="mt-3 block rounded-xl p-3 text-xs font-bold"
-                      style={{ background: "rgba(245, 158, 11, 0.14)", color: "var(--warn)" }}
-                    >
-                      Distribuição diferente da meta mensal: {brl(data.metaEquipes.diferenca)}.
-                    </Link>
+                    canManageMetas ? (
+                      <Link
+                        href={links.metas}
+                        className="mt-3 block rounded-xl p-3 text-xs font-bold"
+                        style={{ background: "rgba(245, 158, 11, 0.14)", color: "var(--warn)" }}
+                      >
+                        Distribuição diferente da meta mensal: {brl(data.metaEquipes.diferenca)}.
+                      </Link>
+                    ) : (
+                      <div
+                        className="mt-3 rounded-xl p-3 text-xs font-bold"
+                        style={{ background: "rgba(245, 158, 11, 0.14)", color: "var(--warn)" }}
+                      >
+                        Distribuição diferente da meta mensal: {brl(data.metaEquipes.diferenca)}.
+                      </div>
+                    )
                   )}
 
-                  <ol className="mt-4 space-y-3">
-                    {equipesComMeta.slice(0, 8).map((e) => (
+                  <ol className="mt-3 max-h-[28rem] space-y-3 overflow-auto pr-1">
+                    {equipesComMeta.map((e) => (
                       <li key={e.id}>
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
@@ -443,11 +507,16 @@ export default function AdminDashboard() {
                   className="mt-4 rounded-xl p-4 text-sm font-semibold"
                   style={{ background: "var(--bg-card-alt)", color: "var(--text-secondary)" }}
                 >
-                  Nenhuma meta por equipe definida para este período. Cadastre em{" "}
-                  <Link href="/admin/metas" className="font-bold" style={{ color: "var(--accent)" }}>
-                    Metas
-                  </Link>
-                  .
+                  Nenhuma meta por equipe definida para este período.
+                  {canManageMetas && (
+                    <>
+                      {" "}Cadastre em{" "}
+                      <Link href={links.metas} className="font-bold" style={{ color: "var(--accent)" }}>
+                        Metas
+                      </Link>
+                      .
+                    </>
+                  )}
                 </div>
               )}
             </div>
@@ -463,7 +532,7 @@ export default function AdminDashboard() {
                 Manutenções abertas
               </h3>
               <Link
-                href="/admin/maquinas"
+                href={links.maquinas}
                 className="text-xs font-bold hover:underline"
                 style={{ color: "var(--accent)" }}
               >

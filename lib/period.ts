@@ -161,6 +161,16 @@ export function diasRestantes(p: Periodo, today: Date = new Date()): number {
   return diffDaysInclusive(start, end);
 }
 
+/** Dias restantes após hoje, usado para calcular a meta do próximo dia. */
+export function diasRestantesAposHoje(p: Periodo, today: Date = new Date()): number {
+  const todayISO = dataOperacionalISO(today);
+  if (todayISO >= p.ate) return 0;
+  const base =
+    todayISO < p.de ? parseISODate(p.de) : addDays(parseISODate(todayISO), 1);
+  const end = parseISODate(p.ate);
+  return diffDaysInclusive(base, end);
+}
+
 export const PRESETS = {
   ciclo_atual: "Ciclo atual (21 → 20)",
   ciclo_anterior: "Ciclo anterior",

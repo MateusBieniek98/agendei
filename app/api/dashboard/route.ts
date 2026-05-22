@@ -10,6 +10,7 @@ import {
   resolvePreset,
   diasDecorridos,
   diasRestantes,
+  diasRestantesAposHoje,
   type PeriodoPreset,
 } from "@/lib/period";
 
@@ -105,11 +106,12 @@ export async function GET(req: NextRequest) {
   // (pra refletir o que está acontecendo, não o que ainda vai acontecer)
   const dDecorridos = diasDecorridos(periodo, today);
   const dRestantes = diasRestantes(periodo, today);
+  const dRestantesAposHoje = diasRestantesAposHoje(periodo, today);
   const mediaDia = dDecorridos > 0 ? totalPeriodo / dDecorridos : 0;
 
   const valorMeta = Number(meta?.valor_meta ?? 0);
   const restanteMeta = Math.max(valorMeta - totalPeriodo, 0);
-  const metaProxDia = dRestantes > 0 ? restanteMeta / dRestantes : 0;
+  const metaProxDia = dRestantesAposHoje > 0 ? restanteMeta / dRestantesAposHoje : 0;
   const pctMeta = valorMeta > 0 ? (totalPeriodo / valorMeta) * 100 : 0;
 
   // Agrega por atividade
@@ -250,6 +252,7 @@ export async function GET(req: NextRequest) {
       diasTotais: periodo.diasTotais,
       diasDecorridos: dDecorridos,
       diasRestantes: dRestantes,
+      diasRestantesAposHoje: dRestantesAposHoje,
     },
     hoje: totalHoje,
     total: totalPeriodo,

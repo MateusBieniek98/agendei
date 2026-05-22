@@ -1,11 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Card, StatCard } from "@/components/ui/Card";
+import { Card } from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
-import { brl, ddmmyyyy } from "@/lib/format";
-import { LinhaChart } from "./GestorCharts";
-import PeriodoFiltro, { type PeriodoState } from "@/components/dashboard/PeriodoFiltro";
+import AdminDashboard from "@/app/admin/AdminDashboard";
+import { ddmmyyyy } from "@/lib/format";
 import PlanejamentoField from "@/app/(field)/planejamento/PlanejamentoField";
 import type { MachineStatus } from "@/lib/types";
 
@@ -31,22 +30,6 @@ type Manut = {
 };
 
 type DashboardData = {
-  periodo: {
-    de: string;
-    ate: string;
-    label: string;
-    diasTotais: number;
-    diasDecorridos: number;
-    diasRestantes: number;
-  };
-  hoje: number;
-  total: number;
-  mediaDia: number;
-  meta: number;
-  pctMeta: number;
-  metaProxDia: number;
-  serie: { data: string; faturamento: number }[];
-  ranking: { id: string; nome: string; faturamento: number; lancamentos: number }[];
   maquinas: { operando: number; paradas: number; urgentes: number; total: number };
   manutencoesAbertas: Manut[];
 };
@@ -93,31 +76,22 @@ export default function GestorDashboard({
   const [aba,     setAba]     = useState<Aba>(() =>
     normalizarAba(initialAba, mostrarManutencao, mostrarPlanejamento),
   );
-  const [periodo, setPeriodo] = useState<PeriodoState>({ preset: "ciclo_atual" });
   const [data,    setData]    = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
   const [erro,    setErro]    = useState<string | null>(null);
 
   async function carregar() {
-    setLoading(true);
     setErro(null);
     try {
-      const sp = new URLSearchParams();
-      sp.set("preset", periodo.preset);
-      if (periodo.preset === "custom" && periodo.de && periodo.ate) {
-        sp.set("de", periodo.de);
-        sp.set("ate", periodo.ate);
-      }
-      const r = await fetch(`/api/dashboard?${sp.toString()}`);
+      const r = await fetch("/api/dashboard?preset=ciclo_atual");
       const j = (await r.json()) as DashboardData & { error?: string };
       if (!r.ok || j.error) throw new Error(j.error ?? r.statusText);
-      if (!j.periodo) throw new Error("resposta inválida do dashboard");
+      if (!j.maquinas || !Array.isArray(j.manutencoesAbertas)) {
+        throw new Error("resposta inválida do dashboard");
+      }
       setData(j);
     } catch (err) {
       setData(null);
       setErro((err as Error).message);
-    } finally {
-      setLoading(false);
     }
   }
 
@@ -137,8 +111,7 @@ export default function GestorDashboard({
 
   useEffect(() => {
     carregar();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [periodo.preset, periodo.de, periodo.ate]);
+  }, []);
 
   useEffect(() => {
     setAba(normalizarAba(initialAba, mostrarManutencao, mostrarPlanejamento));
@@ -147,7 +120,6 @@ export default function GestorDashboard({
   if (!data && aba !== "planejamento") {
     return (
       <div className="space-y-6">
-        <PeriodoFiltro value={periodo} onChange={setPeriodo} />
         <div className="text-sm font-semibold text-[var(--color-ink-600)]">
           {erro ? `Erro ao carregar dashboard: ${erro}` : "Carregando…"}
         </div>
@@ -194,75 +166,17 @@ export default function GestorDashboard({
       )}
 
       {/* ── Faturamento ── */}
-      {aba === "faturamento" && data && (
-        <div className="space-y-6">
-          <PeriodoFiltro value={periodo} onChange={setPeriodo} loading={loading} />
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <StatCard label="Faturamento — hoje" value={brl(data.hoje)} tone="positive" />
-            <StatCard label="Total no período"   value={brl(data.total)} hint={data.periodo.label} />
-            <StatCard
-              label="Média diária"
-              value={brl(data.mediaDia)}
-              hint={`${data.periodo.diasDecorridos} dia${data.periodo.diasDecorridos === 1 ? "" : "s"} decorridos`}
-            />
-            <StatCard
-              label="% da meta"
-              value={data.meta > 0 ? `${data.pctMeta.toFixed(1)}%` : "—"}
-              tone={data.pctMeta >= 100 ? "positive" : data.pctMeta >= 70 ? "neutral" : "warning"}
-              hint={data.meta > 0 ? `Meta: ${brl(data.meta)}` : "sem meta"}
-            />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card className="p-5 md:col-span-2">
-              <div className="flex items-baseline justify-between">
-                <h3 className="font-bold">Produção diária</h3>
-                <span className="text-xs font-semibold text-[var(--color-ink-600)]">
-                  {data.periodo.label}
-                </span>
-              </div>
-              <LinhaChart serie={data.serie} />
-            </Card>
-
-            <Card className="p-5">
-              <h3 className="font-bold">Meta do próximo dia</h3>
-              <p className="mt-3 text-3xl font-bold text-[var(--color-gn-700)] tabular">
-                {brl(data.metaProxDia)}
-              </p>
-              <p className="text-xs font-semibold text-[var(--color-ink-600)] mt-1">
-                (meta - faturado) ÷ {data.periodo.diasRestantes} dia
-                {data.periodo.diasRestantes === 1 ? "" : "s"} restantes.
-              </p>
-              <div className="mt-4 h-3 w-full rounded-full bg-[var(--color-ink-100)] overflow-hidden">
-                <div
-                  className="h-full bg-[var(--color-gn-500)] transition-all"
-                  style={{ width: `${Math.min(data.pctMeta, 100)}%` }}
-                />
-              </div>
-              <p className="text-xs font-semibold text-[var(--color-ink-600)] mt-2">
-                {brl(data.total)} de {brl(data.meta)}
-              </p>
-            </Card>
-          </div>
-
-          <Card className="p-5">
-            <h3 className="font-bold">Top equipes</h3>
-            <ol className="mt-3 space-y-2">
-              {data.ranking.slice(0, 5).map((e, i) => (
-                <li key={e.id} className="flex items-center justify-between text-sm">
-                  <span className="flex items-center gap-2 font-semibold">
-                    <span className="h-6 w-6 rounded-full bg-[var(--color-gn-100)] text-[var(--color-gn-700)] text-xs font-bold inline-flex items-center justify-center">
-                      {i + 1}
-                    </span>
-                    {e.nome}
-                  </span>
-                  <span className="font-bold tabular text-[var(--color-ink-900)]">{brl(e.faturamento)}</span>
-                </li>
-              ))}
-            </ol>
-          </Card>
-        </div>
+      {aba === "faturamento" && (
+        <AdminDashboard
+          mode={mostrarManutencao || mostrarPlanejamento ? "gestor" : "encarregado"}
+          showExports={false}
+          title={mostrarManutencao || mostrarPlanejamento ? "Dashboard executivo" : "Resultados"}
+          subtitle={
+            mostrarManutencao || mostrarPlanejamento
+              ? "Visão consolidada da operação."
+              : "Resumo consolidado da produção apontada."
+          }
+        />
       )}
 
       {/* ── Manutenção ── */}

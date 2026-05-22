@@ -14,6 +14,29 @@ const MESES = [
   "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
 ];
 
+function normalizarNumeroBR(value: string): number {
+  const raw = String(value ?? "").trim();
+  if (!raw) return 0;
+  const cleaned = raw.replace(/[^\d,.-]/g, "");
+  if (!cleaned || cleaned === "-" || cleaned === "," || cleaned === ".") return 0;
+  if (cleaned.includes(",")) {
+    return Number(cleaned.replace(/\./g, "").replace(",", "."));
+  }
+  return Number(cleaned);
+}
+
+function formatarNumeroInput(value: number): string {
+  if (!Number.isFinite(value)) return "";
+  return value.toLocaleString("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+function limparNumeroInput(value: string): string {
+  return value.replace(/[^\d.,-]/g, "");
+}
+
 export default function MetasPage() {
   const { toast } = useToast();
   const today = new Date();
@@ -71,7 +94,7 @@ export default function MetasPage() {
       }
       const valores: Record<string, string> = {};
       for (const item of (Array.isArray(resp.items) ? (resp.items as MetaEquipe[]) : [])) {
-        valores[item.equipe_id] = String(Number(item.valor_meta ?? 0));
+        valores[item.equipe_id] = formatarNumeroInput(Number(item.valor_meta ?? 0));
       }
       setMetasEquipe(valores);
     } catch (err) {
@@ -98,7 +121,7 @@ export default function MetasPage() {
     (item) => item.ano === anoSelecionado && item.mes === mesSelecionado
   );
   const totalMetasEquipe = equipes.reduce(
-    (sum, equipe) => sum + Number(metasEquipe[equipe.id] || 0),
+    (sum, equipe) => sum + normalizarNumeroBR(metasEquipe[equipe.id] || ""),
     0
   );
   const valorMetaMensalSelecionada = Number(metaMensalSelecionada?.valor_meta ?? 0);
@@ -117,14 +140,15 @@ export default function MetasPage() {
     setEditingId(meta.id);
     setAno(String(meta.ano));
     setMes(String(meta.mes));
-    setValor(String(Number(meta.valor_meta)));
+    setValor(formatarNumeroInput(Number(meta.valor_meta)));
     setObs(meta.observacoes ?? "");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   async function salvar(e: React.FormEvent) {
     e.preventDefault();
-    if (!valor || Number(valor) < 0) {
+    const valorMeta = normalizarNumeroBR(valor);
+    if (!valor.trim() || !Number.isFinite(valorMeta) || valorMeta < 0) {
       toast("Informe a meta.", "error");
       return;
     }
@@ -139,7 +163,7 @@ export default function MetasPage() {
           id: editingId,
           ano: Number(ano),
           mes: Number(mes),
-          valor_meta: Number(valor),
+          valor_meta: valorMeta,
           observacoes: obs || null,
         }),
       });
@@ -190,7 +214,7 @@ export default function MetasPage() {
   function atualizarMetaEquipe(equipeId: string, value: string) {
     setMetasEquipe((prev) => ({
       ...prev,
-      [equipeId]: value,
+      [equipeId]: limparNumeroInput(value),
     }));
   }
 
@@ -202,7 +226,7 @@ export default function MetasPage() {
     const distribuicao: Record<string, string> = {};
     equipes.forEach((equipe, index) => {
       const cents = baseCents + (index === 0 ? sobra : 0);
-      distribuicao[equipe.id] = String((cents / 100).toFixed(2));
+      distribuicao[equipe.id] = formatarNumeroInput(cents / 100);
     });
     setMetasEquipe(distribuicao);
   }
@@ -229,7 +253,7 @@ export default function MetasPage() {
       const payload = equipes
         .map((equipe) => ({
           equipe_id: equipe.id,
-          valor_meta: Number(metasEquipe[equipe.id] || 0),
+          valor_meta: normalizarNumeroBR(metasEquipe[equipe.id] || ""),
           observacoes: null,
         }))
         .filter((item) => item.valor_meta > 0);
@@ -268,7 +292,7 @@ export default function MetasPage() {
         </p>
       </div>
 
-      <Card className="p-5">
+      <Card className="p-4 md:p-5">
         <div className="mb-4">
           <h2 className="text-lg font-bold text-[var(--color-ink-900)]">
             {editingId ? "Editar meta de faturamento" : "Definir meta de faturamento"}
@@ -294,11 +318,11 @@ export default function MetasPage() {
           />
           <Input
             label="Valor meta (R$)"
-            type="number"
-            step="0.01"
+            type="text"
+            inputMode="decimal"
             value={valor}
-            onChange={(e) => setValor(e.target.value)}
-            placeholder="ex.: 120000"
+            onChange={(e) => setValor(limparNumeroInput(e.target.value))}
+            placeholder="ex.: 1.200.000,00"
           />
           <Input
             label="Observações"
@@ -321,7 +345,7 @@ export default function MetasPage() {
         )}
       </Card>
 
-      <Card className="p-5">
+      <Card className="p-4 md:p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="text-lg font-bold text-[var(--color-ink-900)]">
@@ -348,29 +372,29 @@ export default function MetasPage() {
         </div>
 
         <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card-alt)] p-4">
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card-alt)] p-3">
             <p className="text-xs font-bold uppercase text-[var(--color-ink-500)]">
               Meta mensal
             </p>
-            <p className="mt-1 text-xl font-bold tabular text-[var(--color-ink-900)]">
+            <p className="mt-1 text-lg font-bold tabular text-[var(--color-ink-900)] md:text-xl">
               {metaMensalSelecionada ? brl(valorMetaMensalSelecionada) : "sem meta"}
             </p>
           </div>
-          <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card-alt)] p-4">
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card-alt)] p-3">
             <p className="text-xs font-bold uppercase text-[var(--color-ink-500)]">
               Distribuído
             </p>
-            <p className="mt-1 text-xl font-bold tabular text-[var(--color-gn-700)]">
+            <p className="mt-1 text-lg font-bold tabular text-[var(--color-gn-700)] md:text-xl">
               {brl(totalMetasEquipe)}
             </p>
           </div>
-          <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card-alt)] p-4">
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card-alt)] p-3">
             <p className="text-xs font-bold uppercase text-[var(--color-ink-500)]">
               Diferença
             </p>
             <p
               className={
-                "mt-1 text-xl font-bold tabular " +
+                "mt-1 text-lg font-bold tabular md:text-xl " +
                 (metasEquipeFechadas
                   ? "text-[var(--color-forest-700)]"
                   : "text-[var(--color-danger-500)]")
@@ -407,9 +431,8 @@ export default function MetasPage() {
                 <Input
                   key={equipe.id}
                   label={equipe.nome}
-                  type="number"
-                  step="0.01"
-                  min="0"
+                  type="text"
+                  inputMode="decimal"
                   value={metasEquipe[equipe.id] ?? ""}
                   onChange={(e) => atualizarMetaEquipe(equipe.id, e.target.value)}
                   placeholder="0,00"
