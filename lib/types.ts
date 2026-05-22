@@ -109,6 +109,17 @@ export type Meta = {
   created_at: string;
 };
 
+export type MetaEquipe = {
+  id: string;
+  ano: number;
+  mes: number;
+  equipe_id: string;
+  valor_meta: number;
+  observacoes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type MetaAtividade = {
   id: string;
   ano: number;

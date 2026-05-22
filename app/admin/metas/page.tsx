@@ -7,7 +7,7 @@ import Select from "@/components/ui/Select";
 import { Card } from "@/components/ui/Card";
 import { useToast } from "@/components/ui/Toast";
 import { brl } from "@/lib/format";
-import type { Meta } from "@/lib/types";
+import type { Equipe, Meta, MetaEquipe } from "@/lib/types";
 
 const MESES = [
   "janeiro", "fevereiro", "março", "abril", "maio", "junho",
@@ -18,6 +18,7 @@ export default function MetasPage() {
   const { toast } = useToast();
   const today = new Date();
   const [items, setItems] = useState<Meta[]>([]);
+  const [equipes, setEquipes] = useState<Equipe[]>([]);
   const [ano, setAno] = useState(String(today.getFullYear()));
   const [mes, setMes] = useState(String(today.getMonth() + 1));
   const [valor, setValor] = useState("");
@@ -25,20 +26,84 @@ export default function MetasPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [metasEquipe, setMetasEquipe] = useState<Record<string, string>>({});
+  const [loadingMetasEquipe, setLoadingMetasEquipe] = useState(false);
+  const [savingMetasEquipe, setSavingMetasEquipe] = useState(false);
+  const [metaEquipeSetupError, setMetaEquipeSetupError] = useState<string | null>(null);
 
   async function carregar() {
     try {
       const resp = await fetch("/api/metas").then((r) => r.json());
-      setItems(Array.isArray(resp.items) ? (resp.items as Meta[]) : []);
+      const metas = Array.isArray(resp.items) ? (resp.items as Meta[]) : [];
+      setItems(metas);
+      return metas;
     } catch (err) {
       toast(`Erro ao carregar metas: ${(err as Error).message}`, "error");
+      return [];
+    }
+  }
+
+  async function carregarEquipes() {
+    try {
+      const resp = await fetch("/api/equipes").then((r) => r.json());
+      const lista = Array.isArray(resp.items) ? (resp.items as Equipe[]) : [];
+      setEquipes(lista.filter((e) => e.ativo));
+    } catch (err) {
+      toast(`Erro ao carregar equipes: ${(err as Error).message}`, "error");
+    }
+  }
+
+  async function carregarMetasEquipes(anoAtual = Number(ano), mesAtual = Number(mes)) {
+    if (!Number.isInteger(anoAtual) || !Number.isInteger(mesAtual)) return;
+    setLoadingMetasEquipe(true);
+    setMetaEquipeSetupError(null);
+    try {
+      const sp = new URLSearchParams({
+        ano: String(anoAtual),
+        mes: String(mesAtual),
+      });
+      const resp = await fetch(`/api/metas/equipes?${sp.toString()}`).then((r) => r.json());
+      if (resp.setupPendente) {
+        setMetaEquipeSetupError(resp.setupError ?? "Tabela metas_equipes ainda não criada.");
+      }
+      if (Array.isArray(resp.equipes)) {
+        setEquipes((resp.equipes as Equipe[]).filter((e) => e.ativo));
+      }
+      const valores: Record<string, string> = {};
+      for (const item of (Array.isArray(resp.items) ? (resp.items as MetaEquipe[]) : [])) {
+        valores[item.equipe_id] = String(Number(item.valor_meta ?? 0));
+      }
+      setMetasEquipe(valores);
+    } catch (err) {
+      setMetaEquipeSetupError((err as Error).message);
+    } finally {
+      setLoadingMetasEquipe(false);
     }
   }
 
   useEffect(() => {
     carregar();
+    carregarEquipes();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    carregarMetasEquipes(Number(ano), Number(mes));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ano, mes]);
+
+  const anoSelecionado = Number(ano);
+  const mesSelecionado = Number(mes);
+  const metaMensalSelecionada = items.find(
+    (item) => item.ano === anoSelecionado && item.mes === mesSelecionado
+  );
+  const totalMetasEquipe = equipes.reduce(
+    (sum, equipe) => sum + Number(metasEquipe[equipe.id] || 0),
+    0
+  );
+  const valorMetaMensalSelecionada = Number(metaMensalSelecionada?.valor_meta ?? 0);
+  const diferencaMetasEquipe = valorMetaMensalSelecionada - totalMetasEquipe;
+  const metasEquipeFechadas = Math.abs(Math.round(diferencaMetasEquipe * 100)) === 0;
 
   function limparFormulario() {
     setEditingId(null);
@@ -63,6 +128,8 @@ export default function MetasPage() {
       toast("Informe a meta.", "error");
       return;
     }
+    const anoSalvo = Number(ano);
+    const mesSalvo = Number(mes);
     setSaving(true);
     try {
       const r = await fetch("/api/metas", {
@@ -84,8 +151,13 @@ export default function MetasPage() {
       }
 
       toast(editingId ? "Meta mensal atualizada." : "Meta mensal salva.", "success");
-      limparFormulario();
-      carregar();
+      setEditingId(null);
+      setAno(String(anoSalvo));
+      setMes(String(mesSalvo));
+      setValor("");
+      setObs("");
+      await carregar();
+      await carregarMetasEquipes(anoSalvo, mesSalvo);
     } catch (err) {
       toast(`Erro: ${(err as Error).message}`, "error");
     } finally {
@@ -111,7 +183,80 @@ export default function MetasPage() {
 
     if (editingId === meta.id) limparFormulario();
     toast("Meta mensal excluída.", "success");
-    carregar();
+    await carregar();
+    await carregarMetasEquipes(Number(ano), Number(mes));
+  }
+
+  function atualizarMetaEquipe(equipeId: string, value: string) {
+    setMetasEquipe((prev) => ({
+      ...prev,
+      [equipeId]: value,
+    }));
+  }
+
+  function distribuirIgual() {
+    if (!metaMensalSelecionada || equipes.length === 0) return;
+    const totalCents = Math.round(valorMetaMensalSelecionada * 100);
+    const baseCents = Math.floor(totalCents / equipes.length);
+    const sobra = totalCents - baseCents * equipes.length;
+    const distribuicao: Record<string, string> = {};
+    equipes.forEach((equipe, index) => {
+      const cents = baseCents + (index === 0 ? sobra : 0);
+      distribuicao[equipe.id] = String((cents / 100).toFixed(2));
+    });
+    setMetasEquipe(distribuicao);
+  }
+
+  function zerarMetasEquipe() {
+    setMetasEquipe({});
+  }
+
+  async function salvarMetasEquipes() {
+    if (!metaMensalSelecionada) {
+      toast("Salve primeiro a meta mensal desse período.", "error");
+      return;
+    }
+    if (!metasEquipeFechadas) {
+      toast(
+        `A soma por equipe precisa fechar com a meta mensal. Diferença: ${brl(diferencaMetasEquipe)}.`,
+        "error"
+      );
+      return;
+    }
+
+    setSavingMetasEquipe(true);
+    try {
+      const payload = equipes
+        .map((equipe) => ({
+          equipe_id: equipe.id,
+          valor_meta: Number(metasEquipe[equipe.id] || 0),
+          observacoes: null,
+        }))
+        .filter((item) => item.valor_meta > 0);
+
+      const r = await fetch("/api/metas/equipes", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          ano: anoSelecionado,
+          mes: mesSelecionado,
+          items: payload,
+        }),
+      });
+
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        toast(`Erro: ${j.error ?? r.statusText}`, "error");
+        return;
+      }
+
+      toast("Metas por equipe salvas.", "success");
+      await carregarMetasEquipes(anoSelecionado, mesSelecionado);
+    } catch (err) {
+      toast(`Erro: ${(err as Error).message}`, "error");
+    } finally {
+      setSavingMetasEquipe(false);
+    }
   }
 
   return (
@@ -173,6 +318,120 @@ export default function MetasPage() {
               Cancelar edição
             </Button>
           </div>
+        )}
+      </Card>
+
+      <Card className="p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-bold text-[var(--color-ink-900)]">
+              Meta mensal por equipe
+            </h2>
+            <p className="text-sm font-semibold text-[var(--color-ink-600)]">
+              Distribua a meta mensal entre as frentes. A soma precisa fechar exatamente com a meta do mês.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              disabled={!metaMensalSelecionada || equipes.length === 0}
+              onClick={distribuirIgual}
+            >
+              Dividir igual
+            </Button>
+            <Button type="button" size="sm" variant="ghost" onClick={zerarMetasEquipe}>
+              Zerar
+            </Button>
+          </div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card-alt)] p-4">
+            <p className="text-xs font-bold uppercase text-[var(--color-ink-500)]">
+              Meta mensal
+            </p>
+            <p className="mt-1 text-xl font-bold tabular text-[var(--color-ink-900)]">
+              {metaMensalSelecionada ? brl(valorMetaMensalSelecionada) : "sem meta"}
+            </p>
+          </div>
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card-alt)] p-4">
+            <p className="text-xs font-bold uppercase text-[var(--color-ink-500)]">
+              Distribuído
+            </p>
+            <p className="mt-1 text-xl font-bold tabular text-[var(--color-gn-700)]">
+              {brl(totalMetasEquipe)}
+            </p>
+          </div>
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card-alt)] p-4">
+            <p className="text-xs font-bold uppercase text-[var(--color-ink-500)]">
+              Diferença
+            </p>
+            <p
+              className={
+                "mt-1 text-xl font-bold tabular " +
+                (metasEquipeFechadas
+                  ? "text-[var(--color-forest-700)]"
+                  : "text-[var(--color-danger-500)]")
+              }
+            >
+              {brl(diferencaMetasEquipe)}
+            </p>
+          </div>
+        </div>
+
+        {metaEquipeSetupError && (
+          <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm font-bold text-amber-900">
+            Tabela de metas por equipe ainda não está pronta no Supabase. Rode o SQL de migração
+            <span className="font-mono"> lib/db/add_metas_equipes.sql</span>. Detalhe: {metaEquipeSetupError}
+          </div>
+        )}
+
+        {!metaMensalSelecionada ? (
+          <div className="mt-4 rounded-xl border border-[var(--border)] bg-[var(--bg-card-alt)] p-4 text-sm font-semibold text-[var(--color-ink-600)]">
+            Cadastre e salve a meta mensal de {MESES[mesSelecionado - 1]}/{anoSelecionado} antes de distribuir por equipe.
+          </div>
+        ) : loadingMetasEquipe ? (
+          <p className="mt-4 text-sm font-semibold text-[var(--color-ink-600)]">
+            Carregando metas por equipe...
+          </p>
+        ) : equipes.length === 0 ? (
+          <p className="mt-4 text-sm font-semibold text-[var(--color-ink-600)]">
+            Nenhuma equipe ativa encontrada.
+          </p>
+        ) : (
+          <>
+            <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {equipes.map((equipe) => (
+                <Input
+                  key={equipe.id}
+                  label={equipe.nome}
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={metasEquipe[equipe.id] ?? ""}
+                  onChange={(e) => atualizarMetaEquipe(equipe.id, e.target.value)}
+                  placeholder="0,00"
+                />
+              ))}
+            </div>
+            {!metasEquipeFechadas && (
+              <p className="mt-3 text-sm font-bold text-[var(--color-danger-500)]">
+                Ajuste os valores: a diferença atual é {brl(diferencaMetasEquipe)}.
+              </p>
+            )}
+            <div className="mt-4 flex justify-end">
+              <Button
+                type="button"
+                loading={savingMetasEquipe}
+                disabled={!metasEquipeFechadas || !metaMensalSelecionada}
+                onClick={salvarMetasEquipes}
+              >
+                Salvar metas por equipe
+              </Button>
+            </div>
+          </>
         )}
       </Card>
 

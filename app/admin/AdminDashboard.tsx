@@ -30,7 +30,18 @@ type DashboardData = {
   metaProxDia: number;
   serie: { data: string; faturamento: number }[];
   porAtividade: { id: string; nome: string; unidade: string; total: number; faturamento: number }[];
-  ranking: { id: string; nome: string; faturamento: number; lancamentos: number }[];
+  ranking: {
+    id: string;
+    nome: string;
+    faturamento: number;
+    lancamentos: number;
+    metaEquipe: number;
+    projecao: number;
+    pctMeta: number;
+    pctProjecao: number;
+    statusMeta: "dentro" | "abaixo" | "sem_meta";
+  }[];
+  metaEquipes: { totalMeta: number; diferenca: number };
   maquinas: { operando: number; paradas: number; urgentes: number; total: number };
   manutencoesAbertas: Manut[];
 };
@@ -117,6 +128,12 @@ export default function AdminDashboard() {
   })();
 
   const alertas = data ? buildAlertas(data) : [];
+  const equipesComMeta = data ? data.ranking.filter((e) => e.metaEquipe > 0) : [];
+  const equipesDentro = equipesComMeta.filter((e) => e.statusMeta === "dentro").length;
+  const equipesAbaixo = equipesComMeta.filter((e) => e.statusMeta === "abaixo").length;
+  const equipesSemMetaComProducao = data
+    ? data.ranking.filter((e) => e.metaEquipe <= 0 && e.faturamento > 0).length
+    : 0;
 
   return (
     <div className="space-y-6">
@@ -313,53 +330,126 @@ export default function AdminDashboard() {
               )}
             </div>
 
-            {/* Ranking de equipes */}
+            {/* Meta por equipe */}
             <div
               className="p-5 rounded-2xl"
               style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}
             >
-              <h3 className="font-semibold" style={{ color: "var(--text-primary)" }}>
-                Ranking de equipes
-              </h3>
-              <ol className="mt-3 space-y-2">
-                {data.ranking.map((e, i) => {
-                  const pct = data.ranking[0]
-                    ? (e.faturamento / data.ranking[0].faturamento) * 100
-                    : 0;
-                  return (
-                    <li key={e.id}>
-                      <div className="flex items-center justify-between text-sm gap-2">
-                        <span className="flex items-center gap-2">
-                          <span
-                            className="h-6 w-6 rounded-full text-xs font-bold inline-flex items-center justify-center shrink-0"
-                            style={{
-                              background: i === 0 ? "var(--accent)" : "var(--bg-active)",
-                              color: i === 0 ? "#fff" : "var(--text-secondary)",
-                            }}
-                          >
-                            {i + 1}
-                          </span>
-                          <span className="font-semibold truncate" style={{ color: "var(--text-primary)" }}>
-                            {e.nome}
-                          </span>
-                        </span>
-                        <span className="font-bold tabular shrink-0" style={{ color: "var(--text-primary)" }}>
-                          {brl(e.faturamento)}
-                        </span>
-                      </div>
-                      <div className="mt-1 h-1 rounded-full overflow-hidden" style={{ background: "var(--bg-active)" }}>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h3 className="font-semibold" style={{ color: "var(--text-primary)" }}>
+                    Meta por equipe
+                  </h3>
+                  <p className="mt-1 text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
+                    Compara realizado, projeção do ciclo e meta distribuída.
+                  </p>
+                </div>
+                <Link
+                  href="/admin/metas"
+                  className="rounded-lg px-3 py-2 text-xs font-bold transition hover:opacity-80"
+                  style={{ background: "var(--bg-card-alt)", color: "var(--accent)" }}
+                >
+                  ajustar metas
+                </Link>
+              </div>
+
+              {equipesComMeta.length > 0 ? (
+                <>
+                  <div className="mt-4 grid grid-cols-2 gap-2 text-xs font-bold sm:grid-cols-3">
+                    <div className="rounded-xl p-3" style={{ background: "var(--bg-card-alt)" }}>
+                      <p style={{ color: "var(--text-muted)" }}>Dentro</p>
+                      <p className="text-lg tabular" style={{ color: "var(--success)" }}>{equipesDentro}</p>
+                    </div>
+                    <div className="rounded-xl p-3" style={{ background: "var(--bg-card-alt)" }}>
+                      <p style={{ color: "var(--text-muted)" }}>Abaixo</p>
+                      <p className="text-lg tabular" style={{ color: "var(--warn)" }}>{equipesAbaixo}</p>
+                    </div>
+                    <div className="rounded-xl p-3" style={{ background: "var(--bg-card-alt)" }}>
+                      <p style={{ color: "var(--text-muted)" }}>Distribuído</p>
+                      <p className="text-lg tabular" style={{ color: "var(--text-primary)" }}>
+                        {brl(data.metaEquipes.totalMeta)}
+                      </p>
+                    </div>
+                  </div>
+
+                  {Math.abs(data.metaEquipes.diferenca) > 0.01 && (
+                    <Link
+                      href="/admin/metas"
+                      className="mt-3 block rounded-xl p-3 text-xs font-bold"
+                      style={{ background: "rgba(245, 158, 11, 0.14)", color: "var(--warn)" }}
+                    >
+                      Distribuição diferente da meta mensal: {brl(data.metaEquipes.diferenca)}.
+                    </Link>
+                  )}
+
+                  <ol className="mt-4 space-y-3">
+                    {equipesComMeta.slice(0, 8).map((e) => (
+                      <li key={e.id}>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-bold" style={{ color: "var(--text-primary)" }}>
+                              {e.nome}
+                            </p>
+                            <p className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
+                              Realizado {brl(e.faturamento)} · Projeção {brl(e.projecao)}
+                            </p>
+                          </div>
+                          <Badge tone={e.statusMeta === "dentro" ? "success" : "warning"}>
+                            {e.statusMeta === "dentro" ? "dentro" : "abaixo"}
+                          </Badge>
+                        </div>
+
                         <div
-                          className="h-full rounded-full transition-all"
-                          style={{ width: `${pct}%`, background: i === 0 ? "var(--accent)" : "var(--text-muted)" }}
-                        />
-                      </div>
-                    </li>
-                  );
-                })}
-                {data.ranking.length === 0 && (
-                  <li className="text-sm" style={{ color: "var(--text-muted)" }}>Sem dados.</li>
-                )}
-              </ol>
+                          className="relative mt-2 h-3 overflow-hidden rounded-full"
+                          style={{ background: "var(--bg-active)" }}
+                          title={`Meta: ${brl(e.metaEquipe)}`}
+                        >
+                          <div
+                            className="absolute inset-y-0 left-0 rounded-full"
+                            style={{
+                              width: `${Math.min(e.pctMeta, 100)}%`,
+                              background: "var(--accent)",
+                            }}
+                          />
+                          <div
+                            className="absolute inset-y-0 left-0 border-r-2 border-dashed"
+                            style={{
+                              width: `${Math.min(e.pctProjecao, 100)}%`,
+                              borderColor:
+                                e.statusMeta === "dentro" ? "var(--success)" : "var(--warn)",
+                            }}
+                          />
+                        </div>
+                        <div
+                          className="mt-1 flex justify-between text-[11px] font-bold"
+                          style={{ color: "var(--text-muted)" }}
+                        >
+                          <span>{e.pctMeta.toFixed(1)}% realizado</span>
+                          <span>meta {brl(e.metaEquipe)}</span>
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
+
+                  {equipesSemMetaComProducao > 0 && (
+                    <p className="mt-3 text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
+                      {equipesSemMetaComProducao} equipe{equipesSemMetaComProducao > 1 ? "s" : ""} com produção
+                      no período ainda não tem meta distribuída.
+                    </p>
+                  )}
+                </>
+              ) : (
+                <div
+                  className="mt-4 rounded-xl p-4 text-sm font-semibold"
+                  style={{ background: "var(--bg-card-alt)", color: "var(--text-secondary)" }}
+                >
+                  Nenhuma meta por equipe definida para este período. Cadastre em{" "}
+                  <Link href="/admin/metas" className="font-bold" style={{ color: "var(--accent)" }}>
+                    Metas
+                  </Link>
+                  .
+                </div>
+              )}
             </div>
           </div>
 

@@ -118,6 +118,20 @@ export async function DELETE(req: NextRequest) {
   if (!id) return NextResponse.json({ error: "ID da meta é obrigatório." }, { status: 400 });
 
   const supabase = await createSupabaseServer();
+  const { data: meta } = await supabase
+    .from("metas")
+    .select("ano, mes")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (meta) {
+    await supabase
+      .from("metas_equipes")
+      .delete()
+      .eq("ano", Number(meta.ano))
+      .eq("mes", Number(meta.mes));
+  }
+
   const { error } = await supabase.from("metas").delete().eq("id", id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });

@@ -299,6 +299,25 @@ create table if not exists public.metas (
   unique(ano, mes)
 );
 
+-- ═══ metas mensais por equipe/frente ══════════════════════════════════
+-- Meta financeira distribuída entre as equipes. A aplicação valida que
+-- a soma do período fecha com public.metas.valor_meta.
+create table if not exists public.metas_equipes (
+  id           uuid primary key default gen_random_uuid(),
+  ano          int not null check (ano between 2000 and 2100),
+  mes          int not null check (mes between 1 and 12),
+  equipe_id    uuid not null references public.equipes(id) on delete cascade,
+  valor_meta   numeric(14,2) not null check (valor_meta >= 0),
+  observacoes  text,
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now(),
+  unique(ano, mes, equipe_id)
+);
+create index if not exists idx_metas_equipes_periodo
+  on public.metas_equipes(ano, mes);
+create index if not exists idx_metas_equipes_equipe
+  on public.metas_equipes(equipe_id);
+
 -- ═══ metas por atividade/acesso/frente ═════════════════════════════════
 -- Quando profile_id é informado, a meta vale para aquele acesso.
 -- Quando equipe_id é informado e profile_id é nulo, vale para a frente.
@@ -392,6 +411,10 @@ drop trigger if exists trg_metas_atividades_touch on public.metas_atividades;
 create trigger trg_metas_atividades_touch before update on public.metas_atividades
   for each row execute function public.touch_updated_at();
 
+drop trigger if exists trg_metas_equipes_touch on public.metas_equipes;
+create trigger trg_metas_equipes_touch before update on public.metas_equipes
+  for each row execute function public.touch_updated_at();
+
 drop trigger if exists trg_services_metadata_touch on public.services_metadata;
 create trigger trg_services_metadata_touch before update on public.services_metadata
   for each row execute function public.touch_updated_at();
@@ -426,6 +449,7 @@ drop trigger if exists trg_audit_producao   on public.producao;
 drop trigger if exists trg_audit_maquinas   on public.maquinas;
 drop trigger if exists trg_audit_atividades on public.atividades;
 drop trigger if exists trg_audit_metas      on public.metas;
+drop trigger if exists trg_audit_metas_equipes on public.metas_equipes;
 drop trigger if exists trg_audit_metas_atividades on public.metas_atividades;
 drop trigger if exists trg_audit_planejamento on public.planejamento;
 drop trigger if exists trg_audit_services_metadata on public.services_metadata;
@@ -436,6 +460,8 @@ create trigger trg_audit_maquinas   after insert or update or delete on public.m
 create trigger trg_audit_atividades after insert or update or delete on public.atividades
   for each row execute function public.fn_audit();
 create trigger trg_audit_metas      after insert or update or delete on public.metas
+  for each row execute function public.fn_audit();
+create trigger trg_audit_metas_equipes after insert or update or delete on public.metas_equipes
   for each row execute function public.fn_audit();
 create trigger trg_audit_metas_atividades after insert or update or delete on public.metas_atividades
   for each row execute function public.fn_audit();
@@ -690,6 +716,7 @@ alter table public.planejamento enable row level security;
 alter table public.maquinas    enable row level security;
 alter table public.manutencoes enable row level security;
 alter table public.metas       enable row level security;
+alter table public.metas_equipes enable row level security;
 alter table public.metas_atividades enable row level security;
 alter table public.audit_log   enable row level security;
 alter table public.sync_jobs   enable row level security;
@@ -708,7 +735,7 @@ create policy profiles_admin_write on public.profiles
 do $$
 declare t text;
 begin
-  for t in select unnest(array['equipes','atividades','services_metadata','projetos','metas','metas_atividades','maquinas','planejamento']) loop
+  for t in select unnest(array['equipes','atividades','services_metadata','projetos','metas','metas_equipes','metas_atividades','maquinas','planejamento']) loop
     execute format('drop policy if exists %I_read on public.%I', t, t);
     execute format('drop policy if exists %I_admin_write on public.%I', t, t);
     execute format('create policy %I_read on public.%I for select using (auth.uid() is not null)', t, t);
