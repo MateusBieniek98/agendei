@@ -164,7 +164,7 @@ html[data-theme="dark"] {
 
 /* Safe area / scroll vars */
 :root {
-  --app-bottom-nav-height: 84px;
+  --app-bottom-nav-height: 64px;
   --app-top-safe-area:    env(safe-area-inset-top, 0px);
   --app-bottom-safe-area: env(safe-area-inset-bottom, 0px);
 }
@@ -258,7 +258,7 @@ body {
   font-weight: var(--kpi-weight);
   font-variant-numeric: tabular-nums;
   line-height: 1.1;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
 }
 
 /* tipografia tabular */
@@ -345,8 +345,8 @@ body {
    ────────────────────────────────────────────────────────── */
 @media (max-width: 640px) {
   :root {
-    --app-bottom-nav-height: 92px;
-    --kpi-size: 2rem;
+    --app-bottom-nav-height: 64px;
+    --kpi-size: 1.5rem;
   }
 
   html {

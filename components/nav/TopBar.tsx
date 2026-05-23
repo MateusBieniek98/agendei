@@ -9,7 +9,7 @@ export default function TopBar({
   subtitle,
   right,
   showLogo = true,
-  showThemeToggle = true,
+  showThemeToggle = false,
 }: {
   title?: string;
   subtitle?: string;
@@ -26,12 +26,14 @@ export default function TopBar({
         paddingTop: "max(var(--app-top-safe-area), 6px)",
       }}
     >
-      <div className="flex min-h-[64px] items-center gap-3 px-4 py-2.5">
-        {showLogo && <Logo size={32} variant="color" />}
-        <div className="flex-1 min-w-0">
+      <div className="grid min-h-[56px] grid-cols-[auto_1fr_auto] items-center gap-3 px-3 py-2 sm:px-4">
+        <div className="flex min-w-12 items-center">
+          {showLogo && <Logo size={30} variant="color" withWordmark />}
+        </div>
+        <div className="min-w-0 text-center">
           {title && (
             <h1
-              className="text-base font-bold truncate"
+              className="truncate text-sm font-black leading-tight sm:text-base"
               style={{ color: "var(--text-primary)" }}
             >
               {title}
@@ -39,14 +41,14 @@ export default function TopBar({
           )}
           {subtitle && (
             <p
-              className="truncate text-xs font-semibold"
+              className="truncate text-[11px] font-semibold leading-tight sm:text-xs"
               style={{ color: "var(--text-secondary)" }}
             >
               {subtitle}
             </p>
           )}
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex min-w-12 shrink-0 items-center justify-end gap-1.5">
           <SyncStatus />
           {showThemeToggle && <ThemeToggle />}
           {right}

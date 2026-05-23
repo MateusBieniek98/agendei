@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
@@ -8,7 +9,7 @@ import { useToast } from "@/components/ui/Toast";
 import { brl, todayISO } from "@/lib/format";
 import { searchItems } from "@/components/ui/ListControls";
 import { INSUMOS_CATALOGO, insumoCatalogDisplay, normalizeInsumoInput } from "@/lib/insumos";
-import type { Atividade, Equipe, Projeto } from "@/lib/types";
+import type { Atividade, Equipe, Producao, Projeto } from "@/lib/types";
 
 /* ── Card de insumo com sugestões inline ── */
 function InsumoCard({
@@ -281,7 +282,7 @@ function SearchablePicker<T>({
             {label}
           </p>
           <p className="text-xs font-semibold" style={{ color: "var(--text-secondary)" }}>
-            {selected ? "Selecionado abaixo" : "Pesquise e toque para selecionar"}
+            {selected ? "Selecionado" : "Pesquise e toque para selecionar"}
           </p>
         </div>
         <span
@@ -388,11 +389,13 @@ function BannerPlanejamento({
   projetoNome,
   talhao,
   onDescartar,
+  variant = "planejamento",
 }: {
   atividadeNome: string;
   projetoNome: string;
   talhao: string;
-  onDescartar: () => void;
+  onDescartar?: () => void;
+  variant?: "planejamento" | "edicao";
 }) {
   return (
     <div
@@ -401,7 +404,7 @@ function BannerPlanejamento({
     >
       <div>
         <p className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: "var(--success)" }}>
-          📋 Iniciando atividade planejada
+          {variant === "edicao" ? "Editando apontamento" : "Atividade planejada"}
         </p>
         <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
           {atividadeNome}
@@ -410,16 +413,46 @@ function BannerPlanejamento({
           {projetoNome}{talhao ? ` · Talhão ${talhao}` : ""}
         </p>
       </div>
-      <button
-        type="button"
-        onClick={onDescartar}
-        className="text-xs font-bold shrink-0"
-        style={{ color: "var(--text-muted)" }}
-      >
-        ✕
-      </button>
+      {onDescartar && (
+        <button
+          type="button"
+          onClick={onDescartar}
+          className="shrink-0 text-xs font-bold"
+          style={{ color: "var(--text-muted)" }}
+        >
+          x
+        </button>
+      )}
     </div>
   );
+}
+
+type EditingItem = Pick<
+  Producao,
+  | "id"
+  | "data"
+  | "equipe_id"
+  | "atividade_id"
+  | "projeto_id"
+  | "talhao"
+  | "quantidade"
+  | "insumos"
+  | "descarte"
+  | "observacoes"
+>;
+
+function maskTalhao(value: string | null | undefined) {
+  if (!value) return "";
+  const raw = value.replace(/\D/g, "").slice(0, 5);
+  return raw.length > 3 ? `${raw.slice(0, 3)}-${raw.slice(3)}` : raw;
+}
+
+function initialInsumos(editingItem?: EditingItem) {
+  if (!editingItem?.insumos?.length) return emptyInsumos();
+  return editingItem.insumos.map((insumo) => ({
+    nome: insumo.nome ?? "",
+    quantidade: String(insumo.quantidade ?? ""),
+  }));
 }
 
 /* ── Formulário principal ── */
@@ -430,6 +463,7 @@ export default function LancamentoForm({
   initialAtividadeId,
   initialProjetoId,
   initialTalhao,
+  editingItem,
 }: {
   equipes: Equipe[];
   atividades: Atividade[];
@@ -437,30 +471,30 @@ export default function LancamentoForm({
   initialAtividadeId?: string;
   initialProjetoId?: string;
   initialTalhao?: string;
+  editingItem?: EditingItem;
 }) {
   const { toast } = useToast();
+  const router = useRouter();
+  const modoEdicao = !!editingItem;
   const [step, setStep] = useState<StepId>(1);
   const [temPrefill, setTemPrefill] = useState(
-    !!(initialAtividadeId || initialProjetoId || initialTalhao)
+    !!(editingItem || initialAtividadeId || initialProjetoId || initialTalhao)
   );
 
   // Form state — initial values from URL params when coming from Planejamento
-  const [data,      setData]      = useState(todayISO());
-  const [equipeId,  setEquipeId]  = useState(equipes[0]?.id ?? "");
-  const [projetoId, setProjetoId] = useState(initialProjetoId ?? projetos[0]?.id ?? "");
-  const [talhao,    setTalhao]    = useState(() => {
-    if (!initialTalhao) return "";
-    // ensure mask format
-    const raw = initialTalhao.replace(/\D/g, "").slice(0, 5);
-    return raw.length > 3 ? `${raw.slice(0, 3)}-${raw.slice(3)}` : raw;
-  });
-  const [atividadeId,    setAtividadeId]    = useState(initialAtividadeId ?? atividades[0]?.id ?? "");
+  const [data,      setData]      = useState(editingItem?.data ?? todayISO());
+  const [equipeId,  setEquipeId]  = useState(editingItem?.equipe_id ?? equipes[0]?.id ?? "");
+  const [projetoId, setProjetoId] = useState(editingItem?.projeto_id ?? initialProjetoId ?? projetos[0]?.id ?? "");
+  const [talhao,    setTalhao]    = useState(() => maskTalhao(editingItem?.talhao ?? initialTalhao));
+  const [atividadeId,    setAtividadeId]    = useState(editingItem?.atividade_id ?? initialAtividadeId ?? atividades[0]?.id ?? "");
   const [atividadeBusca, setAtividadeBusca] = useState("");
   const [projetoBusca,   setProjetoBusca]   = useState("");
-  const [qtd,            setQtd]            = useState("");
-  const [descarte,       setDescarte]       = useState("");
-  const [insumos,        setInsumos]        = useState(emptyInsumos);
-  const [obs,            setObs]            = useState("");
+  const [qtd,            setQtd]            = useState(editingItem ? String(Number(editingItem.quantidade)) : "");
+  const [descarte,       setDescarte]       = useState(
+    editingItem?.descarte != null ? String(Number(editingItem.descarte)) : ""
+  );
+  const [insumos,        setInsumos]        = useState(() => initialInsumos(editingItem));
+  const [obs,            setObs]            = useState(editingItem?.observacoes ?? "");
   const [enviando,       setEnviando]       = useState(false);
 
   const atividade = useMemo(
@@ -519,8 +553,8 @@ export default function LancamentoForm({
   async function enviarDados(formData: object) {
     setEnviando(true);
     try {
-      const r = await fetch("/api/producao", {
-        method: "POST",
+      const r = await fetch(modoEdicao ? `/api/producao/${editingItem!.id}` : "/api/producao", {
+        method: modoEdicao ? "PATCH" : "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(formData),
       });
@@ -530,6 +564,10 @@ export default function LancamentoForm({
       }
       return true;
     } catch (err) {
+      if (modoEdicao) {
+        toast(`Erro: ${(err as Error).message}`, "error");
+        return false;
+      }
       try {
         const pend = JSON.parse(localStorage.getItem("gn:pendentes") ?? "[]");
         pend.push({ ...formData, ts: Date.now() });
@@ -564,7 +602,12 @@ export default function LancamentoForm({
     };
     const ok = await enviarDados(formData);
     if (ok) {
-      toast("Produção registrada!", "success");
+      toast(modoEdicao ? "Apontamento atualizado!" : "Produção registrada!", "success");
+      if (modoEdicao) {
+        router.push("/resumo");
+        router.refresh();
+        return;
+      }
       limpar();
       setStep(1);
     }
@@ -581,7 +624,8 @@ export default function LancamentoForm({
           atividadeNome={prefillAtividade.nome}
           projetoNome={prefillProjeto.nome}
           talhao={talhao}
-          onDescartar={() => setTemPrefill(false)}
+          variant={modoEdicao ? "edicao" : "planejamento"}
+          onDescartar={modoEdicao ? undefined : () => setTemPrefill(false)}
         />
       )}
 
@@ -787,7 +831,7 @@ export default function LancamentoForm({
               loading={enviando}
               className="flex-[2] btn-field"
             >
-              ✓ Registrar produção
+              {modoEdicao ? "Atualizar apontamento" : "Registrar produção"}
             </Button>
           </div>
         </div>

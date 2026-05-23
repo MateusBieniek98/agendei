@@ -10,16 +10,19 @@ type GestorPageProps = {
 };
 
 const ABAS_VALIDAS: GestorDashboardAba[] = [
-  "faturamento",
+  "indicadores",
+  "equipes",
   "manutencao",
   "planejamento",
+  "faturamento",
 ];
 
 function normalizarTab(tab: string | string[] | undefined): GestorDashboardAba {
   const value = Array.isArray(tab) ? tab[0] : tab;
+  if (value === "faturamento") return "indicadores";
   return ABAS_VALIDAS.includes(value as GestorDashboardAba)
     ? (value as GestorDashboardAba)
-    : "faturamento";
+    : "indicadores";
 }
 
 export default async function GestorPage({ searchParams }: GestorPageProps) {

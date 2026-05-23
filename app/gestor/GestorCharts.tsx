@@ -31,9 +31,11 @@ function tendencia(serie: { faturamento: number }[]): (number | null)[] {
 export function LinhaChart({
   serie,
   mediaDia,
+  className = "mt-3 h-64 w-full",
 }: {
   serie: { data: string; faturamento: number }[];
   mediaDia?: number;
+  className?: string;
 }) {
   const trend = tendencia(serie);
 
@@ -45,7 +47,7 @@ export function LinhaChart({
   }));
 
   return (
-    <div className="h-64 w-full mt-3">
+    <div className={className}>
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart data={data} margin={{ top: 10, right: 8, left: -10, bottom: 0 }}>
           <defs>

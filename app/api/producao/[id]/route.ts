@@ -1,11 +1,13 @@
-// PATCH  /api/producao/:id   → edita (admin ou autor)
+// PATCH  /api/producao/:id   → edita (admin, autor ou encarregado da equipe no ciclo atual)
 // DELETE /api/producao/:id   → remove (admin)
 import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getCurrentProfile } from "@/lib/auth";
 import { notifyApontamentosSheet } from "@/lib/google-sheets-apontamentos";
 import { optionalNumber, sanitizeInsumos } from "@/lib/insumos";
 import { syncPlanningProgressForProduction } from "@/lib/planning-progress";
+import { resolvePreset } from "@/lib/period";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -19,7 +21,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   const supabase = await createSupabaseServer();
   const { data: anterior } = await supabase
     .from("producao")
-    .select("registrado_por, projeto_id, talhao, atividade_id")
+    .select("registrado_por, projeto_id, talhao, atividade_id, data, equipe_id")
     .eq("id", id)
     .maybeSingle();
 
@@ -27,9 +29,19 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     return NextResponse.json({ error: "lançamento não encontrado" }, { status: 404 });
   }
 
-  if (profile.role !== "admin" && anterior.registrado_por !== profile.id) {
+  const ciclo = resolvePreset("ciclo_atual");
+  const dataAnterior = String(anterior.data);
+  const noCicloAtual = dataAnterior >= ciclo.de && dataAnterior <= ciclo.ate;
+  const isAdmin = profile.role === "admin";
+  const isAuthor = anterior.registrado_por === profile.id;
+  const isTeamLead =
+    profile.role === "encarregado" &&
+    !!profile.equipe_id &&
+    profile.equipe_id === anterior.equipe_id;
+
+  if (!isAdmin && (!noCicloAtual || (!isAuthor && !isTeamLead))) {
     return NextResponse.json(
-      { error: "apenas admin ou o autor do lançamento podem editar" },
+      { error: "apenas admin, autor ou encarregado da equipe podem editar lançamentos do ciclo atual" },
       { status: 403 }
     );
   }
@@ -37,7 +49,6 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   const allowed: Record<string, unknown> = {};
   for (const k of [
     "data",
-    "equipe_id",
     "atividade_id",
     "projeto_id",
     "talhao",
@@ -45,6 +56,24 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     "observacoes",
   ]) {
     if (body[k] !== undefined) allowed[k] = body[k];
+  }
+  if (body.equipe_id !== undefined) {
+    if (!isAdmin && body.equipe_id !== anterior.equipe_id) {
+      return NextResponse.json(
+        { error: "encarregado não pode transferir apontamento para outra equipe" },
+        { status: 403 }
+      );
+    }
+    allowed.equipe_id = body.equipe_id;
+  }
+  if (!isAdmin && allowed.data !== undefined) {
+    const novaData = String(allowed.data);
+    if (novaData < ciclo.de || novaData > ciclo.ate) {
+      return NextResponse.json(
+        { error: "edição permitida apenas dentro do ciclo atual" },
+        { status: 403 }
+      );
+    }
   }
   if (body.insumos !== undefined) allowed.insumos = sanitizeInsumos(body.insumos);
   if (body.descarte !== undefined) allowed.descarte = optionalNumber(body.descarte);
@@ -63,7 +92,16 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   }
   allowed.editado_por = profile.id;
 
-  const { data, error } = await supabase
+  const needsElevatedWrite = !isAdmin && !isAuthor && isTeamLead;
+  const writeClient = needsElevatedWrite ? createSupabaseAdminClient() : supabase;
+  if (!writeClient) {
+    return NextResponse.json(
+      { error: "edição de apontamentos da equipe requer SUPABASE_SERVICE_ROLE_KEY configurada" },
+      { status: 500 }
+    );
+  }
+
+  const { data, error } = await writeClient
     .from("producao")
     .update(allowed)
     .eq("id", id)
@@ -72,8 +110,8 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
   const syncErrors = await Promise.all([
-    syncPlanningProgressForProduction(supabase, anterior),
-    syncPlanningProgressForProduction(supabase, data),
+    syncPlanningProgressForProduction(writeClient, anterior),
+    syncPlanningProgressForProduction(writeClient, data),
   ]);
   const sheetsSyncError = await notifyApontamentosSheet("editado", data.id);
 

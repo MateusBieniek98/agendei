@@ -34,6 +34,9 @@ export async function GET(req: NextRequest) {
   const supabase = await createSupabaseServer();
   const today = new Date();
   const hoje = dataOperacionalISO(today);
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const ontem = dataOperacionalISO(yesterday);
 
   // Faturamento por dia no período
   const { data: serie } = await supabase
@@ -100,6 +103,9 @@ export async function GET(req: NextRequest) {
   const totalPeriodo = rows.reduce((s, r) => s + Number(r.faturamento ?? 0), 0);
   const totalHoje = rows
     .filter((r) => r.data === hoje)
+    .reduce((s, r) => s + Number(r.faturamento ?? 0), 0);
+  const totalOntem = rows
+    .filter((r) => r.data === ontem)
     .reduce((s, r) => s + Number(r.faturamento ?? 0), 0);
 
   // Faturamento médio por dia: divide pelo número de dias DECORRIDOS
@@ -255,6 +261,7 @@ export async function GET(req: NextRequest) {
       diasRestantesAposHoje: dRestantesAposHoje,
     },
     hoje: totalHoje,
+    ontem: totalOntem,
     total: totalPeriodo,
     mediaDia,
     meta: valorMeta,
