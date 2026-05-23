@@ -12,12 +12,17 @@
     "apk:sync": "npx cap sync android",
     "apk:open": "npx cap open android",
     "apk:build:debug": "JAVA_HOME=\"/Applications/Android Studio.app/Contents/jbr/Contents/Home\" npm run apk:sync && cd android && JAVA_HOME=\"/Applications/Android Studio.app/Contents/jbr/Contents/Home\" ./gradlew assembleDebug",
+    "ios:add": "npx cap add ios",
+    "ios:sync": "npx cap sync ios",
+    "ios:open": "npx cap open ios",
+    "ios:build:sim": "npm run ios:sync && xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug -sdk iphonesimulator CODE_SIGNING_ALLOWED=NO build",
     "db:reset": "echo 'Rode lib/db/schema.sql e lib/db/seed.sql no SQL editor do Supabase'"
   },
   "dependencies": {
     "@capacitor/android": "^8.3.4",
     "@capacitor/cli": "^8.3.4",
     "@capacitor/core": "^8.3.4",
+    "@capacitor/ios": "^8.3.4",
     "@supabase/auth-helpers-nextjs": "^0.15.0",
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.103.0",
