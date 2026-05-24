@@ -7,11 +7,13 @@ export default async function GestorLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const profile = await requireRole(["gestor", "admin"]);
+  const profile = await requireRole(["gestor", "admin", "encarregado"]);
+  const title = profile.role === "encarregado" ? "Encarregado" : "Gestor";
+
   return (
     <div className="app-scroll-area with-bottom-nav bg-[var(--bg-page)]">
       <TopBar
-        title="Gestor"
+        title={title}
         subtitle={profile.nome}
         right={<LogoutButton />}
       />

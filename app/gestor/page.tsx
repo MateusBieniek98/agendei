@@ -26,7 +26,19 @@ function normalizarTab(tab: string | string[] | undefined): GestorDashboardAba {
 }
 
 export default async function GestorPage({ searchParams }: GestorPageProps) {
-  await requireRole(["gestor", "admin"]);
+  const profile = await requireRole(["gestor", "admin", "encarregado"]);
   const params = await searchParams;
-  return <GestorDashboard initialAba={normalizarTab(params.tab)} />;
+  const requestedTab = normalizarTab(params.tab);
+  const initialAba =
+    profile.role === "encarregado" && requestedTab !== "equipes"
+      ? "indicadores"
+      : requestedTab;
+
+  return (
+    <GestorDashboard
+      initialAba={initialAba}
+      mostrarManutencao={profile.role !== "encarregado"}
+      mostrarPlanejamento={profile.role !== "encarregado"}
+    />
+  );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { brl, ddmmyyyy, num } from "@/lib/format";
 
@@ -74,6 +74,98 @@ function PencilIcon() {
   );
 }
 
+function GaugeIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-5 w-5"
+      aria-hidden
+    >
+      <path d="M12 14l3-3" />
+      <path d="M4 14a8 8 0 1 1 16 0" />
+      <path d="M5.5 18h13" />
+    </svg>
+  );
+}
+
+function UsersIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-5 w-5"
+      aria-hidden
+    >
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  );
+}
+
+function DashboardShortcutCards() {
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      <DashboardShortcutCard
+        href="/gestor?tab=indicadores"
+        title="Indicadores"
+        subtitle="Dashboard Geral"
+        icon={<GaugeIcon />}
+      />
+      <DashboardShortcutCard
+        href="/gestor?tab=equipes"
+        title="Equipes"
+        subtitle="Análise de Desempenho"
+        icon={<UsersIcon />}
+      />
+    </div>
+  );
+}
+
+function DashboardShortcutCard({
+  href,
+  title,
+  subtitle,
+  icon,
+}: {
+  href: string;
+  title: string;
+  subtitle: string;
+  icon: ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      className="group rounded-lg border p-3 transition hover:-translate-y-0.5 hover:opacity-95 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+      style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}
+      aria-label={`Abrir ${title}`}
+    >
+      <div
+        className="mb-2 grid h-9 w-9 place-items-center rounded-lg transition group-hover:scale-105"
+        style={{ background: "var(--accent-subtle)", color: "var(--accent)" }}
+      >
+        {icon}
+      </div>
+      <p className="truncate text-sm font-black" style={{ color: "var(--text-primary)" }}>
+        {title}
+      </p>
+      <p className="mt-0.5 truncate text-[11px] font-semibold" style={{ color: "var(--text-muted)" }}>
+        {subtitle}
+      </p>
+    </Link>
+  );
+}
+
 export default function ResultadosFeed({
   linhas,
   atividades,
@@ -116,6 +208,8 @@ export default function ResultadosFeed({
 
   return (
     <section className="mx-auto max-w-2xl space-y-3">
+      <DashboardShortcutCards />
+
       <div
         className="rounded-lg border p-3"
         style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}

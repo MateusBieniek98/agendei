@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import BottomNav, { type DashboardDockTab } from "@/components/nav/BottomNav";
+import BottomNav, { type BottomNavViewType, type DashboardDockTab } from "@/components/nav/BottomNav";
 import { brl, ddmmyyyy } from "@/lib/format";
 import { LinhaChart } from "@/app/gestor/GestorCharts";
 import PeriodoFiltro, { type PeriodoState } from "@/components/dashboard/PeriodoFiltro";
@@ -164,6 +164,8 @@ export default function AdminDashboard({
   const canManageMetas = mode === "admin";
   const showExportActions = showExports ?? mode === "admin";
   const showPeriodFilter = activeTab === "indicadores" || activeTab === "equipes";
+  const bottomNavViewType: BottomNavViewType =
+    mode === "admin" ? "admin" : mode === "encarregado" ? "encarregado" : "gestor";
 
   return (
     <div className="space-y-3 pb-2">
@@ -209,7 +211,7 @@ export default function AdminDashboard({
         </>
       )}
 
-      <BottomNav viewType={mode === "admin" ? "admin" : "gestor"} activeTab={activeTab} onTabChange={setActiveTab} />
+      <BottomNav viewType={bottomNavViewType} activeTab={activeTab} onTabChange={setActiveTab} />
     </div>
   );
 }
