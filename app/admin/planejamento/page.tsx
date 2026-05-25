@@ -18,6 +18,9 @@ type PlanejamentoRow = Planejamento & {
   faturamento_planejado:  number;
 };
 
+type PlanejamentoView = "timeline" | "equipes";
+type TimelineGroupBy = "projeto" | "equipe";
+
 const STATUS_OPTS: { value: PlanningStatus; label: string }[] = [
   { value: "planejado",   label: "Planejado"   },
   { value: "em_execucao", label: "Em execução" },
@@ -40,6 +43,7 @@ const STATUS_BG: Record<PlanningStatus, string> = {
 };
 
 const MESES = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 function hoje() { return todayISO(); }
 
@@ -48,6 +52,93 @@ function faturamentoPlanejado(
   atividade: { valor_unitario: number } | null | undefined,
 ) {
   return Number(qtd ?? 0) * Number(atividade?.valor_unitario ?? 0);
+}
+
+function utcFromISO(iso: string) {
+  const [year, month, day] = iso.split("-").map(Number);
+  return Date.UTC(year, month - 1, day);
+}
+
+function diffDays(start: string, end: string) {
+  return Math.round((utcFromISO(end) - utcFromISO(start)) / DAY_MS);
+}
+
+function addDaysISO(iso: string, days: number) {
+  const date = new Date(utcFromISO(iso));
+  date.setUTCDate(date.getUTCDate() + days);
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function shortDate(iso: string) {
+  const [, month, day] = iso.split("-");
+  return `${day}/${month}`;
+}
+
+function timelineStart(item: PlanejamentoRow) {
+  return item.data_inicio ?? item.data_limite;
+}
+
+function timelineRange(item: PlanejamentoRow) {
+  const start = timelineStart(item);
+  const end = diffDays(start, item.data_limite) >= 0 ? item.data_limite : start;
+  return { start, end };
+}
+
+function getTimelineBounds(items: PlanejamentoRow[]) {
+  if (items.length === 0) return null;
+  const starts = items.map((item) => timelineRange(item).start);
+  const ends = items.map((item) => timelineRange(item).end);
+  const start = starts.reduce((min, date) => (date < min ? date : min), starts[0]);
+  const end = ends.reduce((max, date) => (date > max ? date : max), ends[0]);
+  return { start, end, totalDays: Math.max(diffDays(start, end) + 1, 1) };
+}
+
+function timelineDayWidth(totalDays: number) {
+  if (totalDays > 120) return 18;
+  if (totalDays > 60) return 24;
+  if (totalDays > 32) return 32;
+  return 44;
+}
+
+function timelineMarkerStep(totalDays: number) {
+  if (totalDays > 120) return 30;
+  if (totalDays > 60) return 14;
+  if (totalDays > 32) return 7;
+  if (totalDays > 18) return 3;
+  return 1;
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function statusLabel(status: PlanningStatus) {
+  return STATUS_OPTS.find((item) => item.value === status)?.label ?? status;
+}
+
+function timelineGroupLabel(item: PlanejamentoRow, groupBy: TimelineGroupBy) {
+  if (groupBy === "equipe") return item.equipes?.nome ?? "Sem equipe";
+  return item.projetos?.nome ?? "Sem projeto";
+}
+
+function timelineTone(item: PlanejamentoRow) {
+  const isLate =
+    item.status !== "concluido" &&
+    item.status !== "cancelado" &&
+    item.data_limite < hoje();
+
+  if (isLate) {
+    return { label: "Atrasado", color: "var(--danger)", bg: "var(--danger-bg)" };
+  }
+
+  return {
+    label: statusLabel(item.status),
+    color: STATUS_COLOR[item.status],
+    bg: STATUS_BG[item.status],
+  };
 }
 
 /* ── Progress bar ── */
@@ -63,6 +154,217 @@ function ProgressBar({ pct }: { pct: number }) {
         className="h-full rounded-full transition-all"
         style={{ width: `${Math.min(pct, 100)}%`, background: cor }}
       />
+    </div>
+  );
+}
+
+/* ── Timeline ── */
+function PlanejamentoTimeline({
+  items,
+  groupBy,
+  onEditar,
+  onConcluir,
+}: {
+  items: PlanejamentoRow[];
+  groupBy: TimelineGroupBy;
+  onEditar: (item: PlanejamentoRow) => void;
+  onConcluir: (id: string) => void;
+}) {
+  const bounds = getTimelineBounds(items);
+  if (!bounds) return null;
+
+  const dayWidth = timelineDayWidth(bounds.totalDays);
+  const timelineWidth = Math.max(bounds.totalDays * dayWidth, 760);
+  const markerStep = timelineMarkerStep(bounds.totalDays);
+  const markerOffsets = new Set<number>();
+  for (let offset = 0; offset < bounds.totalDays; offset += markerStep) {
+    markerOffsets.add(offset);
+  }
+  markerOffsets.add(bounds.totalDays - 1);
+
+  const todayOffset =
+    hoje() >= bounds.start && hoje() <= bounds.end
+      ? diffDays(bounds.start, hoje()) * dayWidth
+      : null;
+
+  const groups = Array.from(
+    items.reduce((map, item) => {
+      const label = timelineGroupLabel(item, groupBy);
+      const current = map.get(label) ?? [];
+      current.push(item);
+      map.set(label, current);
+      return map;
+    }, new Map<string, PlanejamentoRow[]>())
+  )
+    .map(([label, groupItems]) => ({
+      label,
+      items: groupItems.sort((a, b) => {
+        const byStart = timelineStart(a).localeCompare(timelineStart(b));
+        return byStart !== 0 ? byStart : a.data_limite.localeCompare(b.data_limite);
+      }),
+    }))
+    .sort((a, b) => timelineStart(a.items[0]).localeCompare(timelineStart(b.items[0])));
+
+  return (
+    <div
+      className="rounded-2xl p-3 sm:p-4"
+      style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}
+    >
+      <div
+        className="flex flex-col gap-2 border-b pb-3 sm:flex-row sm:items-center sm:justify-between"
+        style={{ borderColor: "var(--border)" }}
+      >
+        <div className="min-w-0">
+          <p className="text-sm font-black" style={{ color: "var(--text-primary)" }}>
+            Timeline de planejamento
+          </p>
+          <p className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
+            {items.length} {items.length === 1 ? "item" : "itens"} entre {ddmmyyyy(bounds.start)} e {ddmmyyyy(bounds.end)}
+          </p>
+        </div>
+        <span
+          className="w-fit rounded-full px-3 py-1 text-xs font-black"
+          style={{ background: "var(--accent-subtle)", color: "var(--accent)" }}
+        >
+          {groupBy === "projeto" ? "Por projeto" : "Por equipe"}
+        </span>
+      </div>
+
+      <div className="mt-3 overflow-x-auto pb-1">
+        <div className="space-y-3" style={{ minWidth: timelineWidth, width: timelineWidth }}>
+          <div className="relative h-10" style={{ width: timelineWidth }}>
+            <div className="absolute bottom-2 left-0 right-0 h-px" style={{ background: "var(--border)" }} />
+            {Array.from(markerOffsets)
+              .sort((a, b) => a - b)
+              .map((offset) => (
+                <div
+                  key={offset}
+                  className="absolute bottom-0 top-2 w-px"
+                  style={{ left: offset * dayWidth, background: "var(--border)" }}
+                >
+                  <span
+                    className="absolute -translate-x-1/2 whitespace-nowrap text-[10px] font-bold"
+                    style={{ top: -2, color: "var(--text-muted)" }}
+                  >
+                    {shortDate(addDaysISO(bounds.start, offset))}
+                  </span>
+                </div>
+              ))}
+            {todayOffset != null && (
+              <div
+                className="absolute bottom-0 top-0 w-0.5 rounded-full"
+                style={{ left: todayOffset, background: "var(--accent)" }}
+              >
+                <span
+                  className="absolute left-2 top-0 rounded-full px-2 py-0.5 text-[10px] font-black"
+                  style={{ background: "var(--accent)", color: "#fff" }}
+                >
+                  Hoje
+                </span>
+              </div>
+            )}
+          </div>
+
+          {groups.map((group) => {
+            const faturamento = group.items.reduce(
+              (sum, item) => sum + (item.faturamento_planejado ?? faturamentoPlanejado(item.quantidade_prevista, item.atividades)),
+              0,
+            );
+            const mediaRealizada =
+              group.items.reduce((sum, item) => sum + (item.pct_realizado ?? 0), 0) / group.items.length;
+
+            return (
+              <section
+                key={group.label}
+                className="rounded-xl p-3"
+                style={{ background: "var(--bg-page)", border: "1px solid var(--border)" }}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-black" style={{ color: "var(--text-primary)" }}>
+                      {group.label}
+                    </p>
+                    <p className="text-[11px] font-semibold" style={{ color: "var(--text-muted)" }}>
+                      {group.items.length} {group.items.length === 1 ? "atividade" : "atividades"} · {mediaRealizada.toFixed(0)}% realizado
+                    </p>
+                  </div>
+                  <p className="shrink-0 text-xs font-black tabular" style={{ color: "var(--accent)" }}>
+                    {brl(faturamento)}
+                  </p>
+                </div>
+
+                <div className="mt-3 space-y-2">
+                  {group.items.map((item) => {
+                    const range = timelineRange(item);
+                    const startOffset = clamp(diffDays(bounds.start, range.start), 0, bounds.totalDays - 1);
+                    const endOffset = clamp(diffDays(bounds.start, range.end), startOffset, bounds.totalDays - 1);
+                    const left = startOffset * dayWidth;
+                    const width = Math.max((endOffset - startOffset + 1) * dayWidth, 168);
+                    const tone = timelineTone(item);
+                    const canConcluir = !["concluido", "cancelado"].includes(item.status);
+                    const previsto =
+                      item.quantidade_prevista != null && item.atividades
+                        ? `${num(item.quantidade_prevista, 1)} ${item.atividades.unidade}`
+                        : "sem quantidade";
+
+                    return (
+                      <div key={item.id} className="relative h-16" style={{ width: timelineWidth }}>
+                        <div className="absolute left-0 right-0 top-1/2 h-px" style={{ background: "var(--border)" }} />
+                        <div
+                          className="absolute top-1 flex h-14 items-center overflow-hidden rounded-lg border px-3"
+                          style={{
+                            left,
+                            width,
+                            background: tone.bg,
+                            borderColor: tone.color,
+                          }}
+                        >
+                          <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="truncate text-xs font-black" style={{ color: "var(--text-primary)" }}>
+                                {item.atividades?.nome ?? "Atividade"}
+                              </p>
+                              <p className="truncate text-[11px] font-semibold" style={{ color: "var(--text-secondary)" }}>
+                                {item.projetos?.nome ?? "Projeto"} · Talhão {item.talhao} · {previsto}
+                              </p>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-2">
+                              <span
+                                className="hidden rounded-full px-2 py-0.5 text-[10px] font-black sm:inline-flex"
+                                style={{ color: tone.color, border: `1px solid ${tone.color}` }}
+                              >
+                                {tone.label}
+                              </span>
+                              {canConcluir && (
+                                <button
+                                  type="button"
+                                  onClick={() => onConcluir(item.id)}
+                                  className="hidden min-h-9 rounded-lg px-3 text-[11px] font-black transition active:opacity-80 sm:inline-flex sm:items-center"
+                                  style={{ background: "var(--success-bg)", color: "var(--success)" }}
+                                >
+                                  Concluir
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => onEditar(item)}
+                                className="min-h-9 rounded-lg px-3 text-[11px] font-black text-white transition active:opacity-80"
+                                style={{ background: "var(--accent)" }}
+                              >
+                                Editar
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
@@ -459,6 +761,8 @@ export default function PlanejamentoAdminPage() {
   const [mesFiltro,     setMesFiltro]     = useState(String(now.getMonth() + 1));
   const [projetoFiltro, setProjetoFiltro] = useState("");
   const [statusFiltro,  setStatusFiltro]  = useState("");
+  const [visualizacao, setVisualizacao] = useState<PlanejamentoView>("timeline");
+  const [timelineGroupBy, setTimelineGroupBy] = useState<TimelineGroupBy>("equipe");
 
   // Modal states
   const [teamModal,    setTeamModal]    = useState<string | null>(null); // equipe_id or SEM_EQUIPE_ID
@@ -637,14 +941,14 @@ export default function PlanejamentoAdminPage() {
           type="number"
           value={anoFiltro}
           onChange={(e) => setAnoFiltro(e.target.value)}
-          className="h-9 w-24 rounded-xl border px-3 text-sm font-semibold"
+          className="h-11 w-24 rounded-xl border px-3 text-sm font-semibold"
           style={{ background: "var(--bg-card)", color: "var(--text-primary)", borderColor: "var(--border)" }}
           placeholder="Ano"
         />
         <select
           value={mesFiltro}
           onChange={(e) => setMesFiltro(e.target.value)}
-          className="h-9 rounded-xl border px-3 text-xs font-semibold"
+          className="h-11 rounded-xl border px-3 text-xs font-semibold"
           style={{ background: "var(--bg-card)", color: "var(--text-primary)", borderColor: "var(--border)" }}
         >
           <option value="">Todos os meses</option>
@@ -655,7 +959,7 @@ export default function PlanejamentoAdminPage() {
         <select
           value={projetoFiltro}
           onChange={(e) => setProjetoFiltro(e.target.value)}
-          className="h-9 rounded-xl border px-3 text-xs font-semibold"
+          className="h-11 rounded-xl border px-3 text-xs font-semibold"
           style={{ background: "var(--bg-card)", color: "var(--text-primary)", borderColor: "var(--border)" }}
         >
           <option value="">Todos os projetos</option>
@@ -664,12 +968,62 @@ export default function PlanejamentoAdminPage() {
         <select
           value={statusFiltro}
           onChange={(e) => setStatusFiltro(e.target.value)}
-          className="h-9 rounded-xl border px-3 text-xs font-semibold"
+          className="h-11 rounded-xl border px-3 text-xs font-semibold"
           style={{ background: "var(--bg-card)", color: "var(--text-primary)", borderColor: "var(--border)" }}
         >
           <option value="">Todos os status</option>
           {STATUS_OPTS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
         </select>
+      </div>
+
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div
+          className="grid grid-cols-2 rounded-xl p-1 sm:w-fit"
+          style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}
+        >
+          {([
+            { v: "timeline", label: "Timeline" },
+            { v: "equipes", label: "Equipes" },
+          ] as { v: PlanejamentoView; label: string }[]).map((option) => (
+            <button
+              key={option.v}
+              type="button"
+              onClick={() => setVisualizacao(option.v)}
+              className="min-h-11 rounded-lg px-4 text-sm font-black transition"
+              style={{
+                background: visualizacao === option.v ? "var(--accent)" : "transparent",
+                color: visualizacao === option.v ? "#fff" : "var(--text-secondary)",
+              }}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+
+        {visualizacao === "timeline" && (
+          <div
+            className="grid grid-cols-2 rounded-xl p-1 sm:w-fit"
+            style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}
+          >
+            {([
+              { v: "equipe", label: "Equipe" },
+              { v: "projeto", label: "Projeto" },
+            ] as { v: TimelineGroupBy; label: string }[]).map((option) => (
+              <button
+                key={option.v}
+                type="button"
+                onClick={() => setTimelineGroupBy(option.v)}
+                className="min-h-11 rounded-lg px-4 text-sm font-black transition"
+                style={{
+                  background: timelineGroupBy === option.v ? "var(--accent-subtle)" : "transparent",
+                  color: timelineGroupBy === option.v ? "var(--accent)" : "var(--text-secondary)",
+                }}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Card grid */}
@@ -691,6 +1045,13 @@ export default function PlanejamentoAdminPage() {
           </p>
           <Button onClick={novoForm}>+ Novo planejamento</Button>
         </div>
+      ) : visualizacao === "timeline" ? (
+        <PlanejamentoTimeline
+          items={itensFiltrados}
+          groupBy={timelineGroupBy}
+          onEditar={handleEditar}
+          onConcluir={concluir}
+        />
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {equipeGroups.map(([key, group]) => (
