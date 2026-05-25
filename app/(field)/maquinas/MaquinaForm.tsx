@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Button from "@/components/ui/Button";
-import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import Badge from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
@@ -208,6 +207,104 @@ function MachinePicker({
   );
 }
 
+function ProjectPicker({
+  projetos,
+  selected,
+  selectedId,
+  busca,
+  onBuscaChange,
+  onSelect,
+}: {
+  projetos: Projeto[];
+  selected: Projeto | undefined;
+  selectedId: string;
+  busca: string;
+  onBuscaChange: (value: string) => void;
+  onSelect: (id: string) => void;
+}) {
+  return (
+    <section
+      className="rounded-2xl border p-3 shadow-sm"
+      style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}
+    >
+      <div>
+        <h3 className="text-sm font-black" style={{ color: "var(--text-primary)" }}>
+          Projeto / fazenda
+        </h3>
+        <p className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
+          {selected?.nome ?? "Nenhum projeto selecionado"}
+        </p>
+      </div>
+
+      <div className="mt-3">
+        <label className="text-xs font-black uppercase" style={{ color: "var(--text-muted)" }}>
+          Buscar projeto
+        </label>
+        <div className="mt-1 flex min-h-12 items-center rounded-xl border-2 px-3" style={{ background: "var(--bg-input, var(--bg-card))", borderColor: "var(--border)" }}>
+          <input
+            type="search"
+            value={busca}
+            onChange={(e) => onBuscaChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") e.preventDefault();
+            }}
+            className="min-w-0 flex-1 bg-transparent text-base font-bold outline-none"
+            style={{ color: "var(--text-primary)" }}
+            placeholder="Digite parte do projeto ou fazenda"
+          />
+          {busca && (
+            <button
+              type="button"
+              onClick={() => onBuscaChange("")}
+              className="ml-2 min-h-9 rounded-lg px-2 text-xs font-black"
+              style={{ color: "var(--accent)" }}
+            >
+              Limpar
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-3 max-h-56 space-y-2 overflow-y-auto pr-1">
+        {projetos.length === 0 ? (
+          <div
+            className="rounded-xl border border-dashed p-4 text-center text-sm font-semibold"
+            style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}
+          >
+            Nenhum projeto encontrado.
+          </div>
+        ) : (
+          projetos.map((projeto) => {
+            const active = selectedId === projeto.id;
+            return (
+              <button
+                key={projeto.id}
+                type="button"
+                onClick={() => onSelect(projeto.id)}
+                aria-pressed={active}
+                className="flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border p-3 text-left transition active:scale-[0.99]"
+                style={{
+                  background: active ? "var(--accent-subtle)" : "var(--bg-page)",
+                  borderColor: active ? "var(--accent)" : "var(--border)",
+                }}
+              >
+                <span className="min-w-0 truncate text-sm font-black" style={{ color: "var(--text-primary)" }}>
+                  {projeto.nome}
+                </span>
+                {active && (
+                  <span className="shrink-0 rounded-full px-2 py-1 text-[11px] font-black" style={{ background: "var(--accent)", color: "#fff" }}>
+                    Selecionado
+                  </span>
+                )}
+              </button>
+            );
+          })
+        )}
+      </div>
+    </section>
+  );
+}
+
 export default function MaquinaForm({
   maquinas,
   equipes,
@@ -246,13 +343,18 @@ export default function MaquinaForm({
   const [descricao, setDescricao] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [resolvendoId, setResolvendoId] = useState<string | null>(null);
-  const projetoOptions = useMemo(() => {
+  const projetoSelecionado = useMemo(
+    () => projetos.find((p) => p.id === projetoId),
+    [projetos, projetoId]
+  );
+  const projetosFiltrados = useMemo(() => {
     const filtrados = searchItems(projetos, projetoBusca, [(p) => p.nome]);
-    const selected = projetoId ? projetos.find((p) => p.id === projetoId) : undefined;
-    return selected && !filtrados.some((p) => p.id === selected.id)
-      ? [selected, ...filtrados]
-      : filtrados;
-  }, [projetos, projetoBusca, projetoId]);
+    if (!projetoSelecionado) return filtrados;
+    return [
+      projetoSelecionado,
+      ...filtrados.filter((p) => p.id !== projetoSelecionado.id),
+    ];
+  }, [projetos, projetoBusca, projetoSelecionado]);
   const pendentesFiltradas = useMemo(
     () =>
       searchItems(pendentes, pendentesBusca, [
@@ -433,23 +535,13 @@ export default function MaquinaForm({
         </div>
       </div>
 
-      <Input
-        label="Buscar projeto"
-        type="search"
-        value={projetoBusca}
-        onChange={(e) => setProjetoBusca(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") e.preventDefault();
-        }}
-        placeholder="Digite parte da fazenda/projeto"
-      />
-
-      <Select
-        label="Projeto"
-        value={projetoId}
-        onChange={(e) => setProjetoId(e.target.value)}
-        options={projetoOptions.map((p) => ({ value: p.id, label: p.nome }))}
-        placeholder="Selecione…"
+      <ProjectPicker
+        projetos={projetosFiltrados}
+        selected={projetoSelecionado}
+        selectedId={projetoId}
+        busca={projetoBusca}
+        onBuscaChange={setProjetoBusca}
+        onSelect={setProjetoId}
       />
 
       <div className="flex flex-col gap-1.5">
