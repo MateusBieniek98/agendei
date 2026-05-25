@@ -153,6 +153,11 @@ function statusLabel(status: Manut["status"]) {
   return "aberto";
 }
 
+const MANUTENCAO_COLUMNS: { status: Manut["status"]; label: string; color: string; bg: string }[] = [
+  { status: "aberto", label: "Abertas", color: "var(--danger)", bg: "var(--danger-bg)" },
+  { status: "em_andamento", label: "Em andamento", color: "var(--warn)", bg: "var(--warn-bg)" },
+];
+
 export default function AdminDashboard({
   mode = "admin",
   showExports,
@@ -868,44 +873,72 @@ function ManutencaoPage({ data, links }: { data: DashboardData; links: Dashboard
             Frota toda em ordem.
           </p>
         ) : (
-          <ul className="mt-3 space-y-2">
-            {data.manutencoesAbertas.map((m) => (
-              <li
-                key={m.id}
-                className="rounded-lg border p-3"
-                style={{ background: "var(--bg-card-alt)", borderColor: "var(--border)" }}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-bold" style={{ color: "var(--text-primary)" }}>
-                      {m.maquinas?.nome ?? "Máquina removida"}
-                      {m.maquinas?.identificador ? ` · ${m.maquinas.identificador}` : ""}
-                    </p>
-                    <p className="truncate text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
-                      {m.equipes?.nome ?? "Frente não informada"}
-                      {m.projetos?.nome ? ` · ${m.projetos.nome}` : ""}
-                      {m.talhao ? ` · Talhão ${m.talhao}` : ""}
-                    </p>
+          <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
+            {MANUTENCAO_COLUMNS.map((column) => {
+              const items = data.manutencoesAbertas.filter((m) => m.status === column.status);
+              return (
+                <section
+                  key={column.status}
+                  className="min-h-40 rounded-lg border"
+                  style={{ background: "var(--bg-card-alt)", borderColor: "var(--border)" }}
+                >
+                  <div className="flex items-center justify-between border-b px-3 py-2" style={{ borderColor: "var(--border)" }}>
+                    <div className="flex items-center gap-2">
+                      <span className="h-2.5 w-2.5 rounded-full" style={{ background: column.color }} />
+                      <h3 className="text-xs font-black uppercase" style={{ color: "var(--text-muted)" }}>
+                        {column.label}
+                      </h3>
+                    </div>
+                    <span className="rounded-full px-2 py-0.5 text-[11px] font-black" style={{ background: column.bg, color: column.color }}>
+                      {items.length}
+                    </span>
                   </div>
-                  <span
-                    className="shrink-0 rounded-full px-2 py-1 text-[11px] font-bold"
-                    style={{
-                      background: m.status === "aberto" ? "var(--danger-bg)" : "var(--warn-bg)",
-                      color: m.status === "aberto" ? "var(--danger)" : "var(--warn)",
-                    }}
-                  >
-                    {statusLabel(m.status)}
-                  </span>
-                </div>
-                <p className="mt-2 text-sm font-semibold" style={{ color: "var(--text-secondary)" }}>
-                  {m.descricao}
-                </p>
-                <p className="mt-1 text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
-                  Aberto em {ddmmyyyy(m.created_at)}
-                </p>
-              </li>
-            ))}
-          </ul>
+
+                  <div className="space-y-2 p-2">
+                    {items.length === 0 ? (
+                      <p className="rounded-lg border border-dashed p-3 text-center text-xs font-semibold" style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}>
+                        Sem OS nesta etapa.
+                      </p>
+                    ) : (
+                      items.map((m) => (
+                        <article
+                          key={m.id}
+                          className="rounded-lg border p-3"
+                          style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-bold" style={{ color: "var(--text-primary)" }}>
+                                {m.maquinas?.nome ?? "Máquina removida"}
+                                {m.maquinas?.identificador ? ` · ${m.maquinas.identificador}` : ""}
+                              </p>
+                              <p className="truncate text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
+                                {m.equipes?.nome ?? "Frente não informada"}
+                                {m.projetos?.nome ? ` · ${m.projetos.nome}` : ""}
+                                {m.talhao ? ` · Talhão ${m.talhao}` : ""}
+                              </p>
+                            </div>
+                            <span
+                              className="shrink-0 rounded-full px-2 py-1 text-[11px] font-bold"
+                              style={{ background: column.bg, color: column.color }}
+                            >
+                              {statusLabel(m.status)}
+                            </span>
+                          </div>
+                          <p className="mt-2 text-sm font-semibold" style={{ color: "var(--text-secondary)" }}>
+                            {m.descricao}
+                          </p>
+                          <p className="mt-1 text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
+                            Aberto em {ddmmyyyy(m.created_at)}
+                          </p>
+                        </article>
+                      ))
+                    )}
+                  </div>
+                </section>
+              );
+            })}
+          </div>
         )}
       </div>
     </section>
