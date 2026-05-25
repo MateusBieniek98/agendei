@@ -261,7 +261,7 @@ export default async function MeuDiaPage() {
 
   let planejamentoQuery = supabase
     .from("planejamento")
-    .select("*, projetos(nome), atividades(nome, unidade, valor_unitario, service_key), equipes(nome)")
+    .select("*, projetos(nome), atividades(nome, unidade, valor_unitario), equipes(nome)")
     .neq("status", "cancelado")
     .or(`data_inicio.lte.${hoje},data_inicio.is.null`)
     .gte("data_limite", hoje)

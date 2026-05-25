@@ -6,7 +6,7 @@ type ProducaoResumo = {
   talhao: string | null;
   quantidade: number | string | null;
   projetos?: { nome?: string | null } | null;
-  atividades?: { nome?: string | null; service_key?: string | null } | null;
+  atividades?: { nome?: string | null } | null;
 };
 
 type PlanejamentoBase = {
@@ -14,13 +14,8 @@ type PlanejamentoBase = {
   atividade_id: string;
   talhao: string;
   quantidade_prevista: number | string | null;
-  status?: string | null;
   projetos?: { nome?: string | null } | null;
-  atividades?: {
-    nome?: string | null;
-    service_key?: string | null;
-    valor_unitario?: number | string | null;
-  } | null;
+  atividades?: { nome?: string | null; valor_unitario?: number | string | null } | null;
 };
 
 export type PlanejamentoProgress = {
@@ -49,30 +44,6 @@ export function normalizeProjectName(value: string | null | undefined) {
   return normalizePlanningText(value).replace(/\s*-\s*(srp|rrp|cpg)\s*$/i, "").trim();
 }
 
-export function serviceMatchKeys(value: string | null | undefined, serviceKey?: string | null) {
-  const normalized = normalizePlanningText(value);
-  const normalizedServiceKey = normalizePlanningText(serviceKey);
-  const keys = new Set<string>();
-  if (normalizedServiceKey) keys.add(`service:${normalizedServiceKey}`);
-  if (normalized) keys.add(normalized);
-
-  const withoutServicePrefix = normalized
-    .replace(/\b(serv|servico)\b/g, " ")
-    .replace(/["']/g, " ")
-    .replace(/\b\d+[a-z_]*\b/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  if (withoutServicePrefix) keys.add(withoutServicePrefix);
-
-  const isIrrigacaoPlantio = /\birrigacao\b.*\bplantio\b/.test(normalized);
-  if (/\bplantio\b/.test(normalized) && !isIrrigacaoPlantio) {
-    keys.add("plantio");
-  }
-
-  return Array.from(keys).filter(Boolean);
-}
-
 function exactKey(
   projetoId: string | null | undefined,
   talhao: string | null | undefined,
@@ -89,32 +60,6 @@ function namedKey(
   return `${normalizeProjectName(projetoNome)}|${normalizeTalhao(talhao)}|${normalizePlanningText(atividadeNome)}`;
 }
 
-function serviceKey(
-  projetoNome: string | null | undefined,
-  talhao: string | null | undefined,
-  atividadeNome: string | null | undefined,
-  atividadeServiceKey?: string | null
-) {
-  return serviceMatchKeys(atividadeNome, atividadeServiceKey).map(
-    (key) => `${normalizeProjectName(projetoNome)}|${normalizeTalhao(talhao)}|${key}`
-  );
-}
-
-function firstPositiveMatch(totals: Map<string, number>, keys: string[]) {
-  for (const key of keys) {
-    const value = totals.get(key);
-    if (value && value > 0) return value;
-  }
-  return null;
-}
-
-function derivedPlanningStatus(status: string | null | undefined, realizada: number, prevista: number) {
-  if (!status || status === "cancelado" || status === "concluido") return status;
-  if (prevista > 0 && realizada >= prevista) return "concluido";
-  if (realizada > 0) return "em_execucao";
-  return status;
-}
-
 export async function enrichPlanningProgress<T extends PlanejamentoBase>(
   supabase: Pick<SupabaseClient, "from">,
   items: T[]
@@ -127,9 +72,6 @@ export async function enrichPlanningProgress<T extends PlanejamentoBase>(
       const tarifa = Number(item.atividades?.valor_unitario ?? 0);
       return {
         ...item,
-        ...(item.status
-          ? { status: derivedPlanningStatus(item.status, 0, prevista) }
-          : {}),
         quantidade_realizada: 0,
         pct_realizado: 0,
         faturamento_planejado: prevista * tarifa,
@@ -139,28 +81,19 @@ export async function enrichPlanningProgress<T extends PlanejamentoBase>(
 
   const { data, error } = await supabase
     .from("producao")
-    .select("projeto_id, atividade_id, talhao, quantidade, projetos(nome), atividades(nome, service_key)")
+    .select("projeto_id, atividade_id, talhao, quantidade, projetos(nome), atividades(nome)")
     .limit(10000);
 
   if (error) throw new Error(error.message);
 
   const exactTotals = new Map<string, number>();
   const namedTotals = new Map<string, number>();
-  const serviceTotals = new Map<string, number>();
   for (const row of (data ?? []) as ProducaoResumo[]) {
     const quantidade = Number(row.quantidade ?? 0);
     const byId = exactKey(row.projeto_id, row.talhao, row.atividade_id);
     const byName = namedKey(row.projetos?.nome, row.talhao, row.atividades?.nome);
     exactTotals.set(byId, (exactTotals.get(byId) ?? 0) + quantidade);
     namedTotals.set(byName, (namedTotals.get(byName) ?? 0) + quantidade);
-    for (const byService of serviceKey(
-      row.projetos?.nome,
-      row.talhao,
-      row.atividades?.nome,
-      row.atividades?.service_key
-    )) {
-      serviceTotals.set(byService, (serviceTotals.get(byService) ?? 0) + quantidade);
-    }
   }
 
   return items.map((item) => {
@@ -171,28 +104,14 @@ export async function enrichPlanningProgress<T extends PlanejamentoBase>(
     const realizadaPorNome = namedTotals.get(
       namedKey(item.projetos?.nome, item.talhao, item.atividades?.nome)
     );
-    const realizadaPorServico = firstPositiveMatch(
-      serviceTotals,
-      serviceKey(
-        item.projetos?.nome,
-        item.talhao,
-        item.atividades?.nome,
-        item.atividades?.service_key
-      )
-    );
     const realizada = realizadaPorId && realizadaPorId > 0
       ? realizadaPorId
-      : realizadaPorNome && realizadaPorNome > 0
-      ? realizadaPorNome
-      : realizadaPorServico ?? realizadaPorId ?? realizadaPorNome ?? 0;
+      : realizadaPorNome ?? realizadaPorId ?? 0;
     const pct = prevista > 0 ? Math.min((realizada / prevista) * 100, 999) : 0;
     const tarifa = Number(item.atividades?.valor_unitario ?? 0);
 
     return {
       ...item,
-      ...(item.status
-        ? { status: derivedPlanningStatus(item.status, realizada, prevista) }
-        : {}),
       quantidade_realizada: realizada,
       pct_realizado: pct,
       faturamento_planejado: prevista * tarifa,
