@@ -12,6 +12,7 @@ type AdminToolItem = {
 
 const ADMIN_TOOLS: AdminToolItem[] = [
   { href: "/admin", label: "Dashboard", icon: <DashboardIcon /> },
+  { href: "/admin/automacoes", label: "Automações", icon: <AutomationIcon /> },
   { href: "/admin/lancamentos", label: "Lançamentos", icon: <ListIcon /> },
   { href: "/admin/atividades", label: "Serviços", icon: <TagIcon /> },
   { href: "/admin/equipes", label: "Cad. equipes", icon: <UsersIcon /> },
@@ -161,6 +162,14 @@ function TextIcon() {
       <path d="M4 7V4h16v3" />
       <path d="M9 20h6" />
       <path d="M12 4v16" />
+    </SvgIcon>
+  );
+}
+
+function AutomationIcon() {
+  return (
+    <SvgIcon>
+      <path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z" />
     </SvgIcon>
   );
 }
