@@ -8,6 +8,31 @@ export const APP_TIME_ZONE = "America/Campo_Grande";
 
 const DAY_MS = 1000 * 60 * 60 * 24;
 
+// Calendário operacional de 2026: fins de semana não contam e os feriados/
+// pontos facultativos federais entram como dias não úteis. Datas com expediente
+// parcial entram com peso 0.5.
+const BUSINESS_DAY_WEIGHTS_2026: Record<string, number> = {
+  "2026-01-01": 0,
+  "2026-02-16": 0,
+  "2026-02-17": 0,
+  "2026-02-18": 0.5,
+  "2026-04-03": 0,
+  "2026-04-20": 0,
+  "2026-04-21": 0,
+  "2026-05-01": 0,
+  "2026-06-04": 0,
+  "2026-06-05": 0,
+  "2026-09-07": 0,
+  "2026-10-12": 0,
+  "2026-10-28": 0,
+  "2026-11-02": 0,
+  "2026-11-15": 0,
+  "2026-11-20": 0,
+  "2026-12-24": 0.5,
+  "2026-12-25": 0,
+  "2026-12-31": 0.5,
+};
+
 type LocalDateParts = {
   year: number;
   monthIndex: number;
@@ -65,6 +90,21 @@ function addDays(d: Date, days: number): Date {
 
 function diffDaysInclusive(de: Date, ate: Date): number {
   return Math.round((ate.getTime() - de.getTime()) / DAY_MS) + 1;
+}
+
+function businessDayWeight(d: Date): number {
+  const dayOfWeek = d.getUTCDay();
+  if (dayOfWeek === 0 || dayOfWeek === 6) return 0;
+  return BUSINESS_DAY_WEIGHTS_2026[toISO(d)] ?? 1;
+}
+
+function diffBusinessDaysInclusive(de: Date, ate: Date): number {
+  if (ate < de) return 0;
+  let total = 0;
+  for (let d = new Date(de); d <= ate; d = addDays(d, 1)) {
+    total += businessDayWeight(d);
+  }
+  return total;
 }
 
 export function dataOperacionalISO(today: Date = new Date()): string {
@@ -169,6 +209,44 @@ export function diasRestantesAposHoje(p: Periodo, today: Date = new Date()): num
     todayISO < p.de ? parseISODate(p.de) : addDays(parseISODate(todayISO), 1);
   const end = parseISODate(p.ate);
   return diffDaysInclusive(base, end);
+}
+
+export function diasUteisPeriodo(p: Periodo): number {
+  return diffBusinessDaysInclusive(parseISODate(p.de), parseISODate(p.ate));
+}
+
+/** Dias úteis decorridos no período, incluindo hoje se hoje for útil. */
+export function diasUteisDecorridos(
+  p: Periodo,
+  today: Date = new Date()
+): number {
+  const todayISO = dataOperacionalISO(today);
+  const start = parseISODate(p.de);
+  const end = parseISODate(todayISO < p.ate ? todayISO : p.ate);
+  return diffBusinessDaysInclusive(start, end);
+}
+
+/** Dias úteis restantes até o fim do período, incluindo hoje se hoje for útil. */
+export function diasUteisRestantes(
+  p: Periodo,
+  today: Date = new Date()
+): number {
+  const todayISO = dataOperacionalISO(today);
+  if (todayISO > p.ate) return 0;
+  const start = parseISODate(todayISO < p.de ? p.de : todayISO);
+  return diffBusinessDaysInclusive(start, parseISODate(p.ate));
+}
+
+/** Dias úteis restantes após hoje, usado na meta necessária por dia. */
+export function diasUteisRestantesAposHoje(
+  p: Periodo,
+  today: Date = new Date()
+): number {
+  const todayISO = dataOperacionalISO(today);
+  if (todayISO >= p.ate) return 0;
+  const start =
+    todayISO < p.de ? parseISODate(p.de) : addDays(parseISODate(todayISO), 1);
+  return diffBusinessDaysInclusive(start, parseISODate(p.ate));
 }
 
 export const PRESETS = {

@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { requireRole } from "@/lib/auth";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { brl, ddmmyyyy, num } from "@/lib/format";
-import { dataOperacionalISO, resolvePreset } from "@/lib/period";
+import { dataOperacionalISO, diasUteisPeriodo, resolvePreset } from "@/lib/period";
 import { enrichPlanningProgress } from "@/lib/planning-progress";
 import MeuDiaSyncCard from "./MeuDiaSyncCard";
 import type { MaintenanceStatus, PlanningStatus } from "@/lib/types";
@@ -319,7 +319,8 @@ export default async function MeuDiaPage() {
   )) as unknown as PlanejamentoDia[];
   const manutencoes = (manutencoesRaw ?? []) as unknown as ManutencaoDia[];
   const metaEquipe = Number(metaEquipeRaw?.[0]?.valor_meta ?? 0);
-  const metaDia = metaEquipe > 0 ? metaEquipe / ciclo.diasTotais : 0;
+  const diasUteisCiclo = diasUteisPeriodo(ciclo);
+  const metaDia = metaEquipe > 0 && diasUteisCiclo > 0 ? metaEquipe / diasUteisCiclo : 0;
   const faturamentoHoje = producaoDia.reduce(
     (sum, item) => sum + Number(item.quantidade ?? 0) * Number(item.valor_unitario_snapshot ?? 0),
     0

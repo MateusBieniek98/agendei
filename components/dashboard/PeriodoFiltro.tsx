@@ -1,7 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { PRESETS, type PeriodoPreset, resolvePreset } from "@/lib/period";
+import {
+  PRESETS,
+  diasUteisPeriodo,
+  type PeriodoPreset,
+  resolvePreset,
+} from "@/lib/period";
 import { ddmmyyyy } from "@/lib/format";
 
 export type PeriodoState = {
@@ -19,9 +24,12 @@ export default function PeriodoFiltro({
   onChange: (v: PeriodoState) => void;
   loading?: boolean;
 }) {
-  const [info, setInfo] = useState<{ de: string; ate: string; diasTotais: number } | null>(
-    null
-  );
+  const [info, setInfo] = useState<{
+    de: string;
+    ate: string;
+    diasTotais: number;
+    diasUteis: number;
+  } | null>(null);
   const [customDe, setCustomDe] = useState(value.de ?? "");
   const [customAte, setCustomAte] = useState(value.ate ?? "");
 
@@ -29,11 +37,21 @@ export default function PeriodoFiltro({
     if (value.preset === "custom") {
       if (value.de && value.ate) {
         const p = resolvePreset("custom", { de: value.de, ate: value.ate });
-        setInfo({ de: p.de, ate: p.ate, diasTotais: p.diasTotais });
+        setInfo({
+          de: p.de,
+          ate: p.ate,
+          diasTotais: p.diasTotais,
+          diasUteis: diasUteisPeriodo(p),
+        });
       }
     } else {
       const p = resolvePreset(value.preset);
-      setInfo({ de: p.de, ate: p.ate, diasTotais: p.diasTotais });
+      setInfo({
+        de: p.de,
+        ate: p.ate,
+        diasTotais: p.diasTotais,
+        diasUteis: diasUteisPeriodo(p),
+      });
     }
   }, [value.preset, value.de, value.ate]);
 
@@ -111,7 +129,8 @@ export default function PeriodoFiltro({
         {info && (
           <>
             <span>
-              {ddmmyyyy(info.de)} → {ddmmyyyy(info.ate)} · {info.diasTotais} dias
+              {ddmmyyyy(info.de)} → {ddmmyyyy(info.ate)} · {info.diasTotais} dias ·{" "}
+              {info.diasUteis} úteis
             </span>
           </>
         )}

@@ -70,6 +70,10 @@ type DashboardData = {
     diasDecorridos: number;
     diasRestantes: number;
     diasRestantesAposHoje: number;
+    diasUteisTotais: number;
+    diasUteisDecorridos: number;
+    diasUteisRestantes: number;
+    diasUteisRestantesAposHoje: number;
   };
   hoje: number;
   ontem: number;
@@ -138,6 +142,14 @@ function compactBrl(value: number | null | undefined) {
   if (abs >= 1_000_000) return `R$ ${(n / 1_000_000).toFixed(abs >= 10_000_000 ? 0 : 1)}mi`;
   if (abs >= 1_000) return `R$ ${(n / 1_000).toFixed(abs >= 100_000 ? 0 : 1)}k`;
   return brl(n);
+}
+
+function formatBusinessDays(value: number) {
+  const hasFraction = !Number.isInteger(value);
+  const formatted = new Intl.NumberFormat("pt-BR", {
+    maximumFractionDigits: hasFraction ? 1 : 0,
+  }).format(value);
+  return value === 1 ? `${formatted} dia` : `${formatted} dias`;
 }
 
 function progressColor(row: DashboardData["ranking"][number]) {
@@ -739,9 +751,9 @@ function EquipesPage({
           </span>
         </p>
         <p className="mt-1 text-xs font-semibold" style={{ color: "var(--text-secondary)" }}>
-          {data.periodo.diasRestantesAposHoje > 0
-            ? `${data.periodo.diasRestantesAposHoje} dias após hoje para fechar o ciclo.`
-            : "Ciclo sem dias restantes após hoje."}
+          {data.periodo.diasUteisRestantesAposHoje > 0
+            ? `${formatBusinessDays(data.periodo.diasUteisRestantesAposHoje)} úteis após hoje para fechar o ciclo.`
+            : "Ciclo sem dias úteis restantes após hoje."}
         </p>
       </div>
 

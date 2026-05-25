@@ -11,6 +11,10 @@ import {
   diasDecorridos,
   diasRestantes,
   diasRestantesAposHoje,
+  diasUteisPeriodo,
+  diasUteisDecorridos,
+  diasUteisRestantes,
+  diasUteisRestantesAposHoje,
   type PeriodoPreset,
 } from "@/lib/period";
 
@@ -113,11 +117,16 @@ export async function GET(req: NextRequest) {
   const dDecorridos = diasDecorridos(periodo, today);
   const dRestantes = diasRestantes(periodo, today);
   const dRestantesAposHoje = diasRestantesAposHoje(periodo, today);
+  const dUteisTotais = diasUteisPeriodo(periodo);
+  const dUteisDecorridos = diasUteisDecorridos(periodo, today);
+  const dUteisRestantes = diasUteisRestantes(periodo, today);
+  const dUteisRestantesAposHoje = diasUteisRestantesAposHoje(periodo, today);
   const mediaDia = dDecorridos > 0 ? totalPeriodo / dDecorridos : 0;
 
   const valorMeta = Number(meta?.valor_meta ?? 0);
   const restanteMeta = Math.max(valorMeta - totalPeriodo, 0);
-  const metaProxDia = dRestantesAposHoje > 0 ? restanteMeta / dRestantesAposHoje : 0;
+  const metaProxDia =
+    dUteisRestantesAposHoje > 0 ? restanteMeta / dUteisRestantesAposHoje : 0;
   const pctMeta = valorMeta > 0 ? (totalPeriodo / valorMeta) * 100 : 0;
 
   // Agrega por atividade
@@ -221,10 +230,13 @@ export async function GET(req: NextRequest) {
     eqAgg.set(key, cur);
   }
 
-  const divisorProjecao = Math.max(dDecorridos, 1);
-  const diasProjecao = Math.max(periodo.diasTotais, divisorProjecao);
+  const divisorProjecao = Math.max(dUteisDecorridos, 1);
+  const diasProjecao = Math.max(dUteisTotais, divisorProjecao);
   for (const equipe of eqAgg.values()) {
-    equipe.projecao = dDecorridos > 0 ? (equipe.faturamento / divisorProjecao) * diasProjecao : 0;
+    equipe.projecao =
+      dUteisDecorridos > 0
+        ? (equipe.faturamento / divisorProjecao) * diasProjecao
+        : 0;
     equipe.pctMeta = equipe.metaEquipe > 0 ? (equipe.faturamento / equipe.metaEquipe) * 100 : 0;
     equipe.pctProjecao = equipe.metaEquipe > 0 ? (equipe.projecao / equipe.metaEquipe) * 100 : 0;
     equipe.statusMeta =
@@ -259,6 +271,10 @@ export async function GET(req: NextRequest) {
       diasDecorridos: dDecorridos,
       diasRestantes: dRestantes,
       diasRestantesAposHoje: dRestantesAposHoje,
+      diasUteisTotais: dUteisTotais,
+      diasUteisDecorridos: dUteisDecorridos,
+      diasUteisRestantes: dUteisRestantes,
+      diasUteisRestantesAposHoje: dUteisRestantesAposHoje,
     },
     hoje: totalHoje,
     ontem: totalOntem,
