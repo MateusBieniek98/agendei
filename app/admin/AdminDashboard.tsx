@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import BottomNav, { type BottomNavViewType, type DashboardDockTab } from "@/components/nav/BottomNav";
 import { brl, ddmmyyyy } from "@/lib/format";
@@ -9,6 +9,15 @@ import PeriodoFiltro, { type PeriodoState } from "@/components/dashboard/Periodo
 import PlanejamentoField from "@/app/(field)/planejamento/PlanejamentoField";
 
 type DashboardMode = "admin" | "gestor" | "encarregado";
+type IndicatorWidgetId =
+  | "dailyRevenue"
+  | "periodTotal"
+  | "dailyAverage"
+  | "goalProgress"
+  | "dailyChart"
+  | "topActivities"
+  | "teamSnapshot"
+  | "maintenanceSnapshot";
 
 type DashboardLinks = {
   maquinas: string;
@@ -87,6 +96,42 @@ type DashboardData = {
   manutencoesAbertas: Manut[];
 };
 
+const INDICATOR_WIDGET_OPTIONS: { id: IndicatorWidgetId; label: string }[] = [
+  { id: "dailyRevenue", label: "Hoje/Ontem" },
+  { id: "periodTotal", label: "Total" },
+  { id: "dailyAverage", label: "Média" },
+  { id: "goalProgress", label: "Meta" },
+  { id: "dailyChart", label: "Gráfico" },
+  { id: "topActivities", label: "Atividades" },
+  { id: "teamSnapshot", label: "Equipes" },
+  { id: "maintenanceSnapshot", label: "Manutenção" },
+];
+
+const DEFAULT_INDICATOR_WIDGETS: IndicatorWidgetId[] = [
+  "dailyRevenue",
+  "periodTotal",
+  "dailyAverage",
+  "goalProgress",
+  "dailyChart",
+  "topActivities",
+  "teamSnapshot",
+];
+
+const INDICATOR_WIDGET_IDS = new Set(INDICATOR_WIDGET_OPTIONS.map((item) => item.id));
+
+function dashboardStorageKey(mode: DashboardMode) {
+  return `gn:dashboard-builder:${mode}:indicadores`;
+}
+
+function normalizeIndicatorWidgets(value: unknown): IndicatorWidgetId[] {
+  if (!Array.isArray(value)) return DEFAULT_INDICATOR_WIDGETS;
+  const valid = value.filter(
+    (item): item is IndicatorWidgetId =>
+      typeof item === "string" && INDICATOR_WIDGET_IDS.has(item as IndicatorWidgetId)
+  );
+  return valid.length > 0 ? valid : DEFAULT_INDICATOR_WIDGETS;
+}
+
 function compactBrl(value: number | null | undefined) {
   const n = Number(value ?? 0);
   const abs = Math.abs(n);
@@ -118,6 +163,7 @@ export default function AdminDashboard({
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
+  const [indicatorWidgets, setIndicatorWidgets] = useState<IndicatorWidgetId[]>(DEFAULT_INDICATOR_WIDGETS);
 
   async function carregar() {
     setLoading(true);
@@ -150,6 +196,39 @@ export default function AdminDashboard({
   useEffect(() => {
     setActiveTab(initialTab);
   }, [initialTab]);
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(dashboardStorageKey(mode));
+      setIndicatorWidgets(normalizeIndicatorWidgets(raw ? JSON.parse(raw) : null));
+    } catch {
+      setIndicatorWidgets(DEFAULT_INDICATOR_WIDGETS);
+    }
+  }, [mode]);
+
+  function updateIndicatorWidgets(next: IndicatorWidgetId[]) {
+    const normalized = normalizeIndicatorWidgets(next);
+    setIndicatorWidgets(normalized);
+    try {
+      window.localStorage.setItem(dashboardStorageKey(mode), JSON.stringify(normalized));
+    } catch {
+      // Prefer keeping the UI responsive if storage is blocked.
+    }
+  }
+
+  function toggleIndicatorWidget(widgetId: IndicatorWidgetId) {
+    const active = indicatorWidgets.includes(widgetId);
+    if (active && indicatorWidgets.length === 1) return;
+    updateIndicatorWidgets(
+      active
+        ? indicatorWidgets.filter((id) => id !== widgetId)
+        : [...indicatorWidgets, widgetId]
+    );
+  }
+
+  function resetIndicatorWidgets() {
+    updateIndicatorWidgets(DEFAULT_INDICATOR_WIDGETS);
+  }
 
   const expSearch = useMemo(() => {
     const sp = new URLSearchParams();
@@ -200,6 +279,9 @@ export default function AdminDashboard({
               links={links}
               showExportActions={showExportActions}
               expSearch={expSearch}
+              activeWidgets={indicatorWidgets}
+              onToggleWidget={toggleIndicatorWidget}
+              onResetWidgets={resetIndicatorWidgets}
             />
           )}
 
@@ -222,66 +304,336 @@ function IndicadoresPage({
   links,
   showExportActions,
   expSearch,
+  activeWidgets,
+  onToggleWidget,
+  onResetWidgets,
 }: {
   data: DashboardData;
   canManageMetas: boolean;
   links: DashboardLinks;
   showExportActions: boolean;
   expSearch: string;
+  activeWidgets: IndicatorWidgetId[];
+  onToggleWidget: (widgetId: IndicatorWidgetId) => void;
+  onResetWidgets: () => void;
 }) {
+  const hasWidget = (id: IndicatorWidgetId) => activeWidgets.includes(id);
+  const hasKpis =
+    hasWidget("dailyRevenue") ||
+    hasWidget("periodTotal") ||
+    hasWidget("dailyAverage") ||
+    hasWidget("goalProgress");
+  const hasSecondary =
+    hasWidget("topActivities") ||
+    hasWidget("teamSnapshot") ||
+    hasWidget("maintenanceSnapshot");
+
   return (
     <section className="space-y-3">
-      {showExportActions && (
-        <div className="grid grid-cols-2 gap-2 sm:ml-auto sm:w-56">
-          <Link
-            href={`/api/export/xlsx?${expSearch}`}
-            className="h-10 rounded-lg border px-3 text-center text-sm font-bold leading-10 transition hover:opacity-80"
-            style={{ borderColor: "var(--border)", background: "var(--bg-card)", color: "var(--text-primary)" }}
-          >
-            Excel
-          </Link>
-          <Link
-            href={`/api/export/csv?${expSearch}`}
-            className="h-10 rounded-lg border px-3 text-center text-sm font-bold leading-10 transition hover:opacity-80"
-            style={{ borderColor: "var(--border)", background: "var(--bg-card)", color: "var(--text-primary)" }}
-          >
-            CSV
-          </Link>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <DashboardBuilder
+          activeWidgets={activeWidgets}
+          onToggleWidget={onToggleWidget}
+          onResetWidgets={onResetWidgets}
+        />
+
+        {showExportActions && (
+          <div className="grid grid-cols-2 gap-2 sm:w-56">
+            <Link
+              href={`/api/export/xlsx?${expSearch}`}
+              className="h-10 rounded-lg border px-3 text-center text-sm font-bold leading-10 transition hover:opacity-80"
+              style={{ borderColor: "var(--border)", background: "var(--bg-card)", color: "var(--text-primary)" }}
+            >
+              Excel
+            </Link>
+            <Link
+              href={`/api/export/csv?${expSearch}`}
+              className="h-10 rounded-lg border px-3 text-center text-sm font-bold leading-10 transition hover:opacity-80"
+              style={{ borderColor: "var(--border)", background: "var(--bg-card)", color: "var(--text-primary)" }}
+            >
+              CSV
+            </Link>
+          </div>
+        )}
+      </div>
+
+      {hasKpis && (
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-4">
+          {hasWidget("dailyRevenue") && <DailyRevenueCard hoje={data.hoje} ontem={data.ontem} />}
+          {hasWidget("periodTotal") && (
+            <KpiCard label="Total no período" value={brl(data.total)} hint={data.periodo.label} />
+          )}
+          {hasWidget("dailyAverage") && (
+            <KpiCard label="Média diária" value={brl(data.mediaDia)} hint={`${data.periodo.diasDecorridos} dias`} />
+          )}
+          {hasWidget("goalProgress") && (
+            <KpiCard
+              label="% meta atingida"
+              value={data.meta > 0 ? `${data.pctMeta.toFixed(1)}%` : "-"}
+              hint={data.meta > 0 ? `Meta ${compactBrl(data.meta)}` : "sem meta"}
+              tone={data.pctMeta >= 100 ? "success" : data.pctMeta >= 70 ? "neutral" : "warn"}
+              href={canManageMetas ? links.metas : undefined}
+            />
+          )}
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-4">
-        <DailyRevenueCard hoje={data.hoje} ontem={data.ontem} />
-        <KpiCard label="Total no período" value={brl(data.total)} hint={data.periodo.label} />
-        <KpiCard label="Média diária" value={brl(data.mediaDia)} hint={`${data.periodo.diasDecorridos} dias`} />
-        <KpiCard
-          label="% meta atingida"
-          value={data.meta > 0 ? `${data.pctMeta.toFixed(1)}%` : "-"}
-          hint={data.meta > 0 ? `Meta ${compactBrl(data.meta)}` : "sem meta"}
-          tone={data.pctMeta >= 100 ? "success" : data.pctMeta >= 70 ? "neutral" : "warn"}
-          href={canManageMetas ? links.metas : undefined}
-        />
-      </div>
+      {hasWidget("dailyChart") && <DailyProductionWidget data={data} />}
 
-      <div
-        className="rounded-lg border p-3 sm:p-4"
-        style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}
-      >
-        <div className="flex items-baseline justify-between gap-3">
-          <h2 className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
-            Produção diária
-          </h2>
-          <span className="truncate text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
-            {data.periodo.label}
-          </span>
+      {hasSecondary && (
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+          {hasWidget("topActivities") && <TopActivitiesWidget data={data} />}
+          {hasWidget("teamSnapshot") && <TeamSnapshotWidget data={data} />}
+          {hasWidget("maintenanceSnapshot") && <MaintenanceSnapshotWidget data={data} links={links} />}
         </div>
-        <LinhaChart
-          serie={data.serie}
-          mediaDia={data.mediaDia}
-          className="mt-2 h-[218px] max-h-[250px] w-full overflow-hidden"
-        />
-      </div>
+      )}
     </section>
+  );
+}
+
+function SlidersIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4" aria-hidden>
+      <path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3" />
+      <path d="M2 14h4M10 8h4M18 16h4" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" className="h-3.5 w-3.5" aria-hidden>
+      <path d="m5 12 4 4L19 6" />
+    </svg>
+  );
+}
+
+function DashboardBuilder({
+  activeWidgets,
+  onToggleWidget,
+  onResetWidgets,
+}: {
+  activeWidgets: IndicatorWidgetId[];
+  onToggleWidget: (widgetId: IndicatorWidgetId) => void;
+  onResetWidgets: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="w-full sm:max-w-3xl">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        className="inline-flex h-10 items-center gap-2 rounded-lg border px-3 text-sm font-black transition hover:opacity-80"
+        style={{ background: "var(--bg-card)", borderColor: "var(--border)", color: "var(--text-primary)" }}
+        aria-expanded={open}
+      >
+        <SlidersIcon />
+        Painéis
+        <span className="rounded-full px-2 py-0.5 text-[11px] font-black" style={{ background: "var(--accent-subtle)", color: "var(--accent)" }}>
+          {activeWidgets.length}
+        </span>
+      </button>
+
+      {open && (
+        <div
+          className="mt-2 rounded-lg border p-2"
+          style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}
+        >
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {INDICATOR_WIDGET_OPTIONS.map((item) => {
+              const active = activeWidgets.includes(item.id);
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => onToggleWidget(item.id)}
+                  className="flex h-10 min-w-0 items-center justify-between gap-2 rounded-lg px-3 text-left text-xs font-black transition"
+                  style={{
+                    background: active ? "var(--accent-subtle)" : "var(--bg-card-alt)",
+                    color: active ? "var(--accent)" : "var(--text-secondary)",
+                  }}
+                  aria-pressed={active}
+                >
+                  <span className="truncate">{item.label}</span>
+                  {active && <CheckIcon />}
+                </button>
+              );
+            })}
+          </div>
+          <button
+            type="button"
+            onClick={onResetWidgets}
+            className="mt-2 h-9 rounded-lg px-3 text-xs font-black transition hover:opacity-80"
+            style={{ color: "var(--text-muted)" }}
+          >
+            Restaurar padrão
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DailyProductionWidget({ data }: { data: DashboardData }) {
+  return (
+    <div
+      className="rounded-lg border p-3 sm:p-4"
+      style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}
+    >
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
+          Produção diária
+        </h2>
+        <span className="truncate text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
+          {data.periodo.label}
+        </span>
+      </div>
+      <LinhaChart
+        serie={data.serie}
+        mediaDia={data.mediaDia}
+        className="mt-2 h-[218px] max-h-[250px] w-full overflow-hidden"
+      />
+    </div>
+  );
+}
+
+function CompactListWidget({
+  title,
+  action,
+  children,
+}: {
+  title: string;
+  action?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      className="min-w-0 rounded-lg border p-3"
+      style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}
+    >
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <h2 className="truncate text-sm font-bold" style={{ color: "var(--text-primary)" }}>
+          {title}
+        </h2>
+        {action}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function TopActivitiesWidget({ data }: { data: DashboardData }) {
+  const rows = [...data.porAtividade]
+    .sort((a, b) => Number(b.faturamento ?? 0) - Number(a.faturamento ?? 0))
+    .slice(0, 5);
+
+  return (
+    <CompactListWidget title="Atividades">
+      {rows.length === 0 ? (
+        <p className="py-4 text-center text-sm font-semibold" style={{ color: "var(--text-muted)" }}>
+          Sem produção no período.
+        </p>
+      ) : (
+        <ul className="divide-y" style={{ borderColor: "var(--border)" }}>
+          {rows.map((row) => (
+            <li key={row.id} className="flex items-center justify-between gap-3 py-2">
+              <div className="min-w-0">
+                <p className="truncate text-xs font-black uppercase" style={{ color: "var(--text-primary)" }}>
+                  {row.nome}
+                </p>
+                <p className="text-[11px] font-semibold tabular" style={{ color: "var(--text-muted)" }}>
+                  {row.total.toFixed(1)} {row.unidade}
+                </p>
+              </div>
+              <p className="shrink-0 text-sm font-black tabular" style={{ color: "var(--accent)" }}>
+                {compactBrl(row.faturamento)}
+              </p>
+            </li>
+          ))}
+        </ul>
+      )}
+    </CompactListWidget>
+  );
+}
+
+function TeamSnapshotWidget({ data }: { data: DashboardData }) {
+  const rows = [...data.ranking]
+    .sort((a, b) => Number(b.faturamento ?? 0) - Number(a.faturamento ?? 0))
+    .slice(0, 5);
+
+  return (
+    <CompactListWidget title="Equipes">
+      {rows.length === 0 ? (
+        <p className="py-4 text-center text-sm font-semibold" style={{ color: "var(--text-muted)" }}>
+          Sem equipes no período.
+        </p>
+      ) : (
+        <ul className="divide-y" style={{ borderColor: "var(--border)" }}>
+          {rows.map((row) => {
+            const color = progressColor(row);
+            const progress = Math.min(Math.max(row.pctProjecao, row.pctMeta, 0), 100);
+            return (
+              <li key={row.id} className="py-2">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-xs font-black uppercase" style={{ color: "var(--text-primary)" }}>
+                      {row.nome}
+                    </p>
+                    <p className="text-[11px] font-semibold tabular" style={{ color: "var(--text-muted)" }}>
+                      {row.lancamentos} lanç. · {compactBrl(row.faturamento)}
+                    </p>
+                  </div>
+                  <p className="shrink-0 text-sm font-black tabular" style={{ color }}>
+                    {row.pctProjecao.toFixed(0)}%
+                  </p>
+                </div>
+                <div className="mt-1.5 h-1.5 overflow-hidden rounded-full" style={{ background: "var(--bg-active)" }}>
+                  <div className="h-full rounded-full" style={{ width: `${progress}%`, background: color }} />
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </CompactListWidget>
+  );
+}
+
+function MaintenanceSnapshotWidget({ data, links }: { data: DashboardData; links: DashboardLinks }) {
+  const abertas = data.manutencoesAbertas.length;
+  const urgentes = data.maquinas.urgentes;
+  return (
+    <CompactListWidget
+      title="Manutenção"
+      action={
+        <Link href={links.maquinas} className="text-xs font-black" style={{ color: "var(--accent)" }}>
+          Abrir
+        </Link>
+      }
+    >
+      <div className="grid grid-cols-3 gap-2">
+        <MiniMetric label="Abertas" value={abertas} color={abertas > 0 ? "var(--warn)" : "var(--success)"} />
+        <MiniMetric label="Urgentes" value={urgentes} color={urgentes > 0 ? "var(--danger)" : "var(--success)"} />
+        <MiniMetric label="Frota" value={data.maquinas.total} color="var(--text-primary)" />
+      </div>
+      <p className="mt-3 text-xs font-semibold" style={{ color: abertas > 0 ? "var(--warn)" : "var(--success)" }}>
+        {abertas > 0 ? `${abertas} manutenção(ões) pendente(s).` : "Frota sem pendências abertas."}
+      </p>
+    </CompactListWidget>
+  );
+}
+
+function MiniMetric({ label, value, color }: { label: string; value: number; color: string }) {
+  return (
+    <div className="rounded-lg p-2 text-center" style={{ background: "var(--bg-card-alt)" }}>
+      <p className="text-lg font-black tabular" style={{ color }}>
+        {value}
+      </p>
+      <p className="truncate text-[10px] font-bold uppercase" style={{ color: "var(--text-muted)" }}>
+        {label}
+      </p>
+    </div>
   );
 }
 
