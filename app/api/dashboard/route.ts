@@ -153,8 +153,18 @@ export async function GET(req: NextRequest) {
     cur.faturamento += Number(p.quantidade) * Number(p.valor_unitario_snapshot);
     ativAgg.set(key, cur);
   }
-  const atividadesArr = [...ativAgg.values()].sort(
+  const atividadesArr = [...ativAgg.values()].map((atividade) => ({
+    ...atividade,
+    projecao:
+      dUteisDecorridos > 0
+        ? (atividade.faturamento / dUteisDecorridos) * dUteisTotais
+        : atividade.faturamento,
+  })).sort(
     (a, b) => b.faturamento - a.faturamento
+  );
+  const faturamentoProjetado = atividadesArr.reduce(
+    (sum, atividade) => sum + Number(atividade.projecao ?? 0),
+    0
   );
 
   // Agrega por equipe + compara com meta mensal distribuída por frente.
@@ -283,6 +293,7 @@ export async function GET(req: NextRequest) {
     meta: valorMeta,
     pctMeta,
     metaProxDia,
+    faturamentoProjetado,
     serie: rows,
     porAtividade: atividadesArr,
     ranking: equipesArr,

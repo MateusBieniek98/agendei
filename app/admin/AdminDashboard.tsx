@@ -12,6 +12,7 @@ type DashboardMode = "admin" | "gestor" | "encarregado";
 type IndicatorWidgetId =
   | "dailyRevenue"
   | "periodTotal"
+  | "projectedRevenue"
   | "dailyAverage"
   | "goalProgress"
   | "dailyChart"
@@ -82,8 +83,16 @@ type DashboardData = {
   meta: number;
   pctMeta: number;
   metaProxDia: number;
+  faturamentoProjetado: number;
   serie: { data: string; faturamento: number }[];
-  porAtividade: { id: string; nome: string; unidade: string; total: number; faturamento: number }[];
+  porAtividade: {
+    id: string;
+    nome: string;
+    unidade: string;
+    total: number;
+    faturamento: number;
+    projecao: number;
+  }[];
   ranking: {
     id: string;
     nome: string;
@@ -103,6 +112,7 @@ type DashboardData = {
 const INDICATOR_WIDGET_OPTIONS: { id: IndicatorWidgetId; label: string }[] = [
   { id: "dailyRevenue", label: "Hoje/Ontem" },
   { id: "periodTotal", label: "Total" },
+  { id: "projectedRevenue", label: "Projetado" },
   { id: "dailyAverage", label: "Média" },
   { id: "goalProgress", label: "Meta" },
   { id: "dailyChart", label: "Gráfico" },
@@ -114,6 +124,7 @@ const INDICATOR_WIDGET_OPTIONS: { id: IndicatorWidgetId; label: string }[] = [
 const DEFAULT_INDICATOR_WIDGETS: IndicatorWidgetId[] = [
   "dailyRevenue",
   "periodTotal",
+  "projectedRevenue",
   "dailyAverage",
   "goalProgress",
   "dailyChart",
@@ -338,6 +349,7 @@ function IndicadoresPage({
   const hasKpis =
     hasWidget("dailyRevenue") ||
     hasWidget("periodTotal") ||
+    hasWidget("projectedRevenue") ||
     hasWidget("dailyAverage") ||
     hasWidget("goalProgress");
   const hasSecondary =
@@ -375,10 +387,24 @@ function IndicadoresPage({
       </div>
 
       {hasKpis && (
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
           {hasWidget("dailyRevenue") && <DailyRevenueCard hoje={data.hoje} ontem={data.ontem} />}
           {hasWidget("periodTotal") && (
             <KpiCard label="Total no período" value={brl(data.total)} hint={data.periodo.label} />
+          )}
+          {hasWidget("projectedRevenue") && (
+            <KpiCard
+              label="Faturamento projetado"
+              value={compactBrl(data.faturamentoProjetado)}
+              hint={`${formatBusinessDays(data.periodo.diasUteisTotais)} úteis no ciclo`}
+              tone={
+                data.meta > 0 && data.faturamentoProjetado >= data.meta
+                  ? "success"
+                  : data.meta > 0 && data.faturamentoProjetado < data.meta * 0.75
+                    ? "warn"
+                    : "neutral"
+              }
+            />
           )}
           {hasWidget("dailyAverage") && (
             <KpiCard label="Média diária" value={brl(data.mediaDia)} hint={`${data.periodo.diasDecorridos} dias`} />
@@ -709,7 +735,14 @@ function KpiCard({
       <p className="text-xs font-bold uppercase" style={{ color: "var(--text-muted)" }}>
         {label}
       </p>
-      <p className="mt-1 truncate text-xl font-black tabular sm:text-2xl" style={{ color }}>
+      <p
+        className={
+          "mt-1 min-w-0 whitespace-nowrap font-black leading-tight tabular tracking-normal " +
+          (value.length > 13 ? "text-base sm:text-lg 2xl:text-xl" : "text-xl sm:text-2xl")
+        }
+        style={{ color }}
+        title={value}
+      >
         {value}
       </p>
       {hint && (
