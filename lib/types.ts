@@ -135,7 +135,7 @@ export type MetaAtividade = {
 
 // rota inicial por papel (login → redirect)
 export const ROLE_HOME: Record<UserRole, string> = {
-  encarregado: "/sincronizar",
+  encarregado: "/meu-dia",
   admin: "/admin",
   gestor: "/gestor",
 };
