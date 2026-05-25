@@ -17,6 +17,32 @@ const STATUS_OPTS: { value: MachineStatus; label: string }[] = [
   { value: "manutencao_urgente", label: "Manutenção urgente" },
 ];
 
+const MACHINE_STATUS_META: Record<MachineStatus, { label: string; tone: "success" | "warning" | "danger"; color: string; bg: string; border: string }> = {
+  operando: {
+    label: "Operando",
+    tone: "success",
+    color: "var(--success)",
+    bg: "var(--success-bg)",
+    border: "var(--success)",
+  },
+  parada: {
+    label: "Parada",
+    tone: "warning",
+    color: "var(--warn)",
+    bg: "var(--warn-bg)",
+    border: "var(--warn)",
+  },
+  manutencao_urgente: {
+    label: "Manutenção urgente",
+    tone: "danger",
+    color: "var(--danger)",
+    bg: "var(--danger-bg)",
+    border: "var(--danger)",
+  },
+};
+
+const FILTER_KEY = "gn:field-maquinas-filtro";
+
 type ManutPendente = {
   id: string;
   maquina_id: string;
@@ -28,6 +54,159 @@ type ManutPendente = {
   equipes: { nome: string } | null;
   projetos: { nome: string } | null;
 };
+
+function MachinePicker({
+  maquinas,
+  allMaquinas,
+  selected,
+  selectedId,
+  busca,
+  onBuscaChange,
+  filtroStatus,
+  onFiltroStatusChange,
+  onSelect,
+}: {
+  maquinas: Maquina[];
+  allMaquinas: Maquina[];
+  selected: Maquina | undefined;
+  selectedId: string;
+  busca: string;
+  onBuscaChange: (value: string) => void;
+  filtroStatus: string;
+  onFiltroStatusChange: (value: string) => void;
+  onSelect: (id: string) => void;
+}) {
+  const statusCounts = {
+    operando: allMaquinas.filter((m) => m.status === "operando").length,
+    parada: allMaquinas.filter((m) => m.status === "parada").length,
+    manutencao_urgente: allMaquinas.filter((m) => m.status === "manutencao_urgente").length,
+  };
+
+  return (
+    <section
+      className="rounded-2xl border p-3 shadow-sm"
+      style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-black" style={{ color: "var(--text-primary)" }}>
+            Escolha a máquina
+          </h3>
+          <p className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
+            {selected
+              ? `${selected.nome}${selected.identificador ? ` · ${selected.identificador}` : ""}`
+              : "Nenhuma máquina selecionada"}
+          </p>
+        </div>
+        {selected && (
+          <Badge tone={MACHINE_STATUS_META[selected.status].tone}>
+            {MACHINE_STATUS_META[selected.status].label}
+          </Badge>
+        )}
+      </div>
+
+      <div className="mt-3">
+        <label className="text-xs font-black uppercase" style={{ color: "var(--text-muted)" }}>
+          Buscar por nome, código ou tipo
+        </label>
+        <div className="mt-1 flex min-h-12 items-center rounded-xl border-2 px-3" style={{ background: "var(--bg-input, var(--bg-card))", borderColor: "var(--border)" }}>
+          <input
+            type="search"
+            value={busca}
+            onChange={(e) => onBuscaChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") e.preventDefault();
+            }}
+            className="min-w-0 flex-1 bg-transparent text-base font-bold outline-none"
+            style={{ color: "var(--text-primary)" }}
+            placeholder="Ex.: TR-012, trator, roçadeira"
+          />
+          {busca && (
+            <button
+              type="button"
+              onClick={() => onBuscaChange("")}
+              className="ml-2 min-h-9 rounded-lg px-2 text-xs font-black"
+              style={{ color: "var(--accent)" }}
+            >
+              Limpar
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {[
+          { v: "", label: "Todas", count: allMaquinas.length, color: "var(--accent)", bg: "var(--accent-subtle)" },
+          { v: "operando", label: "Operando", count: statusCounts.operando, color: "var(--success)", bg: "var(--success-bg)" },
+          { v: "parada", label: "Paradas", count: statusCounts.parada, color: "var(--warn)", bg: "var(--warn-bg)" },
+          { v: "manutencao_urgente", label: "Urgentes", count: statusCounts.manutencao_urgente, color: "var(--danger)", bg: "var(--danger-bg)" },
+        ].map((option) => {
+          const active = filtroStatus === option.v;
+          return (
+            <button
+              key={option.v}
+              type="button"
+              onClick={() => onFiltroStatusChange(option.v)}
+              className="min-h-11 rounded-xl border px-2 text-xs font-black transition active:opacity-80"
+              style={{
+                background: active ? option.color : option.bg,
+                borderColor: active ? option.color : "var(--border)",
+                color: active ? "#fff" : option.color,
+              }}
+            >
+              {option.label} ({option.count})
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="mt-3 max-h-[19rem] space-y-2 overflow-y-auto pr-1">
+        {maquinas.length === 0 ? (
+          <div
+            className="rounded-xl border border-dashed p-4 text-center text-sm font-semibold"
+            style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}
+          >
+            Nenhuma máquina encontrada.
+          </div>
+        ) : (
+          maquinas.map((maquina) => {
+            const meta = MACHINE_STATUS_META[maquina.status];
+            const active = selectedId === maquina.id;
+            return (
+              <button
+                key={maquina.id}
+                type="button"
+                onClick={() => onSelect(maquina.id)}
+                aria-pressed={active}
+                className="flex min-h-16 w-full items-center justify-between gap-3 rounded-xl border p-3 text-left transition active:scale-[0.99]"
+                style={{
+                  background: active ? "var(--accent-subtle)" : "var(--bg-page)",
+                  borderColor: active ? "var(--accent)" : "var(--border)",
+                }}
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-black" style={{ color: "var(--text-primary)" }}>
+                    {maquina.nome}
+                  </p>
+                  <p className="truncate text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
+                    {maquina.tipo}
+                    {maquina.identificador ? ` · ${maquina.identificador}` : ""}
+                  </p>
+                </div>
+                <span
+                  className="shrink-0 rounded-full px-2 py-1 text-[11px] font-black"
+                  style={{ background: meta.bg, color: meta.color, border: `1px solid ${meta.border}` }}
+                >
+                  {meta.label}
+                </span>
+              </button>
+            );
+          })
+        )}
+      </div>
+    </section>
+  );
+}
 
 export default function MaquinaForm({
   maquinas,
@@ -55,27 +234,18 @@ export default function MaquinaForm({
       ? "manutencao_urgente"
       : (maquinaSelecionada?.status ?? "manutencao_urgente")
   );
-  const [filtroStatus, setFiltroStatus] = useState("");
-  const [frotaBusca, setFrotaBusca] = useState("");
-  const [frotaExpandida, setFrotaExpandida] = useState(false);
+  const [filtroStatus, setFiltroStatus] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem(FILTER_KEY) ?? "";
+    }
+    return "";
+  });
   const [pendentesBusca, setPendentesBusca] = useState("");
   const [pendentesExpandido, setPendentesExpandido] = useState(false);
   const [pendentes, setPendentes] = useState<ManutPendente[]>([]);
   const [descricao, setDescricao] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [resolvendoId, setResolvendoId] = useState<string | null>(null);
-  const maquinaOptions = useMemo(() => {
-    const filtradas = searchItems(items, maquinaBusca, [
-      (m) => m.nome,
-      (m) => m.tipo,
-      (m) => m.identificador,
-      (m) => m.status,
-    ]);
-    const selected = maquinaId ? items.find((m) => m.id === maquinaId) : undefined;
-    return selected && !filtradas.some((m) => m.id === selected.id)
-      ? [selected, ...filtradas]
-      : filtradas;
-  }, [items, maquinaBusca, maquinaId]);
   const projetoOptions = useMemo(() => {
     const filtrados = searchItems(projetos, projetoBusca, [(p) => p.nome]);
     const selected = projetoId ? projetos.find((p) => p.id === projetoId) : undefined;
@@ -102,17 +272,18 @@ export default function MaquinaForm({
   );
   const maquinasFiltradas = useMemo(() => {
     const porStatus = items.filter((m) => !filtroStatus || m.status === filtroStatus);
-    return searchItems(porStatus, frotaBusca, [
+    return searchItems(porStatus, maquinaBusca, [
       (m) => m.nome,
       (m) => m.tipo,
       (m) => m.identificador,
       (m) => m.status,
     ]);
-  }, [items, filtroStatus, frotaBusca]);
-  const maquinasVisiveis = useMemo(
-    () => visibleItems(maquinasFiltradas, frotaExpandida, 20),
-    [maquinasFiltradas, frotaExpandida]
-  );
+  }, [items, filtroStatus, maquinaBusca]);
+  const maquinasPicker = useMemo(() => {
+    const selected = maquinaId ? maquinasFiltradas.find((m) => m.id === maquinaId) : undefined;
+    if (!selected) return maquinasFiltradas;
+    return [selected, ...maquinasFiltradas.filter((m) => m.id !== selected.id)];
+  }, [maquinasFiltradas, maquinaId]);
 
   useEffect(() => {
     setItems(maquinas);
@@ -150,23 +321,13 @@ export default function MaquinaForm({
     );
   }, [maquinaSelecionada]);
 
-  function atualizarLocal(id: string, status: MachineStatus) {
-    setItems((cur) => cur.map((m) => (m.id === id ? { ...m, status } : m)));
+  function setFiltro(v: string) {
+    setFiltroStatus(v);
+    localStorage.setItem(FILTER_KEY, v);
   }
 
-  async function alterarStatus(id: string, status: MachineStatus) {
-    const r = await fetch(`/api/maquinas/${id}`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ status }),
-    });
-    if (!r.ok) {
-      const j = await r.json().catch(() => ({}));
-      toast(`Erro ao alterar status: ${j.error ?? r.statusText}`, "error");
-      return;
-    }
-    atualizarLocal(id, status);
-    toast("Status da máquina atualizado.", "success");
+  function atualizarLocal(id: string, status: MachineStatus) {
+    setItems((cur) => cur.map((m) => (m.id === id ? { ...m, status } : m)));
   }
 
   async function salvar(e: React.FormEvent) {
@@ -227,27 +388,19 @@ export default function MaquinaForm({
 
   return (
     <form onSubmit={salvar} className="space-y-4">
-      <Input
-        label="Buscar máquina"
-        type="search"
-        value={maquinaBusca}
-        onChange={(e) => setMaquinaBusca(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") e.preventDefault();
-        }}
-        placeholder="Código, tipo ou status"
+      <MachinePicker
+        maquinas={maquinasPicker}
+        allMaquinas={items}
+        selected={maquinaSelecionada}
+        selectedId={maquinaId}
+        busca={maquinaBusca}
+        onBuscaChange={setMaquinaBusca}
+        filtroStatus={filtroStatus}
+        onFiltroStatusChange={setFiltro}
+        onSelect={setMaquinaId}
       />
-      <div className="grid grid-cols-2 gap-2">
-        <Select
-          label="Máquina"
-          value={maquinaId}
-          onChange={(e) => setMaquinaId(e.target.value)}
-          options={maquinaOptions.map((m) => ({
-            value: m.id,
-            label: m.identificador ? `${m.nome} · ${m.identificador}` : m.nome,
-          }))}
-          placeholder="Selecione…"
-        />
+
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <Select
           label="Frente / equipe"
           value={equipeId}
@@ -259,7 +412,7 @@ export default function MaquinaForm({
 
       <div className="flex flex-col gap-1.5">
         <label className="text-sm font-bold text-[var(--color-ink-900)]">
-          Novo status
+          Status da máquina ao enviar
         </label>
         <div className="flex gap-2">
           {STATUS_OPTS.map((s) => (
@@ -390,70 +543,6 @@ export default function MaquinaForm({
           {pendentesFiltradas.length === 0 && (
             <Card className="p-4 text-sm font-semibold text-[var(--color-ink-700)]">
               Nenhuma manutenção pendente neste filtro.
-            </Card>
-          )}
-        </div>
-      </div>
-
-      <div className="pt-2">
-        <h3 className="text-sm font-bold text-[var(--color-ink-900)]">
-          Status atual da frota
-        </h3>
-        <div className="mt-2">
-          <ListControls
-            search={frotaBusca}
-            onSearchChange={setFrotaBusca}
-            expanded={frotaExpandida}
-            onExpandedChange={setFrotaExpandida}
-            total={maquinasFiltradas.length}
-            visible={maquinasVisiveis.length}
-            label="Pesquisar frota"
-            placeholder="Código, tipo ou status"
-          >
-            <Select
-              label="Filtro de status"
-              value={filtroStatus}
-              onChange={(e) => setFiltroStatus(e.target.value)}
-              options={STATUS_OPTS}
-              placeholder="Todos"
-            />
-          </ListControls>
-        </div>
-        <div className="mt-2 grid grid-cols-1 gap-2">
-          {maquinasVisiveis.map((m) => (
-            <Card key={m.id} className="p-3 space-y-3">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm font-bold">{m.nome}</p>
-                  <p className="text-xs font-semibold text-[var(--color-ink-500)]">
-                    {m.tipo}
-                    {m.identificador ? ` · ${m.identificador}` : ""}
-                  </p>
-                </div>
-                {m.status === "operando" ? (
-                  <Badge tone="success">operando</Badge>
-                ) : m.status === "parada" ? (
-                  <Badge tone="warning">parada</Badge>
-                ) : (
-                  <Badge tone="danger">manutenção urgente</Badge>
-                )}
-              </div>
-              <select
-                value={m.status}
-                onChange={(e) => alterarStatus(m.id, e.target.value as MachineStatus)}
-                className="h-11 w-full rounded-lg border-2 border-[var(--color-ink-300)] bg-white px-3 text-sm font-bold text-[var(--color-ink-900)] shadow-sm"
-              >
-                {STATUS_OPTS.map((s) => (
-                  <option key={s.value} value={s.value}>
-                    {s.label}
-                  </option>
-                ))}
-              </select>
-            </Card>
-          ))}
-          {maquinasFiltradas.length === 0 && (
-            <Card className="p-4 text-sm font-semibold text-[var(--color-ink-700)]">
-              Nenhuma máquina neste filtro.
             </Card>
           )}
         </div>
