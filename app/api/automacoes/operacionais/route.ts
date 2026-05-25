@@ -156,7 +156,7 @@ async function evaluatePlanejamento(
 
   const { data, error } = await supabase
     .from("planejamento")
-    .select("*, projetos(nome), atividades(nome, unidade, valor_unitario), equipes(nome)")
+    .select("*, projetos(nome), atividades(nome, unidade, valor_unitario, service_key), equipes(nome)")
     .not("status", "in", "(concluido,cancelado)")
     .order("data_limite", { ascending: true })
     .limit(500);

@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
   let q = supabase
     .from("planejamento")
     .select(
-      "*, projetos(nome), atividades(nome, unidade, valor_unitario), equipes(nome)"
+      "*, projetos(nome), atividades(nome, unidade, valor_unitario, service_key), equipes(nome)"
     )
     .order("data_limite", { ascending: true })
     .order("created_at", { ascending: false });

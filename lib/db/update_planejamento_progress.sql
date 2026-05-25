@@ -1,11 +1,13 @@
 -- GN · progresso automático do planejamento
 --
 -- Rode este arquivo no Supabase SQL Editor depois do deploy.
--- Ele liga planejamento aos apontamentos por projeto + talhão + atividade.
+-- Ele liga planejamento aos apontamentos por projeto + talhão + serviço.
 -- Importante:
 -- - Atividades diferentes continuam separadas.
 -- - O projeto ignora apenas sufixos contratuais finais como "- SRP", "- RRP" e "- CPG".
 --   Ex.: "Água Limpa" casa com "Água Limpa - SRP".
+-- - O serviço usa service_key quando existir e aceita aliases operacionais
+--   pontuais, como "Plantio" e "Plantio irrigado".
 
 create extension if not exists unaccent;
 
@@ -42,6 +44,54 @@ as $$
   select trim(regexp_replace(public.normalize_planejamento_text(p_value), '[[:space:]]*-[[:space:]]*(srp|rrp|cpg)[[:space:]]*$', '', 'i'));
 $$;
 
+create or replace function public.planejamento_service_keys(
+  p_nome text,
+  p_service_key text default null
+) returns text[]
+  language sql
+  stable
+  set search_path = public
+as $$
+  with normalized as (
+    select
+      public.normalize_planejamento_text(p_nome) as nome,
+      public.normalize_planejamento_text(p_service_key) as service_key
+  ),
+  candidates as (
+    select 'service:' || service_key as key
+    from normalized
+    where service_key <> ''
+
+    union all
+
+    select nome as key
+    from normalized
+    where nome <> ''
+
+    union all
+
+    select trim(
+      regexp_replace(
+        regexp_replace(nome, '\m(serv|servico)\M', ' ', 'gi'),
+        '[[:space:]]+',
+        ' ',
+        'g'
+      )
+    ) as key
+    from normalized
+    where nome <> ''
+
+    union all
+
+    select 'plantio' as key
+    from normalized
+    where nome ~* '\mplantio\M'
+      and nome !~* '\mirrigacao\M.*\mplantio\M'
+  )
+  select coalesce(array_agg(distinct key) filter (where key <> ''), '{}'::text[])
+  from candidates;
+$$;
+
 create or replace function public.sync_planejamento_progress(
   p_projeto_id uuid,
   p_talhao text,
@@ -54,6 +104,7 @@ as $$
 declare
   v_projeto_nome text;
   v_atividade_nome text;
+  v_atividade_service_key text;
 begin
   if p_projeto_id is null or p_talhao is null or p_atividade_id is null then
     return;
@@ -63,7 +114,7 @@ begin
   from public.projetos
   where id = p_projeto_id;
 
-  select nome into v_atividade_nome
+  select nome, service_key into v_atividade_nome, v_atividade_service_key
   from public.atividades
   where id = p_atividade_id;
 
@@ -92,8 +143,8 @@ begin
           select 1
           from public.atividades p_ativ
           where p_ativ.id = p.atividade_id
-            and public.normalize_planejamento_text(p_ativ.nome) =
-                public.normalize_planejamento_text(pl_ativ.nome)
+            and public.planejamento_service_keys(p_ativ.nome, p_ativ.service_key) &&
+                public.planejamento_service_keys(pl_ativ.nome, pl_ativ.service_key)
         )
       )
      and lower(trim(p.talhao)) = lower(trim(pl.talhao))
@@ -104,8 +155,8 @@ begin
       )
       and (
         pl.atividade_id = p_atividade_id
-        or public.normalize_planejamento_text(pl_ativ.nome) =
-           public.normalize_planejamento_text(v_atividade_nome)
+        or public.planejamento_service_keys(pl_ativ.nome, pl_ativ.service_key) &&
+           public.planejamento_service_keys(v_atividade_nome, v_atividade_service_key)
       )
       and lower(trim(pl.talhao)) = lower(trim(p_talhao))
       and pl.status not in ('concluido', 'cancelado')
