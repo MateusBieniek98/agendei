@@ -6,7 +6,7 @@ import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import { useToast } from "@/components/ui/Toast";
 import { brl, ddmmyyyy, num, todayISO } from "@/lib/format";
-import type { Atividade, Equipe, Planejamento, PlanningStatus, Projeto } from "@/lib/types";
+import type { Atividade, Equipe, Planejamento, PlanningStatus, ProjetoComTalhoes } from "@/lib/types";
 
 /* ── Types ─────────────────────────────────────────────── */
 type PlanejamentoRow = Planejamento & {
@@ -59,6 +59,44 @@ function resumoInsumos(insumos: { nome: string; quantidade: number }[]) {
   const restantes = insumos.length - principais.length;
   return restantes > 0 ? `${principais.join(" · ")} · +${restantes}` : principais.join(" · ");
 }
+
+function normalizarTalhao(value: string | null | undefined) {
+  return String(value ?? "").trim().toUpperCase().replace(/\s+/g, "");
+}
+
+function mergeInsumos(items: PlanejamentoRow[]) {
+  const mapa = new Map<string, { nome: string; quantidade: number }>();
+
+  for (const item of items) {
+    for (const insumo of item.insumos_utilizados ?? []) {
+      const nome = String(insumo.nome ?? "").trim();
+      if (!nome) continue;
+      const key = nome.toUpperCase();
+      const atual = mapa.get(key);
+      mapa.set(key, {
+        nome: atual?.nome ?? nome,
+        quantidade: (atual?.quantidade ?? 0) + Number(insumo.quantidade ?? 0),
+      });
+    }
+  }
+
+  return Array.from(mapa.values()).sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+}
+
+type TalhaoGroup = {
+  key: string;
+  projeto: string;
+  talhao: string;
+  items: PlanejamentoRow[];
+  quantidadePrevista: number;
+  quantidadeRealizada: number;
+  faturamentoPlanejado: number;
+  faturamentoRealizado: number;
+  pct: number;
+  fechado: boolean;
+  dataFechamento: string | null;
+  insumos: { nome: string; quantidade: number }[];
+};
 
 /* ── Progress bar ── */
 function ProgressBar({ pct }: { pct: number }) {
@@ -319,7 +357,7 @@ function FormModal({
 }: {
   editing: Partial<Planejamento>;
   setEditing: (v: Partial<Planejamento>) => void;
-  projetos: Projeto[];
+  projetos: ProjetoComTalhoes[];
   atividades: Atividade[];
   equipes: Equipe[];
   onSalvar: () => void;
@@ -327,6 +365,9 @@ function FormModal({
 }) {
   const now = new Date();
   const atividadeSelecionada = atividades.find((a) => a.id === editing.atividade_id);
+  const projetoSelecionado = projetos.find((p) => p.id === editing.projeto_id);
+  const talhoesDoProjeto = (projetoSelecionado?.talhoes ?? []).filter((talhao) => talhao.ativo);
+  const talhoesListId = `talhoes-planejamento-${editing.projeto_id ?? "todos"}`;
   const faturamentoEditing = faturamentoPlanejado(editing.quantidade_prevista, atividadeSelecionada);
 
   return (
@@ -377,16 +418,26 @@ function FormModal({
             <Select
               label="Projeto"
               value={editing.projeto_id ?? ""}
-              onChange={(e) => setEditing({ ...editing, projeto_id: e.target.value })}
+              onChange={(e) => setEditing({ ...editing, projeto_id: e.target.value, talhao: "" })}
               options={projetos.map((p) => ({ value: p.id, label: p.nome }))}
               placeholder="Selecione…"
             />
-            <Input
-              label="Talhão"
-              value={editing.talhao ?? ""}
-              onChange={(e) => setEditing({ ...editing, talhao: e.target.value })}
-              placeholder="Ex.: 017-01"
-            />
+            <div>
+              <Input
+                label="Talhão"
+                value={editing.talhao ?? ""}
+                onChange={(e) => setEditing({ ...editing, talhao: e.target.value })}
+                placeholder={talhoesDoProjeto.length > 0 ? "Selecione ou digite" : "Ex.: 017-01"}
+                list={talhoesListId}
+              />
+              <datalist id={talhoesListId}>
+                {talhoesDoProjeto.map((talhao) => (
+                  <option key={talhao.id} value={talhao.codigo}>
+                    {talhao.area_ha != null ? `${num(talhao.area_ha, 3)} ha` : talhao.codigo}
+                  </option>
+                ))}
+              </datalist>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -469,6 +520,172 @@ function FormModal({
   );
 }
 
+function TalhaoSettlementPanel({ groups }: { groups: TalhaoGroup[] }) {
+  const fechados = groups.filter((group) => group.fechado).length;
+  const abertos = groups.length - fechados;
+
+  return (
+    <section
+      className="rounded-2xl overflow-hidden"
+      style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}
+    >
+      <div className="p-4 border-b sm:p-5" style={{ borderColor: "var(--border)" }}>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-lg font-extrabold" style={{ color: "var(--text-primary)" }}>
+              Fechamento por projeto e talhão
+            </h2>
+            <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
+              Consolida planejado, realizado, data de fechamento e insumos utilizados.
+            </p>
+          </div>
+          <div className="flex gap-2 text-xs font-bold">
+            <span
+              className="rounded-full px-3 py-1"
+              style={{ background: "var(--success-bg)", color: "var(--success)" }}
+            >
+              {fechados} fechados
+            </span>
+            <span
+              className="rounded-full px-3 py-1"
+              style={{ background: "var(--warn-bg)", color: "var(--warn)" }}
+            >
+              {abertos} em aberto
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {groups.length === 0 ? (
+        <div className="p-6 text-center text-sm" style={{ color: "var(--text-muted)" }}>
+          Nenhum projeto/talhão encontrado nos filtros atuais.
+        </div>
+      ) : (
+        <div className="divide-y" style={{ borderColor: "var(--border)" }}>
+          {groups.map((group) => (
+            <details key={group.key} className="group open:bg-black/[0.02]">
+              <summary className="cursor-pointer list-none p-4 sm:p-5">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="text-base font-extrabold" style={{ color: "var(--text-primary)" }}>
+                        {group.projeto} · Talhão {group.talhao}
+                      </h3>
+                      <span
+                        className="rounded-full px-2 py-0.5 text-xs font-bold"
+                        style={{
+                          background: group.fechado ? "var(--success-bg)" : "var(--warn-bg)",
+                          color: group.fechado ? "var(--success)" : "var(--warn)",
+                        }}
+                      >
+                        {group.fechado ? "fechado" : "em aberto"}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
+                      {group.items.length} atividade{group.items.length !== 1 ? "s" : ""} planejada
+                      {group.dataFechamento ? ` · fechado em ${ddmmyyyy(group.dataFechamento)}` : ""}
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4 lg:min-w-[620px]">
+                    <div>
+                      <p className="text-xs font-bold uppercase" style={{ color: "var(--text-muted)" }}>Previsto</p>
+                      <p className="font-extrabold tabular" style={{ color: "var(--text-primary)" }}>
+                        {num(group.quantidadePrevista, 2)} ha
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold uppercase" style={{ color: "var(--text-muted)" }}>Realizado</p>
+                      <p className="font-extrabold tabular" style={{ color: "var(--accent)" }}>
+                        {num(group.quantidadeRealizada, 2)} ha
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold uppercase" style={{ color: "var(--text-muted)" }}>Planejado</p>
+                      <p className="font-extrabold tabular" style={{ color: "var(--text-primary)" }}>
+                        {brl(group.faturamentoPlanejado)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold uppercase" style={{ color: "var(--text-muted)" }}>Realizado</p>
+                      <p className="font-extrabold tabular" style={{ color: "var(--success)" }}>
+                        {brl(group.faturamentoRealizado)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-3">
+                  <div className="mb-1 flex justify-between text-xs font-bold" style={{ color: "var(--text-muted)" }}>
+                    <span>{group.pct.toFixed(1)}% concluído</span>
+                    <span className="group-open:hidden">ver detalhes</span>
+                    <span className="hidden group-open:inline">recolher</span>
+                  </div>
+                  <ProgressBar pct={group.pct} />
+                </div>
+              </summary>
+
+              <div className="px-4 pb-4 sm:px-5 sm:pb-5">
+                <div className="grid gap-3 lg:grid-cols-[1fr_1fr]">
+                  <div
+                    className="rounded-xl p-3"
+                    style={{ background: "var(--bg-active)", border: "1px solid var(--border)" }}
+                  >
+                    <p className="text-sm font-extrabold" style={{ color: "var(--text-primary)" }}>
+                      Atividades do talhão
+                    </p>
+                    <div className="mt-2 space-y-2">
+                      {group.items.map((item) => (
+                        <div key={item.id} className="text-xs">
+                          <p className="font-bold" style={{ color: "var(--text-primary)" }}>
+                            {item.atividades?.nome ?? "Atividade"}
+                          </p>
+                          <p style={{ color: "var(--text-muted)" }}>
+                            {STATUS_OPTS.find((status) => status.value === item.status)?.label} ·
+                            {" "}prev. {num(Number(item.quantidade_prevista ?? 0), 2)}
+                            {" "}· real. {num(Number(item.quantidade_realizada ?? 0), 2)}
+                            {item.data_fechamento ? ` · ${ddmmyyyy(item.data_fechamento)}` : ""}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div
+                    className="rounded-xl p-3"
+                    style={{ background: "var(--bg-active)", border: "1px solid var(--border)" }}
+                  >
+                    <p className="text-sm font-extrabold" style={{ color: "var(--text-primary)" }}>
+                      Insumos utilizados no talhão
+                    </p>
+                    {group.insumos.length === 0 ? (
+                      <p className="mt-2 text-xs" style={{ color: "var(--text-muted)" }}>
+                        Nenhum insumo apontado para este talhão.
+                      </p>
+                    ) : (
+                      <div className="mt-2 grid gap-1 text-xs sm:grid-cols-2">
+                        {group.insumos.map((insumo) => (
+                          <div key={insumo.nome} className="flex justify-between gap-3">
+                            <span className="truncate" style={{ color: "var(--text-secondary)" }}>
+                              {insumo.nome}
+                            </span>
+                            <b className="shrink-0 tabular" style={{ color: "var(--text-primary)" }}>
+                              {num(insumo.quantidade, 2)}
+                            </b>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </details>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 /* ── Sem equipe Card (itens sem equipe atribuída) ── */
 const SEM_EQUIPE_ID = "__sem_equipe__";
 
@@ -478,7 +695,7 @@ export default function PlanejamentoAdminPage() {
   const now = new Date();
 
   const [items,      setItems]      = useState<PlanejamentoRow[]>([]);
-  const [projetos,   setProjetos]   = useState<Projeto[]>([]);
+  const [projetos,   setProjetos]   = useState<ProjetoComTalhoes[]>([]);
   const [atividades, setAtividades] = useState<Atividade[]>([]);
   const [equipes,    setEquipes]    = useState<Equipe[]>([]);
   const [loading,    setLoading]    = useState(true);
@@ -503,7 +720,7 @@ export default function PlanejamentoAdminPage() {
     setLoading(true);
     try {
       const [pr, ar, er, pl] = await Promise.all([
-        fetch("/api/projetos").then((r) => r.json()),
+        fetch("/api/projetos?include_talhoes=1").then((r) => r.json()),
         fetch("/api/atividades").then((r) => r.json()),
         fetch("/api/equipes").then((r) => r.json()),
         fetch("/api/planejamento", { cache: "no-store" }).then((r) => r.json()),
@@ -620,6 +837,63 @@ export default function PlanejamentoAdminPage() {
     });
   }, [itensFiltrados]);
 
+  const talhaoGroups = useMemo(() => {
+    const groups = new Map<string, TalhaoGroup>();
+
+    for (const item of itensFiltrados) {
+      const projeto = item.projetos?.nome ?? "Projeto não informado";
+      const talhao = String(item.talhao ?? "").trim() || "Sem talhão";
+      const key = `${item.projeto_id ?? projeto}|${normalizarTalhao(talhao)}`;
+      const atual = groups.get(key) ?? {
+        key,
+        projeto,
+        talhao,
+        items: [],
+        quantidadePrevista: 0,
+        quantidadeRealizada: 0,
+        faturamentoPlanejado: 0,
+        faturamentoRealizado: 0,
+        pct: 0,
+        fechado: false,
+        dataFechamento: null,
+        insumos: [],
+      };
+
+      atual.items.push(item);
+      atual.quantidadePrevista += Number(item.quantidade_prevista ?? 0);
+      atual.quantidadeRealizada += Number(item.quantidade_realizada ?? 0);
+      atual.faturamentoPlanejado += Number(
+        item.faturamento_planejado ?? faturamentoPlanejado(item.quantidade_prevista, item.atividades),
+      );
+      atual.faturamentoRealizado += Number(item.quantidade_realizada ?? 0) * Number(item.atividades?.valor_unitario ?? 0);
+      if (item.data_fechamento && (!atual.dataFechamento || item.data_fechamento > atual.dataFechamento)) {
+        atual.dataFechamento = item.data_fechamento;
+      }
+
+      groups.set(key, atual);
+    }
+
+    return Array.from(groups.values())
+      .map((group) => {
+        const pct = group.quantidadePrevista > 0
+          ? (group.quantidadeRealizada / group.quantidadePrevista) * 100
+          : 0;
+        const fechado = group.items.length > 0 && group.items.every((item) => {
+          return item.status === "concluido" || Number(item.pct_realizado ?? 0) >= 100;
+        });
+        return {
+          ...group,
+          pct,
+          fechado,
+          insumos: mergeInsumos(group.items),
+        };
+      })
+      .sort((a, b) => (
+        a.projeto.localeCompare(b.projeto, "pt-BR") ||
+        a.talhao.localeCompare(b.talhao, "pt-BR", { numeric: true })
+      ));
+  }, [itensFiltrados]);
+
   const teamModalData = teamModal
     ? equipeGroups.find(([key]) => key === teamModal)
     : null;
@@ -700,6 +974,8 @@ export default function PlanejamentoAdminPage() {
           {STATUS_OPTS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
         </select>
       </div>
+
+      <TalhaoSettlementPanel groups={talhaoGroups} />
 
       {/* Card grid */}
       {loading ? (

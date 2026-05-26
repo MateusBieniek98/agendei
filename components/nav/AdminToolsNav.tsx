@@ -16,6 +16,7 @@ const ADMIN_TOOLS: AdminToolItem[] = [
   { href: "/admin/lancamentos", label: "Lançamentos", icon: <ListIcon /> },
   { href: "/admin/atividades", label: "Serviços", icon: <TagIcon /> },
   { href: "/admin/equipes", label: "Cad. equipes", icon: <UsersIcon /> },
+  { href: "/admin/projetos", label: "Projetos", icon: <MapIcon /> },
   { href: "/admin/maquinas", label: "Frota", icon: <CogIcon /> },
   { href: "/admin/planejamento", label: "Plano admin", icon: <CalendarIcon /> },
   { href: "/admin/metas", label: "Metas", icon: <TargetIcon /> },
@@ -115,6 +116,15 @@ function UsersIcon() {
       <circle cx="9" cy="7" r="4" />
       <path d="M23 21v-2a4 4 0 0 0-3-3.9" />
       <path d="M16 3.1a4 4 0 0 1 0 7.8" />
+    </SvgIcon>
+  );
+}
+
+function MapIcon() {
+  return (
+    <SvgIcon>
+      <path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3V6Z" />
+      <path d="M9 3v15M15 6v15" />
     </SvgIcon>
   );
 }

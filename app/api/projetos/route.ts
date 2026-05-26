@@ -10,6 +10,17 @@ type ProjetoApi = {
   created_at: string;
 };
 
+type TalhaoApi = {
+  id: string;
+  projeto_id: string;
+  codigo: string;
+  area_ha: number | null;
+  ativo: boolean;
+  observacoes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 type PlanejamentoProjeto = {
   projeto_id: string;
   projetos: { nome: string } | null;
@@ -43,10 +54,11 @@ function dedupeProjetos(projetos: ProjetoApi[], planejamento: PlanejamentoProjet
   return Array.from(mapa.values()).sort((a, b) => a.nome.localeCompare(b.nome));
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const profile = await getCurrentProfile();
   if (!profile) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
 
+  const includeTalhoes = req.nextUrl.searchParams.get("include_talhoes") === "1";
   const supabase = await createSupabaseServer();
   const [{ data, error }, { data: planejamentoData, error: planejamentoError }] =
     await Promise.all([
@@ -63,11 +75,40 @@ export async function GET() {
     return NextResponse.json({ error: planejamentoError.message }, { status: 400 });
   }
 
+  const projetos = dedupeProjetos(
+    (data ?? []) as ProjetoApi[],
+    (planejamentoData ?? []) as unknown as PlanejamentoProjeto[]
+  );
+
+  if (!includeTalhoes) {
+    return NextResponse.json({ items: projetos });
+  }
+
+  if (projetos.length === 0) {
+    return NextResponse.json({ items: [] });
+  }
+
+  const { data: talhoesData, error: talhoesError } = await supabase
+    .from("talhoes")
+    .select("*")
+    .in("projeto_id", projetos.map((p) => p.id))
+    .order("codigo");
+
+  const talhoesPorProjeto = new Map<string, TalhaoApi[]>();
+  if (!talhoesError) {
+    for (const talhao of (talhoesData ?? []) as TalhaoApi[]) {
+      const current = talhoesPorProjeto.get(talhao.projeto_id) ?? [];
+      current.push(talhao);
+      talhoesPorProjeto.set(talhao.projeto_id, current);
+    }
+  }
+
   return NextResponse.json({
-    items: dedupeProjetos(
-      (data ?? []) as ProjetoApi[],
-      (planejamentoData ?? []) as unknown as PlanejamentoProjeto[]
-    ),
+    items: projetos.map((projeto) => ({
+      ...projeto,
+      talhoes: talhoesPorProjeto.get(projeto.id) ?? [],
+    })),
+    talhoes_error: talhoesError?.message ?? null,
   });
 }
 
@@ -82,6 +123,28 @@ export async function POST(req: NextRequest) {
   if (!nome) return NextResponse.json({ error: "nome obrigatório" }, { status: 400 });
 
   const supabase = await createSupabaseServer();
+  const { data: existentes, error: findError } = await supabase
+    .from("projetos")
+    .select("*")
+    .eq("nome", nome)
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  if (findError) return NextResponse.json({ error: findError.message }, { status: 400 });
+
+  const existente = existentes?.[0];
+  if (existente) {
+    const { data, error } = await supabase
+      .from("projetos")
+      .update({ nome, ativo: body.ativo ?? true })
+      .eq("id", existente.id)
+      .select()
+      .single();
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ item: data }, { status: 200 });
+  }
+
   const { data, error } = await supabase
     .from("projetos")
     .insert({ nome, ativo: body.ativo ?? true })

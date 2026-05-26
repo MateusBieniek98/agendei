@@ -42,6 +42,21 @@ export type Projeto = {
   created_at: string;
 };
 
+export type Talhao = {
+  id: string;
+  projeto_id: string;
+  codigo: string;
+  area_ha: number | null;
+  ativo: boolean;
+  observacoes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ProjetoComTalhoes = Projeto & {
+  talhoes: Talhao[];
+};
+
 export type Producao = {
   id: string;
   data: string; // yyyy-mm-dd
