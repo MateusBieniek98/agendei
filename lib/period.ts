@@ -93,9 +93,27 @@ function diffDaysInclusive(de: Date, ate: Date): number {
 }
 
 function businessDayWeight(d: Date): number {
+  const explicitWeight = BUSINESS_DAY_WEIGHTS_2026[toISO(d)];
+  if (explicitWeight !== undefined) return explicitWeight;
+
   const dayOfWeek = d.getUTCDay();
-  if (dayOfWeek === 0 || dayOfWeek === 6) return 0;
-  return BUSINESS_DAY_WEIGHTS_2026[toISO(d)] ?? 1;
+  if (dayOfWeek === 0) return 0;
+  if (dayOfWeek === 6) return isOneOfFirstTwoSaturdaysOfMonth(d) ? 1 : 0;
+  return 1;
+}
+
+function isOneOfFirstTwoSaturdaysOfMonth(d: Date): boolean {
+  const year = d.getUTCFullYear();
+  const monthIndex = d.getUTCMonth();
+  let saturdaysFound = 0;
+
+  for (let day = 1; day <= d.getUTCDate(); day += 1) {
+    if (utcDate(year, monthIndex, day).getUTCDay() === 6) {
+      saturdaysFound += 1;
+    }
+  }
+
+  return saturdaysFound <= 2;
 }
 
 function diffBusinessDaysInclusive(de: Date, ate: Date): number {
