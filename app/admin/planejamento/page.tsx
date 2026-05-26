@@ -16,6 +16,9 @@ type PlanejamentoRow = Planejamento & {
   quantidade_realizada:   number;
   pct_realizado:          number;
   faturamento_planejado:  number;
+  quantidade_realizada_os_atual: number;
+  faturamento_realizado_os_atual: number;
+  os_atual_inicio:        string | null;
   data_fechamento:        string | null;
   insumos_utilizados:     { nome: string; quantidade: number }[];
 };
@@ -90,8 +93,11 @@ type TalhaoGroup = {
   items: PlanejamentoRow[];
   quantidadePrevista: number;
   quantidadeRealizada: number;
+  quantidadeRealizadaOsAtual: number;
   faturamentoPlanejado: number;
   faturamentoRealizado: number;
+  faturamentoRealizadoOsAtual: number;
+  osAtualInicio: string | null;
   pct: number;
   fechado: boolean;
   dataFechamento: string | null;
@@ -151,9 +157,6 @@ function TeamCard({
         <h3 className="text-base font-bold truncate" style={{ color: "var(--text-primary)" }}>
           {nome}
         </h3>
-        <span className="text-xs shrink-0" style={{ color: "var(--text-muted)" }}>
-          {items.length} item{items.length !== 1 ? "s" : ""} →
-        </span>
       </div>
 
       {/* Faturamento */}
@@ -536,7 +539,7 @@ function TalhaoSettlementPanel({ groups }: { groups: TalhaoGroup[] }) {
               Fechamento por projeto e talhão
             </h2>
             <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
-              Consolida planejado, realizado, data de fechamento e insumos utilizados.
+              Consolida planejado, realizado total, realizado na OS atual e insumos utilizados.
             </p>
           </div>
           <div className="flex gap-2 text-xs font-bold">
@@ -587,7 +590,7 @@ function TalhaoSettlementPanel({ groups }: { groups: TalhaoGroup[] }) {
                     </p>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4 lg:min-w-[620px]">
+                  <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-3 xl:grid-cols-6 lg:min-w-[840px]">
                     <div>
                       <p className="text-xs font-bold uppercase" style={{ color: "var(--text-muted)" }}>Previsto</p>
                       <p className="font-extrabold tabular" style={{ color: "var(--text-primary)" }}>
@@ -601,6 +604,15 @@ function TalhaoSettlementPanel({ groups }: { groups: TalhaoGroup[] }) {
                       </p>
                     </div>
                     <div>
+                      <p className="text-xs font-bold uppercase" style={{ color: "var(--text-muted)" }}>Área OS</p>
+                      <p className="font-extrabold tabular" style={{ color: "var(--accent)" }}>
+                        {num(group.quantidadeRealizadaOsAtual, 2)} ha
+                      </p>
+                      <p className="text-[11px] font-semibold" style={{ color: "var(--text-muted)" }}>
+                        {group.osAtualInicio ? `desde ${ddmmyyyy(group.osAtualInicio)}` : "OS atual"}
+                      </p>
+                    </div>
+                    <div>
                       <p className="text-xs font-bold uppercase" style={{ color: "var(--text-muted)" }}>Planejado</p>
                       <p className="font-extrabold tabular" style={{ color: "var(--text-primary)" }}>
                         {brl(group.faturamentoPlanejado)}
@@ -610,6 +622,15 @@ function TalhaoSettlementPanel({ groups }: { groups: TalhaoGroup[] }) {
                       <p className="text-xs font-bold uppercase" style={{ color: "var(--text-muted)" }}>Realizado</p>
                       <p className="font-extrabold tabular" style={{ color: "var(--success)" }}>
                         {brl(group.faturamentoRealizado)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold uppercase" style={{ color: "var(--text-muted)" }}>Fat. OS</p>
+                      <p className="font-extrabold tabular" style={{ color: "var(--success)" }}>
+                        {brl(group.faturamentoRealizadoOsAtual)}
+                      </p>
+                      <p className="text-[11px] font-semibold" style={{ color: "var(--text-muted)" }}>
+                        {group.osAtualInicio ? `desde ${ddmmyyyy(group.osAtualInicio)}` : "OS atual"}
                       </p>
                     </div>
                   </div>
@@ -816,10 +837,6 @@ export default function PlanejamentoAdminPage() {
     (s, i) => s + (i.faturamento_planejado ?? faturamentoPlanejado(i.quantidade_prevista, i.atividades)),
     0,
   );
-  const nPlanejado  = itensFiltrados.filter((i) => i.status === "planejado").length;
-  const nExecucao   = itensFiltrados.filter((i) => i.status === "em_execucao").length;
-  const nConcluido  = itensFiltrados.filter((i) => i.status === "concluido").length;
-
   // Group by equipe
   const equipeGroups = useMemo(() => {
     const groups: Record<string, { nome: string; items: PlanejamentoRow[] }> = {};
@@ -851,8 +868,11 @@ export default function PlanejamentoAdminPage() {
         items: [],
         quantidadePrevista: 0,
         quantidadeRealizada: 0,
+        quantidadeRealizadaOsAtual: 0,
         faturamentoPlanejado: 0,
         faturamentoRealizado: 0,
+        faturamentoRealizadoOsAtual: 0,
+        osAtualInicio: null,
         pct: 0,
         fechado: false,
         dataFechamento: null,
@@ -862,10 +882,15 @@ export default function PlanejamentoAdminPage() {
       atual.items.push(item);
       atual.quantidadePrevista += Number(item.quantidade_prevista ?? 0);
       atual.quantidadeRealizada += Number(item.quantidade_realizada ?? 0);
+      atual.quantidadeRealizadaOsAtual += Number(item.quantidade_realizada_os_atual ?? 0);
       atual.faturamentoPlanejado += Number(
         item.faturamento_planejado ?? faturamentoPlanejado(item.quantidade_prevista, item.atividades),
       );
       atual.faturamentoRealizado += Number(item.quantidade_realizada ?? 0) * Number(item.atividades?.valor_unitario ?? 0);
+      atual.faturamentoRealizadoOsAtual += Number(item.faturamento_realizado_os_atual ?? 0);
+      if (item.os_atual_inicio && (!atual.osAtualInicio || item.os_atual_inicio < atual.osAtualInicio)) {
+        atual.osAtualInicio = item.os_atual_inicio;
+      }
       if (item.data_fechamento && (!atual.dataFechamento || item.data_fechamento > atual.dataFechamento)) {
         atual.dataFechamento = item.data_fechamento;
       }
@@ -916,22 +941,18 @@ export default function PlanejamentoAdminPage() {
       </div>
 
       {/* Stats strip */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {[
-          { label: "Planejados",  value: nPlanejado,           color: "var(--accent)"        },
-          { label: "Em execução", value: nExecucao,             color: "var(--warn)"          },
-          { label: "Concluídos",  value: nConcluido,            color: "var(--success)"       },
-          { label: "Fat. total",  value: brl(faturamentoTotal), color: "var(--text-primary)"  },
-        ].map((s) => (
-          <div
-            key={s.label}
-            className="rounded-xl p-3 text-center"
-            style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}
-          >
-            <p className="text-lg font-extrabold" style={{ color: s.color }}>{s.value}</p>
-            <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{s.label}</p>
-          </div>
-        ))}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(260px,380px)]">
+        <div
+          className="rounded-xl p-4"
+          style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}
+        >
+          <p className="text-xs font-bold uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
+            Faturamento planejado
+          </p>
+          <p className="mt-1 text-2xl font-extrabold tabular" style={{ color: "var(--text-primary)" }}>
+            {brl(faturamentoTotal)}
+          </p>
+        </div>
       </div>
 
       {/* Filters */}

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { cicloProducao } from "./period";
 
 type ProducaoResumo = {
   projeto_id: string | null;
@@ -7,6 +8,7 @@ type ProducaoResumo = {
   data: string | null;
   created_at: string | null;
   quantidade: number | string | null;
+  valor_unitario_snapshot?: number | string | null;
   insumos?: unknown;
   projetos?: { nome?: string | null } | null;
   atividades?: { nome?: string | null } | null;
@@ -26,6 +28,9 @@ export type PlanejamentoProgress = {
   quantidade_realizada: number;
   pct_realizado: number;
   faturamento_planejado: number;
+  quantidade_realizada_os_atual: number;
+  faturamento_realizado_os_atual: number;
+  os_atual_inicio: string;
   data_fechamento: string | null;
   insumos_utilizados: InsumoTotal[];
 };
@@ -40,6 +45,7 @@ type ProducaoMatch = {
   data: string | null;
   created_at: string | null;
   insumos: InsumoTotal[];
+  valorUnitarioSnapshot: number;
 };
 
 type MatchBucket = {
@@ -214,11 +220,31 @@ function aggregateInsumos(rows: ProducaoMatch[]) {
   return Array.from(totals.values()).sort((a, b) => a.nome.localeCompare(b.nome));
 }
 
+function rowsDesde(rows: ProducaoMatch[], startISO: string) {
+  return rows.filter((row) => {
+    const data = productionDate(row);
+    return data ? data >= startISO : false;
+  });
+}
+
+function somarQuantidade(rows: ProducaoMatch[]) {
+  return rows.reduce((sum, row) => sum + row.quantidade, 0);
+}
+
+function somarFaturamento(rows: ProducaoMatch[], tarifaFallback: number) {
+  return rows.reduce((sum, row) => {
+    const tarifa = row.valorUnitarioSnapshot > 0 ? row.valorUnitarioSnapshot : tarifaFallback;
+    return sum + row.quantidade * tarifa;
+  }, 0);
+}
+
 export async function enrichPlanningProgress<T extends PlanejamentoBase>(
   supabase: Pick<SupabaseClient, "from">,
   items: T[]
 ): Promise<Array<T & PlanejamentoProgress>> {
   if (items.length === 0) return [];
+
+  const osAtualInicio = cicloProducao().de;
 
   if (items.some((item) => !item.projeto_id || !item.atividade_id)) {
     return items.map((item) => {
@@ -229,6 +255,9 @@ export async function enrichPlanningProgress<T extends PlanejamentoBase>(
         quantidade_realizada: 0,
         pct_realizado: 0,
         faturamento_planejado: prevista * tarifa,
+        quantidade_realizada_os_atual: 0,
+        faturamento_realizado_os_atual: 0,
+        os_atual_inicio: osAtualInicio,
         data_fechamento: null,
         insumos_utilizados: [],
       };
@@ -237,7 +266,7 @@ export async function enrichPlanningProgress<T extends PlanejamentoBase>(
 
   const { data, error } = await supabase
     .from("producao")
-    .select("projeto_id, atividade_id, talhao, data, created_at, quantidade, insumos, projetos(nome), atividades(nome)")
+    .select("projeto_id, atividade_id, talhao, data, created_at, quantidade, valor_unitario_snapshot, insumos, projetos(nome), atividades(nome)")
     .limit(10000);
 
   if (error) throw new Error(error.message);
@@ -255,6 +284,7 @@ export async function enrichPlanningProgress<T extends PlanejamentoBase>(
       data: row.data,
       created_at: row.created_at,
       insumos: normalizeInsumos(row.insumos),
+      valorUnitarioSnapshot: toNumber(row.valor_unitario_snapshot),
     };
     const byId = exactKey(row.projeto_id, row.talhao, row.atividade_id);
     const byName = namedKey(row.projetos?.nome, row.talhao, row.atividades?.nome);
@@ -306,14 +336,19 @@ export async function enrichPlanningProgress<T extends PlanejamentoBase>(
       : bucketPorServico;
     const pct = prevista > 0 ? Math.min((realizada / prevista) * 100, 999) : 0;
     const tarifa = Number(item.atividades?.valor_unitario ?? 0);
+    const rowsSelecionadas = selectedBucket?.rows ?? [];
+    const rowsOsAtual = rowsDesde(rowsSelecionadas, osAtualInicio);
 
     return {
       ...item,
       quantidade_realizada: realizada,
       pct_realizado: pct,
       faturamento_planejado: prevista * tarifa,
-      data_fechamento: closingDate(selectedBucket?.rows ?? [], prevista, item.status),
-      insumos_utilizados: aggregateInsumos(selectedBucket?.rows ?? []),
+      quantidade_realizada_os_atual: somarQuantidade(rowsOsAtual),
+      faturamento_realizado_os_atual: somarFaturamento(rowsOsAtual, tarifa),
+      os_atual_inicio: osAtualInicio,
+      data_fechamento: closingDate(rowsSelecionadas, prevista, item.status),
+      insumos_utilizados: aggregateInsumos(rowsSelecionadas),
     };
   });
 }
