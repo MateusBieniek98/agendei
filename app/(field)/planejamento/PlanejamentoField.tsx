@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { brl, ddmmyyyy, todayISO } from "@/lib/format";
+import { brl, ddmmyyyy, num, todayISO } from "@/lib/format";
 import type { PlanningStatus } from "@/lib/types";
 
 type PlanejamentoRow = {
@@ -24,6 +24,8 @@ type PlanejamentoRow = {
   quantidade_realizada:   number;
   pct_realizado:          number;
   faturamento_planejado:  number;
+  data_fechamento:        string | null;
+  insumos_utilizados:     { nome: string; quantidade: number }[];
 };
 
 const STATUS_LABEL: Record<PlanningStatus, string> = {
@@ -48,6 +50,14 @@ const STATUS_BG: Record<PlanningStatus, string> = {
 };
 
 function hoje() { return todayISO(); }
+
+function resumoInsumos(insumos: { nome: string; quantidade: number }[]) {
+  const principais = insumos.slice(0, 3).map((insumo) => (
+    `${insumo.nome}: ${num(insumo.quantidade, 2)}`
+  ));
+  const restantes = insumos.length - principais.length;
+  return restantes > 0 ? `${principais.join(" · ")} · +${restantes}` : principais.join(" · ");
+}
 
 function ProgressBar({ pct }: { pct: number }) {
   const cor =
@@ -132,10 +142,32 @@ function CardItem({
             </p>
           </div>
         )}
+        {item.data_fechamento && (
+          <div>
+            <p style={{ color: "var(--text-muted)" }}>Fechado em</p>
+            <p className="font-semibold" style={{ color: "var(--success)" }}>
+              {ddmmyyyy(item.data_fechamento)}
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Barra de progresso */}
       {item.pct_realizado > 0 && <ProgressBar pct={item.pct_realizado} />}
+
+      {item.insumos_utilizados.length > 0 && (
+        <div
+          className="rounded-xl px-3 py-2 text-xs"
+          style={{ background: "var(--bg-active)", border: "1px solid var(--border)" }}
+        >
+          <p className="font-bold" style={{ color: "var(--text-primary)" }}>
+            Insumos utilizados
+          </p>
+          <p className="mt-1 leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+            {resumoInsumos(item.insumos_utilizados)}
+          </p>
+        </div>
+      )}
 
       {/* Observações */}
       {item.observacoes && (

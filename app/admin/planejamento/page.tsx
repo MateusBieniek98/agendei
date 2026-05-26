@@ -16,6 +16,8 @@ type PlanejamentoRow = Planejamento & {
   quantidade_realizada:   number;
   pct_realizado:          number;
   faturamento_planejado:  number;
+  data_fechamento:        string | null;
+  insumos_utilizados:     { nome: string; quantidade: number }[];
 };
 
 const STATUS_OPTS: { value: PlanningStatus; label: string }[] = [
@@ -48,6 +50,14 @@ function faturamentoPlanejado(
   atividade: { valor_unitario: number } | null | undefined,
 ) {
   return Number(qtd ?? 0) * Number(atividade?.valor_unitario ?? 0);
+}
+
+function resumoInsumos(insumos: { nome: string; quantidade: number }[]) {
+  const principais = insumos.slice(0, 4).map((insumo) => (
+    `${insumo.nome}: ${num(insumo.quantidade, 2)}`
+  ));
+  const restantes = insumos.length - principais.length;
+  return restantes > 0 ? `${principais.join(" · ")} · +${restantes}` : principais.join(" · ");
 }
 
 /* ── Progress bar ── */
@@ -238,9 +248,28 @@ function TeamModal({
                       Realiz.: <b style={{ color: "var(--text-primary)" }}>{item.pct_realizado.toFixed(1)}%</b>
                     </span>
                   )}
+                  {item.data_fechamento && (
+                    <span style={{ color: "var(--text-muted)" }}>
+                      Fechado em: <b style={{ color: "var(--success)" }}>{ddmmyyyy(item.data_fechamento)}</b>
+                    </span>
+                  )}
                 </div>
 
                 {item.pct_realizado > 0 && <ProgressBar pct={item.pct_realizado} />}
+
+                {item.insumos_utilizados.length > 0 && (
+                  <div
+                    className="mt-3 rounded-xl px-3 py-2 text-xs"
+                    style={{ background: "var(--bg-active)", border: "1px solid var(--border)" }}
+                  >
+                    <p className="font-bold" style={{ color: "var(--text-primary)" }}>
+                      Insumos utilizados
+                    </p>
+                    <p className="mt-1 leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                      {resumoInsumos(item.insumos_utilizados)}
+                    </p>
+                  </div>
+                )}
 
                 {/* Action buttons */}
                 <div className="flex gap-2 mt-3">
