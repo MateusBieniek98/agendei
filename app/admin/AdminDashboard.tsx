@@ -924,31 +924,62 @@ function MiniMetric({ label, value, color }: { label: string; value: number; col
 
 function DailyRevenueCard({ hoje, ontem }: { hoje: number; ontem: number }) {
   return (
+    <>
+      <div
+        className="rounded-lg border p-3 sm:hidden"
+        style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}
+      >
+        <p className="text-xs font-bold uppercase" style={{ color: "var(--text-muted)" }}>
+          Faturamento diário
+        </p>
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          <div className="min-w-0 rounded-lg p-2" style={{ background: "var(--bg-card-alt)" }}>
+            <p className="text-[11px] font-bold uppercase" style={{ color: "var(--text-muted)" }}>
+              Hoje
+            </p>
+            <p className="mt-1 truncate text-xl font-black tabular" style={{ color: "var(--success)" }}>
+              {brl(hoje)}
+            </p>
+          </div>
+          <div className="min-w-0 rounded-lg p-2" style={{ background: "var(--bg-card-alt)" }}>
+            <p className="text-[11px] font-bold uppercase" style={{ color: "var(--text-muted)" }}>
+              Ontem
+            </p>
+            <p className="mt-1 truncate text-xl font-black tabular" style={{ color: "var(--accent)" }}>
+              {brl(ontem)}
+            </p>
+          </div>
+        </div>
+      </div>
+      <DailyRevenueMetricCard label="Faturamento hoje" value={brl(hoje)} tone="success" />
+      <DailyRevenueMetricCard label="Faturamento ontem" value={brl(ontem)} tone="accent" />
+    </>
+  );
+}
+
+function DailyRevenueMetricCard({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: "success" | "accent";
+}) {
+  return (
     <div
-      className="rounded-lg border p-3 sm:p-4"
+      className="hidden rounded-lg border p-4 sm:block"
       style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}
     >
       <p className="text-xs font-bold uppercase" style={{ color: "var(--text-muted)" }}>
-        Faturamento diário
+        {label}
       </p>
-      <div className="mt-2 grid grid-cols-2 gap-2">
-        <div className="min-w-0 rounded-lg p-2" style={{ background: "var(--bg-card-alt)" }}>
-          <p className="text-[11px] font-bold uppercase" style={{ color: "var(--text-muted)" }}>
-            Hoje
-          </p>
-          <p className="mt-1 truncate text-xl font-black tabular sm:text-2xl" style={{ color: "var(--success)" }}>
-            {brl(hoje)}
-          </p>
-        </div>
-        <div className="min-w-0 rounded-lg p-2" style={{ background: "var(--bg-card-alt)" }}>
-          <p className="text-[11px] font-bold uppercase" style={{ color: "var(--text-muted)" }}>
-            Ontem
-          </p>
-          <p className="mt-1 truncate text-xl font-black tabular sm:text-2xl" style={{ color: "var(--accent)" }}>
-            {brl(ontem)}
-          </p>
-        </div>
-      </div>
+      <p
+        className="mt-2 truncate text-2xl font-black tabular"
+        style={{ color: tone === "success" ? "var(--success)" : "var(--accent)" }}
+      >
+        {value}
+      </p>
     </div>
   );
 }
