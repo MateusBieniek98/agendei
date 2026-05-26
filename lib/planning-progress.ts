@@ -60,6 +60,43 @@ function namedKey(
   return `${normalizeProjectName(projetoNome)}|${normalizeTalhao(talhao)}|${normalizePlanningText(atividadeNome)}`;
 }
 
+function serviceKeys(atividadeNome: string | null | undefined) {
+  const normalized = normalizePlanningText(atividadeNome);
+  const keys = new Set<string>();
+
+  const isPlantio = /\bplantio\b/.test(normalized);
+  const isIrrigacaoPlantio = /\birrigacao\b.*\bplantio\b/.test(normalized);
+  if (isPlantio && !isIrrigacaoPlantio) keys.add("plantio");
+
+  if (normalized) keys.add(normalized);
+  const semPrefixoServico = normalized
+    .replace(/\b(serv|servico)\b/g, " ")
+    .replace(/["']/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (semPrefixoServico) keys.add(semPrefixoServico);
+
+  return Array.from(keys);
+}
+
+function serviceKey(
+  projetoNome: string | null | undefined,
+  talhao: string | null | undefined,
+  atividadeNome: string | null | undefined
+) {
+  return serviceKeys(atividadeNome).map(
+    (key) => `${normalizeProjectName(projetoNome)}|${normalizeTalhao(talhao)}|${key}`
+  );
+}
+
+function firstPositiveMatch(totals: Map<string, number>, keys: string[]) {
+  for (const key of keys) {
+    const value = totals.get(key);
+    if (value && value > 0) return value;
+  }
+  return null;
+}
+
 export async function enrichPlanningProgress<T extends PlanejamentoBase>(
   supabase: Pick<SupabaseClient, "from">,
   items: T[]
@@ -88,12 +125,16 @@ export async function enrichPlanningProgress<T extends PlanejamentoBase>(
 
   const exactTotals = new Map<string, number>();
   const namedTotals = new Map<string, number>();
+  const serviceTotals = new Map<string, number>();
   for (const row of (data ?? []) as ProducaoResumo[]) {
     const quantidade = Number(row.quantidade ?? 0);
     const byId = exactKey(row.projeto_id, row.talhao, row.atividade_id);
     const byName = namedKey(row.projetos?.nome, row.talhao, row.atividades?.nome);
     exactTotals.set(byId, (exactTotals.get(byId) ?? 0) + quantidade);
     namedTotals.set(byName, (namedTotals.get(byName) ?? 0) + quantidade);
+    for (const byService of serviceKey(row.projetos?.nome, row.talhao, row.atividades?.nome)) {
+      serviceTotals.set(byService, (serviceTotals.get(byService) ?? 0) + quantidade);
+    }
   }
 
   return items.map((item) => {
@@ -104,9 +145,19 @@ export async function enrichPlanningProgress<T extends PlanejamentoBase>(
     const realizadaPorNome = namedTotals.get(
       namedKey(item.projetos?.nome, item.talhao, item.atividades?.nome)
     );
-    const realizada = realizadaPorId && realizadaPorId > 0
+    const realizadaPorServico = firstPositiveMatch(
+      serviceTotals,
+      serviceKey(item.projetos?.nome, item.talhao, item.atividades?.nome)
+    );
+    const atividadePorFamilia = serviceKeys(item.atividades?.nome)[0] === "plantio";
+    const realizadaPorChave = realizadaPorId && realizadaPorId > 0
       ? realizadaPorId
-      : realizadaPorNome ?? realizadaPorId ?? 0;
+      : realizadaPorNome && realizadaPorNome > 0
+      ? realizadaPorNome
+      : 0;
+    const realizada = atividadePorFamilia && realizadaPorServico
+      ? realizadaPorServico
+      : realizadaPorChave || realizadaPorServico || 0;
     const pct = prevista > 0 ? Math.min((realizada / prevista) * 100, 999) : 0;
     const tarifa = Number(item.atividades?.valor_unitario ?? 0);
 

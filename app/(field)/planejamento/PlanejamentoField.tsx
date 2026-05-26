@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { brl, ddmmyyyy, todayISO } from "@/lib/format";
 import type { PlanningStatus } from "@/lib/types";
@@ -453,22 +453,37 @@ export default function PlanejamentoField({
   const [visualizacao, setVisualizacao] = useState<VisualizacaoPlanejamento>("timeline");
   const [agruparPor, setAgruparPor] = useState<AgrupamentoTimeline>("projeto");
 
-  useEffect(() => {
-    async function carregar() {
-      setLoading(true);
-      try {
-        const url = equipeId
-          ? `/api/planejamento?equipe_id=${equipeId}`
-          : "/api/planejamento";
-        const r = await fetch(url);
-        const j = await r.json();
-        setItems(Array.isArray(j.items) ? j.items : []);
-      } finally {
-        setLoading(false);
-      }
+  const carregar = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
+    try {
+      const url = equipeId
+        ? `/api/planejamento?equipe_id=${equipeId}`
+        : "/api/planejamento";
+      const r = await fetch(url, { cache: "no-store" });
+      const j = await r.json();
+      setItems(Array.isArray(j.items) ? j.items : []);
+    } finally {
+      if (!silent) setLoading(false);
     }
-    carregar();
   }, [equipeId]);
+
+  useEffect(() => {
+    carregar();
+  }, [carregar]);
+
+  useEffect(() => {
+    const atualizarSeVisivel = () => {
+      if (document.visibilityState === "visible") carregar(true);
+    };
+    window.addEventListener("focus", atualizarSeVisivel);
+    document.addEventListener("visibilitychange", atualizarSeVisivel);
+    const timer = window.setInterval(atualizarSeVisivel, 30000);
+    return () => {
+      window.removeEventListener("focus", atualizarSeVisivel);
+      document.removeEventListener("visibilitychange", atualizarSeVisivel);
+      window.clearInterval(timer);
+    };
+  }, [carregar]);
 
   const hoje_str = hoje();
 

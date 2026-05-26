@@ -36,7 +36,10 @@ export async function GET(req: NextRequest) {
   const { data, error } = await q.limit(800);
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   const items = await enrichPlanningProgress(supabase, data ?? []);
-  return NextResponse.json({ items });
+  return NextResponse.json(
+    { items },
+    { headers: { "cache-control": "no-store" } }
+  );
 }
 
 export async function POST(req: NextRequest) {

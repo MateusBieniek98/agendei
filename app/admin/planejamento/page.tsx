@@ -781,7 +781,7 @@ export default function PlanejamentoAdminPage() {
         fetch("/api/projetos").then((r) => r.json()),
         fetch("/api/atividades").then((r) => r.json()),
         fetch("/api/equipes").then((r) => r.json()),
-        fetch("/api/planejamento").then((r) => r.json()),
+        fetch("/api/planejamento", { cache: "no-store" }).then((r) => r.json()),
       ]);
       setProjetos(Array.isArray(pr.items)   ? pr.items   : []);
       setAtividades(Array.isArray(ar.items) ? ar.items   : []);
