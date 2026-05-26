@@ -110,14 +110,14 @@ export default function ProjetosAdminPage() {
   }
 
   async function desativarProjeto(id: string) {
-    if (!confirm("Desativar este projeto? Ele não aparecerá nos novos lançamentos.")) return;
+    if (!confirm("Excluir este projeto da lista ativa? O histórico já lançado continua preservado.")) return;
     const res = await fetch(`/api/projetos/${id}`, { method: "DELETE" });
     if (!res.ok) {
       const json = await res.json().catch(() => ({}));
       toast(`Erro: ${json.error ?? res.statusText}`, "error");
       return;
     }
-    toast("Projeto desativado.", "success");
+    toast("Projeto excluído da lista ativa.", "success");
     carregar();
   }
 
@@ -280,7 +280,7 @@ export default function ProjetosAdminPage() {
                       Editar
                     </Button>
                     <Button variant="danger" size="sm" onClick={() => desativarProjeto(projeto.id)}>
-                      Desativar
+                      Excluir
                     </Button>
                   </div>
                 </div>
