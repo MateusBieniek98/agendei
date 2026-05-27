@@ -18,6 +18,7 @@ import { brl, ddmmyyyy } from "@/lib/format";
 import { LinhaChart } from "@/app/gestor/GestorCharts";
 import PeriodoFiltro, { type PeriodoState } from "@/components/dashboard/PeriodoFiltro";
 import PlanejamentoField from "@/app/(field)/planejamento/PlanejamentoField";
+import PlanejamentoAdminPage from "@/app/admin/planejamento/page";
 
 type DashboardMode = "admin" | "gestor" | "encarregado";
 type DashboardChartId = "daily" | "accumulated" | "activities" | "teams";
@@ -311,7 +312,11 @@ export default function AdminDashboard({
       )}
 
       {activeTab === "planejamento" ? (
-        <PlanejamentoField equipeId={null} />
+        mode === "admin" ? (
+          <PlanejamentoAdminPage />
+        ) : (
+          <PlanejamentoField equipeId={null} />
+        )
       ) : !data ? (
         <div
           className="rounded-lg border p-4 text-sm font-semibold"
