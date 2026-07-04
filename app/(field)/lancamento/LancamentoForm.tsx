@@ -40,13 +40,13 @@ function InsumoCard({
 
   return (
     <div
-      className="rounded-xl border-2 p-3 shadow-sm"
-      style={{ background: "var(--bg-card-alt)" }}
+      className="rounded-lg border p-3 shadow-sm"
+      style={{ background: "var(--bg-card-alt)", borderColor: "var(--border)" }}
     >
       <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_9rem]">
         <label className="block">
           <span
-            className="mb-1 block text-xs font-extrabold uppercase tracking-wide"
+            className="mb-1 block text-xs font-bold uppercase tracking-wide"
             style={{ color: "var(--text-secondary)" }}
           >
             Insumo {index + 1}
@@ -58,13 +58,13 @@ function InsumoCard({
             onBlur={() => setTimeout(() => setFocado(false), 150)}
             placeholder="Buscar por código ou nome"
             autoComplete="off"
-            className="h-12 w-full rounded-xl border-2 bg-transparent px-3 text-sm font-bold outline-none"
+            className="h-11 w-full rounded-lg border bg-transparent px-3 text-sm font-bold outline-none"
             style={{ color: "var(--text-primary)", borderColor: "var(--border)" }}
           />
         </label>
         <label className="block">
           <span
-            className="mb-1 block text-xs font-extrabold uppercase tracking-wide"
+            className="mb-1 block text-xs font-bold uppercase tracking-wide"
             style={{ color: "var(--text-secondary)" }}
           >
             Qtd
@@ -77,7 +77,7 @@ function InsumoCard({
             value={insumo.quantidade}
             onChange={(e) => onChange("quantidade", e.target.value)}
             placeholder="0"
-            className="h-12 w-full rounded-xl border-2 bg-transparent px-3 text-sm font-bold outline-none"
+            className="h-11 w-full rounded-lg border bg-transparent px-3 text-sm font-bold outline-none"
             style={{ color: "var(--text-primary)", borderColor: "var(--border)" }}
           />
         </label>
@@ -85,7 +85,7 @@ function InsumoCard({
 
       {mostrarLista && (
         <div
-          className="mt-3 grid gap-2 rounded-xl border p-2"
+          className="mt-3 grid gap-2 rounded-lg border p-2"
           style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}
         >
           {sugestoes.map((item, i) => {
@@ -135,7 +135,7 @@ function StepperHeader({
   canAdvance: Record<StepId, boolean>;
 }) {
   return (
-    <div className="flex items-center gap-0 mb-6 select-none">
+    <div className="mb-5 flex items-center gap-0 select-none">
       {STEPS.map((s, i) => {
         const done = s.id < step;
         const active = s.id === step;
@@ -150,7 +150,7 @@ function StepperHeader({
               style={{ minWidth: 56 }}
             >
               <span
-                className="h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold transition-all"
+                className="flex h-7 w-7 items-center justify-center rounded-md text-xs font-bold transition-all"
                 style={{
                   background: done
                     ? "var(--success)"
@@ -158,7 +158,7 @@ function StepperHeader({
                     ? "var(--accent)"
                     : "var(--bg-active)",
                   color: done || active ? "#fff" : "var(--text-muted)",
-                  boxShadow: active ? "0 0 0 3px var(--accent-subtle)" : "none",
+                  boxShadow: active ? "inset 0 -2px 0 rgba(0,0,0,0.12)" : "none",
                 }}
               >
                 {done ? "✓" : s.id}
@@ -198,7 +198,7 @@ function Accordion({
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div
-      className="rounded-xl overflow-hidden"
+      className="overflow-hidden rounded-lg"
       style={{ border: "1px solid var(--border)" }}
     >
       <button
@@ -278,7 +278,7 @@ function SearchablePicker<T>({
 
   return (
     <div
-      className="rounded-2xl border-2 p-3 shadow-sm"
+      className="rounded-lg border p-3 shadow-sm"
       style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}
     >
       <div className="mb-2 flex items-start justify-between gap-3">
@@ -291,7 +291,7 @@ function SearchablePicker<T>({
           </p>
         </div>
         <span
-          className="rounded-full px-2.5 py-1 text-xs font-bold"
+          className="rounded-md px-2 py-1 text-xs font-bold"
           style={{
             background: selected ? "var(--accent-subtle)" : "var(--bg-card-alt)",
             color: selected ? "var(--accent)" : "var(--text-muted)",
@@ -327,7 +327,7 @@ function SearchablePicker<T>({
                 onSelect(item);
                 onSearchChange("");
               }}
-              className="w-full rounded-xl border-2 px-3 py-3 text-left transition active:scale-[0.99]"
+              className="w-full rounded-lg border px-3 py-3 text-left transition active:scale-[0.99]"
               style={{
                 background: active ? "var(--accent-subtle)" : "var(--bg-card-alt)",
                 borderColor: active ? "var(--accent)" : "var(--border)",
@@ -337,7 +337,7 @@ function SearchablePicker<T>({
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p
-                    className="break-words text-sm font-extrabold leading-snug"
+                    className="break-words text-sm font-bold leading-snug"
                     style={{ color: active ? "var(--accent)" : "var(--text-primary)" }}
                   >
                     {renderTitle(item)}
@@ -353,7 +353,7 @@ function SearchablePicker<T>({
                 </div>
                 {active && (
                   <span
-                    className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-sm font-black text-white"
+                    className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-sm font-black text-white"
                     style={{ background: "var(--accent)" }}
                   >
                     ✓
@@ -366,7 +366,7 @@ function SearchablePicker<T>({
 
         {visibleItems.length === 0 && (
           <div
-            className="rounded-xl border px-3 py-4 text-center text-sm font-bold"
+            className="rounded-lg border px-3 py-4 text-center text-sm font-bold"
             style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}
           >
             {emptyLabel}
@@ -378,7 +378,7 @@ function SearchablePicker<T>({
         <button
           type="button"
           onClick={() => setExpanded((value) => !value)}
-          className="mt-3 w-full rounded-xl px-3 py-2.5 text-sm font-bold transition"
+          className="mt-3 w-full rounded-lg px-3 py-2.5 text-sm font-bold transition"
           style={{ background: "var(--bg-active)", color: "var(--text-primary)" }}
         >
           {expanded ? "Recolher opções" : `Mostrar mais ${items.length - limit}`}
@@ -404,7 +404,7 @@ function BannerPlanejamento({
 }) {
   return (
     <div
-      className="rounded-2xl p-4 mb-2 animate-slide-up flex items-start justify-between gap-3"
+      className="mb-2 flex items-start justify-between gap-3 rounded-lg p-3 animate-slide-up"
       style={{ background: "var(--success-bg)", border: "1px solid var(--success)" }}
     >
       <div>
@@ -707,7 +707,7 @@ export default function LancamentoForm({
             type="button"
             disabled={!canAdvance[1]}
             onClick={() => setStep(2)}
-            className="w-full rounded-xl py-3.5 text-sm font-bold text-white transition disabled:opacity-40"
+            className="w-full rounded-lg py-3.5 text-sm font-bold text-white transition disabled:opacity-40"
             style={{ background: "var(--accent)" }}
           >
             Próximo: O Quê →
@@ -746,7 +746,7 @@ export default function LancamentoForm({
 
           {valorEstimado > 0 && (
             <div
-              className="rounded-xl px-4 py-3 animate-fade-in"
+              className="rounded-lg px-4 py-3 animate-fade-in"
               style={{ background: "var(--accent-subtle)", border: "1px solid var(--accent)" }}
             >
               <p className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--accent)" }}>
@@ -762,7 +762,7 @@ export default function LancamentoForm({
             <button
               type="button"
               onClick={() => setStep(1)}
-              className="flex-1 rounded-xl py-3.5 text-sm font-bold transition"
+              className="flex-1 rounded-lg py-3.5 text-sm font-bold transition"
               style={{ background: "var(--bg-active)", color: "var(--text-primary)" }}
             >
               ← Voltar
@@ -771,7 +771,7 @@ export default function LancamentoForm({
               type="button"
               disabled={!canAdvance[2]}
               onClick={() => setStep(3)}
-              className="flex-[2] rounded-xl py-3.5 text-sm font-bold text-white transition disabled:opacity-40"
+              className="flex-[2] rounded-lg py-3.5 text-sm font-bold text-white transition disabled:opacity-40"
               style={{ background: "var(--accent)" }}
             >
               Próximo: Recursos →
@@ -784,7 +784,7 @@ export default function LancamentoForm({
       {step === 3 && (
         <div className="space-y-4 animate-fade-in">
           <div
-            className="rounded-xl px-4 py-3 space-y-1"
+            className="rounded-lg px-4 py-3 space-y-1"
             style={{ background: "var(--bg-card-alt)", border: "1px solid var(--border)" }}
           >
             <p className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
@@ -851,7 +851,7 @@ export default function LancamentoForm({
             <button
               type="button"
               onClick={() => setStep(2)}
-              className="flex-1 rounded-xl py-3.5 text-sm font-bold transition"
+              className="flex-1 rounded-lg py-3.5 text-sm font-bold transition"
               style={{ background: "var(--bg-active)", color: "var(--text-primary)" }}
             >
               ← Voltar

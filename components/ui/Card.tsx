@@ -10,7 +10,7 @@ export function Card({
   return (
     <div
       className={
-        "rounded-2xl bg-[var(--bg-card)] border border-[var(--border)] shadow-sm " +
+        "rounded-lg border border-t-2 border-[var(--border)] border-t-[var(--brand-green)] bg-[var(--bg-card)] shadow-sm " +
         className
       }
     >
@@ -29,11 +29,11 @@ export function CardHeader({
   right?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-start justify-between gap-3 p-5 border-b border-[var(--color-ink-100)]">
+    <div className="flex items-start justify-between gap-3 border-b border-[var(--border)] px-4 py-3">
       <div>
-        <h3 className="text-base font-semibold text-[var(--color-ink-900)]">{title}</h3>
+        <h3 className="text-sm font-bold text-[var(--text-primary)]">{title}</h3>
         {subtitle && (
-          <p className="text-sm text-[var(--color-ink-500)] mt-0.5">{subtitle}</p>
+          <p className="mt-0.5 text-xs font-semibold text-[var(--text-muted)]">{subtitle}</p>
         )}
       </div>
       {right}
@@ -42,7 +42,7 @@ export function CardHeader({
 }
 
 export function CardBody({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return <div className={"p-5 " + className}>{children}</div>;
+  return <div className={"p-4 " + className}>{children}</div>;
 }
 
 /** Card de KPI grande com número em destaque. */
@@ -58,19 +58,19 @@ export function StatCard({
   tone?: "neutral" | "positive" | "warning" | "danger";
 }) {
   const toneText: Record<string, string> = {
-    neutral: "text-[var(--color-ink-900)]",
-    positive: "text-[var(--color-forest-700)]",
-    warning: "text-[var(--color-warn-500)]",
-    danger: "text-[var(--color-danger-500)]",
+    neutral: "text-[var(--text-primary)]",
+    positive: "text-[var(--success)]",
+    warning: "text-[var(--warn)]",
+    danger: "text-[var(--danger)]",
   };
   return (
     <Card className="p-4 sm:p-5">
-      <p className="text-sm font-bold text-[var(--color-ink-600)]">{label}</p>
-      <p className={`mt-2 text-2xl font-bold tabular sm:text-3xl ${toneText[tone]}`}>
+      <p className="text-xs font-bold uppercase text-[var(--text-muted)]">{label}</p>
+      <p className={`mt-1 text-2xl font-bold tabular sm:text-3xl ${toneText[tone]}`}>
         {value}
       </p>
       {hint && (
-        <p className="mt-1 text-xs font-semibold text-[var(--color-ink-600)]">
+        <p className="mt-1 text-xs font-semibold text-[var(--text-secondary)]">
           {hint}
         </p>
       )}

@@ -33,7 +33,7 @@ export default function MobileSectionNav({ items }: { items: NavItem[] }) {
             <Link
               key={item.href}
               href={item.href}
-              className="inline-flex h-11 shrink-0 snap-start items-center gap-2 rounded-xl border-2 px-3 text-sm font-bold transition"
+              className="inline-flex h-10 shrink-0 snap-start items-center gap-2 rounded-lg border px-3 text-sm font-bold transition"
               style={{
                 borderColor: active ? "var(--accent)" : "var(--border)",
                 background: active ? "var(--accent-subtle)" : "var(--bg-card)",

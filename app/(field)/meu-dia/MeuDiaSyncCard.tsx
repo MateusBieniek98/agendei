@@ -93,7 +93,7 @@ export default function MeuDiaSyncCard() {
     >
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-black" style={{ color: "var(--text-primary)" }}>
+          <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
             Sync do celular
           </p>
           <p className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
@@ -106,7 +106,7 @@ export default function MeuDiaSyncCard() {
           )}
         </div>
         <span
-          className="rounded-full px-2 py-1 text-xs font-black tabular"
+          className="rounded-md px-2 py-1 text-xs font-bold tabular"
           style={{
             background: pending > 0 ? "var(--warn-bg)" : "var(--success-bg)",
             color: pending > 0 ? "var(--warn)" : "var(--success)",
@@ -121,14 +121,14 @@ export default function MeuDiaSyncCard() {
           type="button"
           disabled={busy || !online}
           onClick={() => flushOfflineQueue()}
-          className="h-11 rounded-lg px-3 text-sm font-black transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+          className="h-11 rounded-lg px-3 text-sm font-bold transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
           style={{ background: "var(--accent)", color: "#fff" }}
         >
           {busy ? "Enviando..." : "Enviar pendentes"}
         </button>
         <Link
           href="/sincronizar"
-          className="grid h-11 place-items-center rounded-lg border px-3 text-xs font-black"
+          className="grid h-11 place-items-center rounded-lg border px-3 text-xs font-bold"
           style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}
         >
           Abrir

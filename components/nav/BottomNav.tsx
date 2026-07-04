@@ -44,15 +44,16 @@ export default function BottomNav({
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-40 h-[calc(4rem+env(safe-area-inset-bottom,0px))] pb-[env(safe-area-inset-bottom,0px)]"
+      className="fixed bottom-0 left-0 right-0 z-40 h-[calc(3.75rem+env(safe-area-inset-bottom,0px))] pb-[env(safe-area-inset-bottom,0px)]"
       style={{
-        background: "var(--bottomnav-bg)",
+        background: "color-mix(in srgb, var(--bottomnav-bg) 94%, transparent)",
         borderTop: "1px solid var(--bottomnav-border)",
+        backdropFilter: "blur(14px)",
       }}
       aria-label="Navegação principal"
       data-view-type={viewType}
     >
-      <ul className="mx-auto flex h-16 max-w-3xl items-center gap-1 px-2">
+      <ul className="mx-auto flex h-[3.75rem] max-w-3xl items-stretch gap-0 px-1.5">
         {isDashboardDock
           ? DASHBOARD_ITEMS.map((item) => {
               const active = activeTab === item.key;
@@ -61,9 +62,10 @@ export default function BottomNav({
                   <button
                     type="button"
                     onClick={() => onTabChange?.(item.key)}
-                    className="flex h-14 min-h-11 w-full touch-manipulation flex-col items-center justify-center gap-0.5 rounded-xl px-1 text-[10px] font-bold leading-tight transition sm:text-xs"
+                    className="relative flex h-full min-h-11 w-full touch-manipulation flex-col items-center justify-center gap-0.5 rounded-none border-t-2 px-1 text-[10px] font-bold leading-tight transition sm:text-xs"
                     style={{
-                      background: active ? "var(--accent-subtle)" : "transparent",
+                      background: "transparent",
+                      borderColor: active ? "var(--bottomnav-active)" : "transparent",
                       color: active ? "var(--bottomnav-active)" : "var(--bottomnav-text)",
                     }}
                     aria-current={active ? "page" : undefined}
@@ -71,7 +73,7 @@ export default function BottomNav({
                     <span
                       aria-hidden
                       className="grid h-6 w-6 place-items-center transition-transform"
-                      style={{ transform: active ? "scale(1.08)" : "scale(1)" }}
+                      style={{ transform: active ? "translateY(-1px)" : "none" }}
                     >
                       {item.icon}
                     </span>
@@ -82,21 +84,23 @@ export default function BottomNav({
             })
           : routeItems.map((item) => {
               const active = pathname === item.href || pathname.startsWith(item.href + "/");
+              const primary = item.href === "/lancamento";
               return (
                 <li key={item.href} className="flex-1">
                   <Link
                     href={item.href}
-                    className="flex h-14 min-h-11 touch-manipulation flex-col items-center justify-center gap-0.5 rounded-xl px-1 text-[10px] font-bold leading-tight transition sm:text-xs"
+                    className="relative flex h-full min-h-11 touch-manipulation flex-col items-center justify-center gap-0.5 rounded-none border-t-2 px-1 text-[10px] font-bold leading-tight transition sm:text-xs"
                     style={{
-                      background: active ? "var(--accent-subtle)" : "transparent",
-                      color: active ? "var(--bottomnav-active)" : "var(--bottomnav-text)",
+                      background: primary ? "rgba(31,111,85,0.18)" : "transparent",
+                      borderColor: active || primary ? "var(--bottomnav-active)" : "transparent",
+                      color: active || primary ? "var(--bottomnav-active)" : "var(--bottomnav-text)",
                     }}
                     aria-current={active ? "page" : undefined}
                   >
                     <span
                       aria-hidden
                       className="grid h-6 w-6 place-items-center transition-transform"
-                      style={{ transform: active ? "scale(1.08)" : "scale(1)" }}
+                      style={{ transform: active ? "translateY(-1px)" : "none" }}
                     >
                       {item.icon}
                     </span>

@@ -102,94 +102,101 @@ export default function SyncHome({
   const failed = snapshot?.failed ?? 0;
 
   return (
-    <div className="-mx-4 -my-4 min-h-[calc(100dvh-156px)] bg-[#061020] px-4 py-5 text-white sm:-mx-0 sm:rounded-3xl sm:p-6">
-      <div className="mx-auto max-w-2xl space-y-5">
-        <section className="overflow-hidden rounded-[28px] border border-white/10 bg-[radial-gradient(circle_at_20%_10%,rgba(47,128,237,0.35),transparent_32%),linear-gradient(145deg,#0b1f4a,#061020_60%)] p-5 shadow-2xl shadow-black/30">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-sm font-bold uppercase tracking-[0.22em] text-blue-200/80">
-                GN Silvicultura
-              </p>
-              <h1 className="mt-4 text-3xl font-black leading-tight">
-                {saudacao}
-              </h1>
-              <p className="mt-2 max-w-sm text-sm font-semibold text-slate-300">
-                Envie lançamentos pendentes do celular e confira se o app está pronto para uso em campo.
-              </p>
-            </div>
-            <div
-              className={`rounded-full px-3 py-1 text-xs font-black ${
-                online ? "bg-emerald-400/15 text-emerald-300" : "bg-red-400/15 text-red-300"
-              }`}
-            >
-              {online ? "Online" : "Offline"}
-            </div>
+    <div className="mx-auto max-w-2xl space-y-4">
+      <section
+        className="rounded-lg border p-4 shadow-sm"
+        style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-bold uppercase" style={{ color: "var(--text-muted)" }}>
+              GN Silvicultura
+            </p>
+            <h1 className="mt-1 text-2xl font-bold leading-tight" style={{ color: "var(--text-primary)" }}>
+              {saudacao}
+            </h1>
+            <p className="mt-1 max-w-sm text-sm font-semibold" style={{ color: "var(--text-secondary)" }}>
+              Sincronização e fila local da operação.
+            </p>
           </div>
-
-          <div className="mt-6 grid grid-cols-2 gap-3">
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-              <p className="text-xs font-bold text-slate-400">Pendentes no celular</p>
-              <p className="mt-2 text-3xl font-black tabular-nums">{pending}</p>
-              {failed > 0 && (
-                <p className="mt-1 text-xs font-bold text-red-200">
-                  {failed} com erro de envio
-                </p>
-              )}
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-              <p className="text-xs font-bold text-slate-400">Última sincronização</p>
-              <p className="mt-2 text-base font-black">{formatDateTime(lastSync)}</p>
-            </div>
-          </div>
-        </section>
-
-        {message && (
           <div
-            className={`rounded-2xl border px-4 py-3 text-sm font-bold ${
-              message.type === "ok"
-                ? "border-emerald-400/25 bg-emerald-400/10 text-emerald-200"
-                : "border-red-400/25 bg-red-400/10 text-red-200"
-            }`}
+            className="rounded-md px-2.5 py-1 text-xs font-bold"
+            style={{
+              background: online ? "var(--success-bg)" : "var(--danger-bg)",
+              color: online ? "var(--success)" : "var(--danger)",
+            }}
           >
-            {message.text}
+            {online ? "Online" : "Offline"}
           </div>
-        )}
+        </div>
 
-        <section className="grid gap-3">
-          <button
-            type="button"
-            disabled={loading || !online}
-            onClick={() => flushOfflineQueue()}
-            className="min-h-[64px] rounded-2xl bg-blue-500 px-5 text-left text-base font-black text-white shadow-lg shadow-blue-950/40 transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {busy === "pendentes" ? "Enviando pendentes..." : "Enviar lançamentos offline pendentes"}
-            <span className="block text-xs font-bold text-blue-100">
-              Usa a fila local salva quando o sinal cai.
-            </span>
-          </button>
-        </section>
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <div className="rounded-lg border p-3" style={{ background: "var(--bg-card-alt)", borderColor: "var(--border)" }}>
+            <p className="text-xs font-bold uppercase" style={{ color: "var(--text-muted)" }}>Pendentes</p>
+            <p className="mt-1 text-3xl font-bold tabular-nums" style={{ color: "var(--text-primary)" }}>{pending}</p>
+            {failed > 0 && (
+              <p className="mt-1 text-xs font-bold" style={{ color: "var(--danger)" }}>
+                {failed} com erro
+              </p>
+            )}
+          </div>
+          <div className="rounded-lg border p-3" style={{ background: "var(--bg-card-alt)", borderColor: "var(--border)" }}>
+            <p className="text-xs font-bold uppercase" style={{ color: "var(--text-muted)" }}>Última sync</p>
+            <p className="mt-1 text-base font-bold" style={{ color: "var(--text-primary)" }}>{formatDateTime(lastSync)}</p>
+          </div>
+        </div>
+      </section>
 
-        <section className="grid grid-cols-2 gap-3">
-          <Link
-            href="/lancamento"
-            className="rounded-2xl border border-white/10 bg-white/[0.08] p-4 text-sm font-black text-white"
-          >
-            + Novo lançamento
-            <span className="block pt-1 text-xs font-bold text-slate-400">
-              Apontar produção
-            </span>
-          </Link>
-          <Link
-            href="/resumo"
-            className="rounded-2xl border border-white/10 bg-white/[0.08] p-4 text-sm font-black text-white"
-          >
-            Ver resultados
-            <span className="block pt-1 text-xs font-bold text-slate-400">
-              Faturamento e produção
-            </span>
-          </Link>
-        </section>
-      </div>
+      {message && (
+        <div
+          className="rounded-lg border px-4 py-3 text-sm font-bold"
+          style={{
+            background: message.type === "ok" ? "var(--success-bg)" : "var(--danger-bg)",
+            borderColor: message.type === "ok" ? "var(--success)" : "var(--danger)",
+            color: message.type === "ok" ? "var(--success)" : "var(--danger)",
+          }}
+        >
+          {message.text}
+        </div>
+      )}
+
+      <section className="grid gap-3">
+        <button
+          type="button"
+          disabled={loading || !online}
+          onClick={() => flushOfflineQueue()}
+          className="min-h-[56px] rounded-lg border px-4 text-left text-sm font-bold text-white transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+          style={{ background: "var(--accent)", borderColor: "var(--accent)" }}
+        >
+          {busy === "pendentes" ? "Enviando pendentes..." : "Enviar pendentes"}
+          <span className="block text-xs font-semibold opacity-80">
+            {pending} lançamento(s) na fila local.
+          </span>
+        </button>
+      </section>
+
+      <section className="grid grid-cols-2 gap-2">
+        <Link
+          href="/lancamento"
+          className="rounded-lg border p-3 text-sm font-bold"
+          style={{ background: "var(--bg-card)", borderColor: "var(--border)", color: "var(--text-primary)" }}
+        >
+          + Novo lançamento
+          <span className="block pt-1 text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
+            Apontar produção
+          </span>
+        </Link>
+        <Link
+          href="/resumo"
+          className="rounded-lg border p-3 text-sm font-bold"
+          style={{ background: "var(--bg-card)", borderColor: "var(--border)", color: "var(--text-primary)" }}
+        >
+          Ver resultados
+          <span className="block pt-1 text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
+            Faturamento e produção
+          </span>
+        </Link>
+      </section>
     </div>
   );
 }

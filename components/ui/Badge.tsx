@@ -3,11 +3,11 @@ import * as React from "react";
 type Tone = "neutral" | "success" | "warning" | "danger" | "info";
 
 const tones: Record<Tone, string> = {
-  neutral: "bg-[var(--color-ink-100)] text-[var(--color-ink-700)]",
-  success: "bg-[var(--color-forest-100)] text-[var(--color-forest-700)]",
-  warning: "bg-amber-100 text-amber-800",
-  danger: "bg-red-100 text-red-700",
-  info: "bg-[var(--color-gn-100)] text-[var(--color-gn-700)]",
+  neutral: "bg-[var(--bg-active)] text-[var(--text-secondary)]",
+  success: "bg-[var(--success-bg)] text-[var(--success)]",
+  warning: "bg-[var(--warn-bg)] text-[var(--warn)]",
+  danger: "bg-[var(--danger-bg)] text-[var(--danger)]",
+  info: "bg-[var(--accent-subtle)] text-[var(--accent)]",
 };
 
 export default function Badge({
@@ -20,7 +20,7 @@ export default function Badge({
   return (
     <span
       className={
-        "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium " +
+        "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-bold " +
         tones[tone]
       }
     >

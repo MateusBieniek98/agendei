@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
+import PageHeader from "@/components/ui/PageHeader";
 import { useToast } from "@/components/ui/Toast";
 import { brl, ddmmyyyy, num, todayISO } from "@/lib/format";
 import type { Atividade, Equipe, Planejamento, PlanningStatus, ProjetoComTalhoes } from "@/lib/types";
@@ -131,7 +132,7 @@ function FormModal({
       onClick={(e) => e.target === e.currentTarget && onCancelar()}
     >
       <div
-        className="rounded-t-3xl md:rounded-2xl w-full md:max-w-2xl max-h-[95dvh] flex flex-col"
+        className="flex max-h-[95dvh] w-full flex-col rounded-t-lg md:max-w-2xl md:rounded-lg"
         style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)" }}
       >
         {/* Handle (mobile) */}
@@ -146,7 +147,7 @@ function FormModal({
           <button
             type="button"
             onClick={onCancelar}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-lg font-bold"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-lg font-bold"
             style={{ background: "var(--bg-active)", color: "var(--text-muted)" }}
           >
             ×
@@ -222,13 +223,13 @@ function FormModal({
               }
             />
             <div
-              className="rounded-xl px-3 py-2 flex flex-col justify-center"
+              className="flex flex-col justify-center rounded-lg px-3 py-2"
               style={{ background: "var(--accent-subtle)", border: "1px solid var(--accent)" }}
             >
               <p className="text-xs font-bold" style={{ color: "var(--text-muted)" }}>
                 Faturamento
               </p>
-              <p className="text-base font-extrabold tabular" style={{ color: "var(--accent)" }}>
+              <p className="text-base font-bold tabular" style={{ color: "var(--accent)" }}>
                 {brl(faturamentoEditing)}
               </p>
             </div>
@@ -290,13 +291,13 @@ function TalhaoSettlementPanel({
 
   return (
     <section
-      className="rounded-2xl overflow-hidden"
+      className="overflow-hidden rounded-lg"
       style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}
     >
       <div className="p-4 border-b sm:p-5" style={{ borderColor: "var(--border)" }}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-lg font-extrabold" style={{ color: "var(--text-primary)" }}>
+            <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>
               Fechamento por projeto e talhão
             </h2>
             <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
@@ -305,13 +306,13 @@ function TalhaoSettlementPanel({
           </div>
           <div className="flex gap-2 text-xs font-bold">
             <span
-              className="rounded-full px-3 py-1"
+              className="rounded-md px-2 py-1"
               style={{ background: "var(--success-bg)", color: "var(--success)" }}
             >
               {fechados} fechados
             </span>
             <span
-              className="rounded-full px-3 py-1"
+              className="rounded-md px-2 py-1"
               style={{ background: "var(--warn-bg)", color: "var(--warn)" }}
             >
               {abertos} em aberto
@@ -332,11 +333,11 @@ function TalhaoSettlementPanel({
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-base font-extrabold" style={{ color: "var(--text-primary)" }}>
+                      <h3 className="text-base font-bold" style={{ color: "var(--text-primary)" }}>
                         {group.projeto} · Talhão {group.talhao}
                       </h3>
                       <span
-                        className="rounded-full px-2 py-0.5 text-xs font-bold"
+                        className="rounded-md px-2 py-0.5 text-xs font-bold"
                         style={{
                           background: group.fechado ? "var(--success-bg)" : "var(--warn-bg)",
                           color: group.fechado ? "var(--success)" : "var(--warn)",
@@ -354,19 +355,19 @@ function TalhaoSettlementPanel({
                   <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-3 xl:grid-cols-6 lg:min-w-[840px]">
                     <div>
                       <p className="text-xs font-bold uppercase" style={{ color: "var(--text-muted)" }}>Previsto</p>
-                      <p className="font-extrabold tabular" style={{ color: "var(--text-primary)" }}>
+                      <p className="font-bold tabular" style={{ color: "var(--text-primary)" }}>
                         {num(group.quantidadePrevista, 2)} ha
                       </p>
                     </div>
                     <div>
                       <p className="text-xs font-bold uppercase" style={{ color: "var(--text-muted)" }}>Realizado</p>
-                      <p className="font-extrabold tabular" style={{ color: "var(--accent)" }}>
+                      <p className="font-bold tabular" style={{ color: "var(--accent)" }}>
                         {num(group.quantidadeRealizada, 2)} ha
                       </p>
                     </div>
                     <div>
                       <p className="text-xs font-bold uppercase" style={{ color: "var(--text-muted)" }}>Área OS</p>
-                      <p className="font-extrabold tabular" style={{ color: "var(--accent)" }}>
+                      <p className="font-bold tabular" style={{ color: "var(--accent)" }}>
                         {num(group.quantidadeRealizadaOsAtual, 2)} ha
                       </p>
                       <p className="text-[11px] font-semibold" style={{ color: "var(--text-muted)" }}>
@@ -375,19 +376,19 @@ function TalhaoSettlementPanel({
                     </div>
                     <div>
                       <p className="text-xs font-bold uppercase" style={{ color: "var(--text-muted)" }}>Planejado</p>
-                      <p className="font-extrabold tabular" style={{ color: "var(--text-primary)" }}>
+                      <p className="font-bold tabular" style={{ color: "var(--text-primary)" }}>
                         {brl(group.faturamentoPlanejado)}
                       </p>
                     </div>
                     <div>
                       <p className="text-xs font-bold uppercase" style={{ color: "var(--text-muted)" }}>Realizado</p>
-                      <p className="font-extrabold tabular" style={{ color: "var(--success)" }}>
+                      <p className="font-bold tabular" style={{ color: "var(--success)" }}>
                         {brl(group.faturamentoRealizado)}
                       </p>
                     </div>
                     <div>
                       <p className="text-xs font-bold uppercase" style={{ color: "var(--text-muted)" }}>Fat. OS</p>
-                      <p className="font-extrabold tabular" style={{ color: "var(--success)" }}>
+                      <p className="font-bold tabular" style={{ color: "var(--success)" }}>
                         {brl(group.faturamentoRealizadoOsAtual)}
                       </p>
                       <p className="text-[11px] font-semibold" style={{ color: "var(--text-muted)" }}>
@@ -409,10 +410,10 @@ function TalhaoSettlementPanel({
               <div className="px-4 pb-4 sm:px-5 sm:pb-5">
                 <div className="grid gap-3 lg:grid-cols-[1fr_1fr]">
                   <div
-                    className="rounded-xl p-3"
+                    className="rounded-lg p-3"
                     style={{ background: "var(--bg-active)", border: "1px solid var(--border)" }}
                   >
-                    <p className="text-sm font-extrabold" style={{ color: "var(--text-primary)" }}>
+                    <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
                       Atividades do talhão
                     </p>
                     <div className="mt-2 space-y-2">
@@ -443,7 +444,7 @@ function TalhaoSettlementPanel({
                                 <button
                                   type="button"
                                   onClick={() => onConcluir(String(item.id))}
-                                  className="rounded-lg px-3 py-2 text-xs font-extrabold"
+                                  className="rounded-lg px-3 py-2 text-xs font-bold"
                                   style={{
                                     background: "var(--success-bg)",
                                     color: "var(--success)",
@@ -456,7 +457,7 @@ function TalhaoSettlementPanel({
                               <button
                                 type="button"
                                 onClick={() => onEditar(item)}
-                                className="rounded-lg px-3 py-2 text-xs font-extrabold"
+                                className="rounded-lg px-3 py-2 text-xs font-bold"
                                 style={{
                                   background: "var(--bg-active)",
                                   color: "var(--accent)",
@@ -468,7 +469,7 @@ function TalhaoSettlementPanel({
                               <button
                                 type="button"
                                 onClick={() => onExcluir(String(item.id))}
-                                className="rounded-lg px-3 py-2 text-xs font-extrabold"
+                                className="rounded-lg px-3 py-2 text-xs font-bold"
                                 style={{
                                   background: "var(--danger-bg)",
                                   color: "var(--danger)",
@@ -485,10 +486,10 @@ function TalhaoSettlementPanel({
                   </div>
 
                   <div
-                    className="rounded-xl p-3"
+                    className="rounded-lg p-3"
                     style={{ background: "var(--bg-active)", border: "1px solid var(--border)" }}
                   >
-                    <p className="text-sm font-extrabold" style={{ color: "var(--text-primary)" }}>
+                    <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
                       Insumos utilizados no talhão
                     </p>
                     {group.insumos.length === 0 ? (
@@ -711,30 +712,27 @@ export default function PlanejamentoAdminPage() {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>
-            Planejamento
-          </h1>
-          <p className="text-sm mt-0.5" style={{ color: "var(--text-muted)" }}>
-            Visão por equipe · {MESES[(Number(mesFiltro) || now.getMonth() + 1) - 1]}/{anoFiltro}
-          </p>
-        </div>
-        <Button className="w-full sm:w-auto" onClick={novoForm}>
-          + Novo planejamento
-        </Button>
-      </div>
+      <PageHeader
+        eyebrow="Planejamento"
+        title="Planejamento"
+        subtitle={`Visão por equipe · ${MESES[(Number(mesFiltro) || now.getMonth() + 1) - 1]}/${anoFiltro}`}
+        right={
+          <Button className="w-full sm:w-auto" onClick={novoForm}>
+            + Novo planejamento
+          </Button>
+        }
+      />
 
       {/* Stats strip */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(260px,380px)]">
         <div
-          className="rounded-xl p-4"
+          className="rounded-lg p-4"
           style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}
         >
           <p className="text-xs font-bold uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
             Faturamento planejado
           </p>
-          <p className="mt-1 text-2xl font-extrabold tabular" style={{ color: "var(--text-primary)" }}>
+          <p className="mt-1 text-2xl font-bold tabular" style={{ color: "var(--text-primary)" }}>
             {brl(faturamentoTotal)}
           </p>
         </div>
@@ -746,14 +744,14 @@ export default function PlanejamentoAdminPage() {
           type="number"
           value={anoFiltro}
           onChange={(e) => setAnoFiltro(e.target.value)}
-          className="h-11 w-24 rounded-xl border px-3 text-sm font-semibold"
+          className="h-10 w-24 rounded-lg border px-3 text-sm font-semibold"
           style={{ background: "var(--bg-card)", color: "var(--text-primary)", borderColor: "var(--border)" }}
           placeholder="Ano"
         />
         <select
           value={mesFiltro}
           onChange={(e) => setMesFiltro(e.target.value)}
-          className="h-11 rounded-xl border px-3 text-xs font-semibold"
+          className="h-10 rounded-lg border px-3 text-xs font-semibold"
           style={{ background: "var(--bg-card)", color: "var(--text-primary)", borderColor: "var(--border)" }}
         >
           <option value="">Todos os meses</option>
@@ -764,7 +762,7 @@ export default function PlanejamentoAdminPage() {
         <select
           value={projetoFiltro}
           onChange={(e) => setProjetoFiltro(e.target.value)}
-          className="h-11 rounded-xl border px-3 text-xs font-semibold"
+          className="h-10 rounded-lg border px-3 text-xs font-semibold"
           style={{ background: "var(--bg-card)", color: "var(--text-primary)", borderColor: "var(--border)" }}
         >
           <option value="">Todos os projetos</option>
@@ -773,7 +771,7 @@ export default function PlanejamentoAdminPage() {
         <select
           value={statusFiltro}
           onChange={(e) => setStatusFiltro(e.target.value)}
-          className="h-11 rounded-xl border px-3 text-xs font-semibold"
+          className="h-10 rounded-lg border px-3 text-xs font-semibold"
           style={{ background: "var(--bg-card)", color: "var(--text-primary)", borderColor: "var(--border)" }}
         >
           <option value="">Todos os status</option>
@@ -796,7 +794,7 @@ export default function PlanejamentoAdminPage() {
 
       {!loading && itensFiltrados.length === 0 && (
         <div
-          className="rounded-2xl py-16 text-center"
+          className="rounded-lg py-12 text-center"
           style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}
         >
           <p className="text-base font-bold" style={{ color: "var(--text-primary)" }}>

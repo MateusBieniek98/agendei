@@ -21,20 +21,28 @@ export default function TopBar({
     <header
       className="sticky top-0 z-50"
       style={{
-        background: "var(--bg-card)",
-        borderBottom: "1px solid var(--border)",
-        paddingTop: "max(var(--app-top-safe-area), 6px)",
+        background: "color-mix(in srgb, var(--shell-bg) 96%, transparent)",
+        borderBottom: "1px solid var(--shell-line)",
+        paddingTop: "max(var(--app-top-safe-area), 8px)",
+        backdropFilter: "blur(14px)",
       }}
     >
-      <div className="grid min-h-[56px] grid-cols-[auto_1fr_auto] items-center gap-3 px-3 py-2 sm:px-4">
-        <div className="flex min-w-12 items-center">
-          {showLogo && <Logo size={30} variant="color" withWordmark />}
+      <div className="mx-auto grid min-h-[64px] max-w-7xl grid-cols-[auto_1fr_auto] items-center gap-3 px-3 py-2 sm:px-4 md:px-6">
+        <div className="flex min-w-10 items-center">
+          {showLogo && (
+            <span className="rounded-lg border border-white/10 bg-white/5 px-2 py-1">
+              <Logo size={30} variant="mono-light" withWordmark />
+            </span>
+          )}
         </div>
-        <div className="min-w-0 text-center">
+        <div className="min-w-0 text-left">
+          <p className="text-[10px] font-bold uppercase" style={{ color: "rgba(255,255,255,0.52)" }}>
+            GN Operações
+          </p>
           {title && (
             <h1
-              className="truncate text-sm font-black leading-tight sm:text-base"
-              style={{ color: "var(--text-primary)" }}
+              className="truncate text-base font-bold leading-tight sm:text-lg"
+              style={{ color: "#fff" }}
             >
               {title}
             </h1>
@@ -42,13 +50,13 @@ export default function TopBar({
           {subtitle && (
             <p
               className="truncate text-[11px] font-semibold leading-tight sm:text-xs"
-              style={{ color: "var(--text-secondary)" }}
+              style={{ color: "rgba(255,255,255,0.64)" }}
             >
               {subtitle}
             </p>
           )}
         </div>
-        <div className="flex min-w-12 shrink-0 items-center justify-end gap-1.5">
+        <div className="flex min-w-10 shrink-0 items-center justify-end gap-1">
           <SyncStatus />
           {showThemeToggle && <ThemeToggle />}
           {right}

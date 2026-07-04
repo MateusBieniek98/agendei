@@ -12,13 +12,13 @@ export default async function GestorLayout({
 
   return (
     <ToastProvider>
-      <div className="app-scroll-area with-bottom-nav bg-[var(--bg-page)]">
+      <div className="app-shell app-scroll-area with-bottom-nav">
         <TopBar
           title="Gestor"
           subtitle={profile.nome}
           right={<LogoutButton />}
         />
-        <main className="mx-auto max-w-7xl px-3 py-3 sm:px-4 sm:py-5 md:px-6">{children}</main>
+        <main className="app-shell-main app-content-frame mx-auto max-w-7xl px-3 py-4 sm:px-4 sm:py-6 md:px-6">{children}</main>
       </div>
     </ToastProvider>
   );

@@ -31,9 +31,9 @@ export default function AdminToolsNav() {
     <nav
       aria-label="Funções administrativas"
       className="border-b"
-      style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}
+      style={{ background: "var(--shell-panel)", borderColor: "var(--shell-line)" }}
     >
-      <div className="scrollbar-none mx-auto flex max-w-7xl gap-2 overflow-x-auto px-3 py-2 sm:px-4 md:px-6">
+      <div className="scrollbar-none mx-auto flex max-w-7xl gap-1 overflow-x-auto px-3 py-2 sm:px-4 md:px-6">
         {ADMIN_TOOLS.map((item) => {
           const active =
             item.href === "/admin"
@@ -44,11 +44,12 @@ export default function AdminToolsNav() {
             <Link
               key={item.href}
               href={item.href}
-              className="inline-flex h-10 min-w-11 shrink-0 items-center gap-2 rounded-lg border px-3 text-xs font-black transition hover:opacity-80"
+              className="inline-flex h-10 min-w-11 shrink-0 items-center gap-2 rounded-lg border px-3 text-xs font-bold transition"
               style={{
-                borderColor: active ? "var(--accent)" : "var(--border)",
-                background: active ? "var(--accent-subtle)" : "var(--bg-card-alt)",
-                color: active ? "var(--accent)" : "var(--text-secondary)",
+                borderColor: active ? "rgba(255,255,255,0.2)" : "transparent",
+                background: active ? "rgba(255,255,255,0.12)" : "transparent",
+                color: active ? "#fff" : "rgba(255,255,255,0.68)",
+                boxShadow: active ? "inset 0 -2px 0 var(--brand-green)" : "none",
               }}
               aria-current={active ? "page" : undefined}
             >

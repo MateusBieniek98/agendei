@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Button from "@/components/ui/Button";
 import Select from "@/components/ui/Select";
 import { useToast } from "@/components/ui/Toast";
+import PageHeader from "@/components/ui/PageHeader";
 import { ddmmyyyy } from "@/lib/format";
 import type {
   Equipe,
@@ -112,7 +113,7 @@ function MentionPicker({
 
   return (
     <div className="space-y-2">
-      <label className="text-xs font-black uppercase" style={{ color: "var(--text-muted)" }}>
+      <label className="text-xs font-bold uppercase" style={{ color: "var(--text-muted)" }}>
         {label}
       </label>
 
@@ -123,7 +124,7 @@ function MentionPicker({
               key={person.id}
               type="button"
               onClick={() => toggle(person.id)}
-              className="rounded-full border px-2.5 py-1 text-xs font-black"
+              className="rounded-md border px-2 py-1 text-xs font-bold"
               style={{
                 background: "var(--accent-subtle)",
                 borderColor: "var(--accent)",
@@ -141,7 +142,7 @@ function MentionPicker({
         value={query}
         onChange={(event) => setQuery(event.target.value)}
         placeholder="Buscar pessoa para marcar"
-        className="h-11 w-full rounded-xl border px-3 text-sm font-bold outline-none"
+        className="h-11 w-full rounded-lg border px-3 text-sm font-bold outline-none"
         style={{
           background: "var(--bg-input, var(--bg-card))",
           borderColor: "var(--border)",
@@ -151,7 +152,7 @@ function MentionPicker({
 
       <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
         {filtered.length === 0 ? (
-          <p className="rounded-xl border border-dashed p-3 text-xs font-semibold" style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}>
+          <p className="rounded-lg border border-dashed p-3 text-xs font-semibold" style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}>
             Nenhuma pessoa disponível.
           </p>
         ) : (
@@ -162,13 +163,13 @@ function MentionPicker({
                 key={person.id}
                 type="button"
                 onClick={() => toggle(person.id)}
-                className="min-h-12 rounded-xl border px-3 text-left transition active:scale-[0.99]"
+                className="min-h-11 rounded-lg border px-3 text-left transition active:scale-[0.99]"
                 style={{
                   background: active ? "var(--accent-subtle)" : "var(--bg-card-alt)",
                   borderColor: active ? "var(--accent)" : "var(--border)",
                 }}
               >
-                <span className="block truncate text-sm font-black" style={{ color: "var(--text-primary)" }}>
+                <span className="block truncate text-sm font-bold" style={{ color: "var(--text-primary)" }}>
                   {person.nome}
                 </span>
                 <span className="block truncate text-[11px] font-semibold" style={{ color: "var(--text-muted)" }}>
@@ -457,34 +458,29 @@ export default function MaintenanceFeed({
 
   return (
     <section className={`space-y-4 ${compact ? "pb-16" : ""}`}>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h2 className="text-xl font-black" style={{ color: "var(--text-primary)" }}>
-            {title}
-          </h2>
-          <p className="text-sm font-semibold" style={{ color: "var(--text-muted)" }}>
-            {threads.filter((thread) => thread.status !== "resolvido").length} pendente(s)
-            {unreadMentions > 0 ? ` · ${unreadMentions} menção(ões) nova(s)` : ""}
-          </p>
-        </div>
-        <Button type="button" variant="secondary" size="sm" onClick={() => void loadThreads()} loading={loading}>
-          Atualizar
-        </Button>
-      </div>
+      <PageHeader
+        eyebrow="Manutenção"
+        title={title}
+        subtitle={`${threads.filter((thread) => thread.status !== "resolvido").length} pendente(s)${
+          unreadMentions > 0 ? ` · ${unreadMentions} menção(ões) nova(s)` : ""
+        }`}
+        right={
+          <Button type="button" variant="secondary" size="sm" onClick={() => void loadThreads()} loading={loading}>
+            Atualizar
+          </Button>
+        }
+      />
 
       {showComposer && (
         <form
           onSubmit={submitRequest}
-          className="space-y-4 rounded-2xl border p-3 sm:p-4"
+          className="space-y-4 rounded-lg border p-3 sm:p-4"
           style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}
         >
           <div>
-            <h3 className="text-base font-black" style={{ color: "var(--text-primary)" }}>
-              Novo pedido
+            <h3 className="text-sm font-bold uppercase" style={{ color: "var(--text-primary)" }}>
+              Abrir manutenção
             </h3>
-            <p className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
-              Publique o problema com contexto, fotos e pessoas que precisam acompanhar.
-            </p>
           </div>
 
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -524,13 +520,13 @@ export default function MaintenanceFeed({
 
           <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,0.45fr)_minmax(0,1fr)]">
             <label className="flex flex-col gap-1.5">
-              <span className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
+              <span className="text-xs font-bold uppercase" style={{ color: "var(--text-muted)" }}>
                 Talhão
               </span>
               <input
                 value={form.talhao}
                 onChange={(event) => setForm({ ...form, talhao: event.target.value })}
-                className="h-12 rounded-xl border-2 px-3 text-base font-bold outline-none"
+                className="h-11 rounded-lg border px-3 text-sm font-semibold outline-none"
                 style={{
                   background: "var(--bg-input, var(--bg-card))",
                   borderColor: "var(--border)",
@@ -540,13 +536,13 @@ export default function MaintenanceFeed({
               />
             </label>
             <label className="flex flex-col gap-1.5">
-              <span className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
+              <span className="text-xs font-bold uppercase" style={{ color: "var(--text-muted)" }}>
                 Descrição
               </span>
               <textarea
                 value={form.descricao}
                 onChange={(event) => setForm({ ...form, descricao: event.target.value })}
-                className="min-h-28 rounded-xl border-2 px-3 py-2 text-base font-semibold outline-none"
+                className="min-h-24 rounded-lg border px-3 py-2 text-sm font-semibold outline-none"
                 style={{
                   background: "var(--bg-input, var(--bg-card))",
                   borderColor: "var(--border)",
@@ -566,7 +562,7 @@ export default function MaintenanceFeed({
           />
 
           <div className="space-y-2">
-            <label className="text-xs font-black uppercase" style={{ color: "var(--text-muted)" }}>
+            <label className="text-xs font-bold uppercase" style={{ color: "var(--text-muted)" }}>
               Fotos do problema
             </label>
             <input
@@ -574,7 +570,7 @@ export default function MaintenanceFeed({
               accept="image/jpeg,image/png,image/webp"
               multiple
               onChange={(event) => selectPhotos(event.target.files)}
-              className="block w-full rounded-xl border p-3 text-sm font-semibold"
+              className="block w-full rounded-lg border p-3 text-sm font-semibold"
               style={{
                 background: "var(--bg-card-alt)",
                 borderColor: "var(--border)",
@@ -588,7 +584,7 @@ export default function MaintenanceFeed({
                     key={url}
                     src={url}
                     alt="Preview da foto"
-                    className="h-28 w-full rounded-xl object-cover"
+                    className="h-28 w-full rounded-lg object-cover"
                   />
                 ))}
               </div>
@@ -643,7 +639,7 @@ export default function MaintenanceFeed({
               key={item.key}
               type="button"
               onClick={() => setFilter(item.key as FeedFilter)}
-              className="min-h-12 rounded-xl border px-3 text-xs font-black"
+              className="min-h-10 rounded-lg border px-3 text-xs font-bold"
               style={{
                 background: active ? "var(--accent)" : "var(--bg-card)",
                 borderColor: active ? "var(--accent)" : "var(--border)",
@@ -657,11 +653,11 @@ export default function MaintenanceFeed({
       </div>
 
       {loading && threads.length === 0 ? (
-        <div className="rounded-2xl border p-6 text-center text-sm font-semibold" style={{ background: "var(--bg-card)", borderColor: "var(--border)", color: "var(--text-muted)" }}>
+        <div className="rounded-lg border p-6 text-center text-sm font-semibold" style={{ background: "var(--bg-card)", borderColor: "var(--border)", color: "var(--text-muted)" }}>
           Carregando pedidos...
         </div>
       ) : filteredThreads.length === 0 ? (
-        <div className="rounded-2xl border border-dashed p-8 text-center text-sm font-semibold" style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}>
+        <div className="rounded-lg border border-dashed p-8 text-center text-sm font-semibold" style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}>
           Nenhum pedido neste filtro.
         </div>
       ) : (
@@ -674,14 +670,14 @@ export default function MaintenanceFeed({
             return (
               <article
                 key={thread.id}
-                className="rounded-2xl border p-3 sm:p-4"
+                className="rounded-lg border p-3 sm:p-4"
                 style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}
               >
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <span
-                        className="rounded-full px-2.5 py-1 text-[11px] font-black"
+                        className="rounded-md px-2 py-0.5 text-[11px] font-bold"
                         style={{ background: meta.bg, color: meta.color }}
                       >
                         {meta.label}
@@ -690,14 +686,14 @@ export default function MaintenanceFeed({
                         <button
                           type="button"
                           onClick={() => void markRead(thread.id)}
-                          className="rounded-full px-2.5 py-1 text-[11px] font-black"
+                          className="rounded-md px-2 py-0.5 text-[11px] font-bold"
                           style={{ background: "var(--accent-subtle)", color: "var(--accent)" }}
                         >
                           {thread.unread_mentions_count} menção nova
                         </button>
                       )}
                     </div>
-                    <h3 className="mt-2 text-base font-black" style={{ color: "var(--text-primary)" }}>
+                    <h3 className="mt-2 text-base font-bold" style={{ color: "var(--text-primary)" }}>
                       {thread.maquinas?.nome ?? "Máquina removida"}
                     </h3>
                     <ThreadContext thread={thread} />
@@ -717,7 +713,7 @@ export default function MaintenanceFeed({
                         onChange={(event) =>
                           void patchThreadStatus(thread, event.target.value as MaintenanceStatus)
                         }
-                        className="h-10 rounded-xl border px-2 text-xs font-black"
+                        className="h-9 rounded-lg border px-2 text-xs font-bold"
                         style={{
                           background: "var(--bg-card-alt)",
                           borderColor: "var(--border)",
@@ -753,7 +749,7 @@ export default function MaintenanceFeed({
                         href={anexo.url ?? "#"}
                         target="_blank"
                         rel="noreferrer"
-                        className="block overflow-hidden rounded-xl border"
+                        className="block overflow-hidden rounded-lg border"
                         style={{ borderColor: "var(--border)" }}
                       >
                         {anexo.url ? (
@@ -779,7 +775,7 @@ export default function MaintenanceFeed({
                       .map((person) => (
                         <span
                           key={person.id}
-                          className="rounded-full px-2 py-0.5 text-[11px] font-black"
+                          className="rounded-md px-2 py-0.5 text-[11px] font-bold"
                           style={{ background: "var(--bg-page)", color: "var(--text-secondary)" }}
                         >
                           @{compactName(person.nome)}
@@ -790,7 +786,7 @@ export default function MaintenanceFeed({
 
                 <div className="mt-4 border-t pt-3" style={{ borderColor: "var(--border)" }}>
                   <div className="flex items-center justify-between gap-3">
-                    <h4 className="text-sm font-black" style={{ color: "var(--text-primary)" }}>
+                    <h4 className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
                       Comentários ({thread.comentarios_count})
                     </h4>
                   </div>
@@ -800,11 +796,11 @@ export default function MaintenanceFeed({
                       {thread.comentarios.map((comment) => (
                         <div
                           key={comment.id}
-                          className="rounded-xl p-3"
-                          style={{ background: "var(--bg-card-alt)" }}
+                          className="border-l-2 py-2 pl-3"
+                          style={{ borderColor: "var(--border)", background: "transparent" }}
                         >
                           <div className="flex flex-wrap items-center gap-2">
-                            <p className="text-sm font-black" style={{ color: "var(--text-primary)" }}>
+                            <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
                               {comment.autor?.nome ?? "Usuário"}
                             </p>
                             <span className="text-[11px] font-semibold" style={{ color: "var(--text-muted)" }}>
@@ -819,7 +815,7 @@ export default function MaintenanceFeed({
                               {comment.mencoes.map((mention) => (
                                 <span
                                   key={mention.id}
-                                  className="rounded-full px-2 py-0.5 text-[11px] font-black"
+                                  className="rounded-md px-2 py-0.5 text-[11px] font-bold"
                                   style={{ background: "var(--accent-subtle)", color: "var(--accent)" }}
                                 >
                                   @{compactName(mention.mentioned?.nome ?? "Usuário")}
@@ -842,7 +838,7 @@ export default function MaintenanceFeed({
                             [thread.id]: event.target.value,
                           }))
                         }
-                        className="min-h-24 w-full rounded-xl border px-3 py-2 text-sm font-semibold outline-none"
+                        className="min-h-20 w-full rounded-lg border px-3 py-2 text-sm font-semibold outline-none"
                         style={{
                           background: "var(--bg-input, var(--bg-card))",
                           borderColor: "var(--border)",
@@ -871,7 +867,7 @@ export default function MaintenanceFeed({
                       </div>
                     </div>
                   ) : (
-                    <p className="mt-3 rounded-xl border border-dashed p-3 text-xs font-semibold" style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}>
+                    <p className="mt-3 rounded-lg border border-dashed p-3 text-xs font-semibold" style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}>
                       Você pode acompanhar este pedido. Para comentar, precisa ser autor, estar marcado, já ter comentado, ou ser gestor/admin.
                     </p>
                   )}

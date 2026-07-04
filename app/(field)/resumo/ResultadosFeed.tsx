@@ -106,14 +106,14 @@ export default function ResultadosFeed({
       >
         <div className="flex items-end justify-between gap-3">
           <div>
-            <h1 className="text-base font-black" style={{ color: "var(--text-primary)" }}>
+            <h1 className="text-base font-bold" style={{ color: "var(--text-primary)" }}>
               Resultados
             </h1>
             <p className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
               Feed da equipe · {ciclo.label}
             </p>
           </div>
-          <p className="text-sm font-black tabular" style={{ color: "var(--accent)" }}>
+          <p className="text-sm font-bold tabular" style={{ color: "var(--accent)" }}>
             {totalRegistros}
           </p>
         </div>
@@ -202,10 +202,10 @@ function ResultadoCard({
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-sm font-black uppercase" style={{ color: "var(--text-primary)" }}>
+          <p className="truncate text-sm font-bold uppercase" style={{ color: "var(--text-primary)" }}>
             {title}
           </p>
-          <p className="mt-0.5 text-base font-black tabular" style={{ color: "var(--text-secondary)" }}>
+          <p className="mt-0.5 text-base font-bold tabular" style={{ color: "var(--text-secondary)" }}>
             {num(quantidade)} {unidade}
           </p>
           <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] font-semibold" style={{ color: "var(--text-muted)" }}>
@@ -215,11 +215,11 @@ function ResultadoCard({
         </div>
 
         <div className="shrink-0 text-right">
-          <p className="text-base font-black tabular" style={{ color: "var(--accent)" }}>
+          <p className="text-base font-bold tabular" style={{ color: "var(--accent)" }}>
             {brl(faturamento)}
           </p>
           <span
-            className="mt-1 inline-flex rounded-full px-2 py-1 text-[10px] font-black"
+            className="mt-1 inline-flex rounded-md px-2 py-1 text-[10px] font-bold"
             style={{ background: badge.bg, color: badge.color }}
           >
             {badge.label}
@@ -235,7 +235,7 @@ function ResultadoCard({
           {editHref && (
             <Link
               href={editHref}
-              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-3 text-xs font-black transition hover:opacity-80"
+              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-3 text-xs font-bold transition hover:opacity-80"
               style={{ background: "var(--accent-subtle)", color: "var(--accent)" }}
             >
               <PencilIcon />

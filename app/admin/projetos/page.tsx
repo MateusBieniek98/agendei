@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
+import PageHeader from "@/components/ui/PageHeader";
 import { useToast } from "@/components/ui/Toast";
 import { num } from "@/lib/format";
 import type { ProjetoComTalhoes, Talhao } from "@/lib/types";
@@ -187,22 +188,19 @@ export default function ProjetosAdminPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <div>
-          <h1 className="text-2xl font-black" style={{ color: "var(--text-primary)" }}>
-            Projetos e talhões
-          </h1>
-          <p className="mt-1 text-sm font-semibold" style={{ color: "var(--text-muted)" }}>
-            Cadastre as fazendas como projetos e organize os talhões usados em planejamento e apontamentos.
-          </p>
-        </div>
+      <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
+        <PageHeader
+          eyebrow="Cadastro"
+          title="Projetos e talhões"
+          subtitle="Fazendas, projetos e talhões usados em planejamento e apontamentos."
+        />
         <div className="grid grid-cols-2 gap-2 md:min-w-72">
           <Metric label="Projetos ativos" value={items.filter((p) => p.ativo).length} />
           <Metric label="Talhões ativos" value={totalTalhoes} />
         </div>
       </div>
 
-      <section className="rounded-2xl p-4" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+      <section className="rounded-lg p-4" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
         <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
           <Input
             label="Novo projeto"
@@ -214,7 +212,7 @@ export default function ProjetosAdminPage() {
         </div>
       </section>
 
-      <section className="rounded-2xl p-4" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+      <section className="rounded-lg p-4" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
         <Input
           label="Pesquisar"
           placeholder="Projeto, talhão ou observação"
@@ -228,8 +226,8 @@ export default function ProjetosAdminPage() {
           Carregando projetos...
         </p>
       ) : filtrados.length === 0 ? (
-        <div className="rounded-2xl p-10 text-center" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-          <p className="text-lg font-black" style={{ color: "var(--text-primary)" }}>
+        <div className="rounded-lg p-10 text-center" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+          <p className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>
             Nenhum projeto encontrado
           </p>
           <p className="mt-1 text-sm" style={{ color: "var(--text-muted)" }}>
@@ -246,7 +244,7 @@ export default function ProjetosAdminPage() {
             return (
               <article
                 key={projeto.id}
-                className="rounded-2xl"
+                className="rounded-lg"
                 style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}
               >
                 <div className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
@@ -256,13 +254,13 @@ export default function ProjetosAdminPage() {
                     className="flex flex-1 items-center gap-3 text-left"
                   >
                     <span
-                      className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-lg font-black"
+                      className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-base font-bold"
                       style={{ background: "var(--accent-subtle)", color: "var(--accent)" }}
                     >
                       {isOpen ? "−" : "+"}
                     </span>
                     <span className="min-w-0">
-                      <span className="block truncate text-lg font-black" style={{ color: "var(--text-primary)" }}>
+                      <span className="block truncate text-base font-bold" style={{ color: "var(--text-primary)" }}>
                         {projeto.nome}
                       </span>
                       <span className="text-sm font-semibold" style={{ color: "var(--text-muted)" }}>
@@ -308,8 +306,8 @@ export default function ProjetosAdminPage() {
                       </div>
                     )}
 
-                    <div className="rounded-2xl p-3" style={{ background: "var(--bg-card-alt)", border: "1px solid var(--border)" }}>
-                      <p className="mb-3 text-sm font-black" style={{ color: "var(--text-primary)" }}>
+                    <div className="rounded-lg p-3" style={{ background: "var(--bg-card-alt)", border: "1px solid var(--border)" }}>
+                      <p className="mb-3 text-sm font-bold" style={{ color: "var(--text-primary)" }}>
                         Adicionar talhão
                       </p>
                       <div className="grid gap-3 md:grid-cols-[1fr_160px_1fr_auto] md:items-end">
@@ -348,7 +346,7 @@ export default function ProjetosAdminPage() {
 
                     <div className="space-y-2">
                       {talhoes.length === 0 ? (
-                        <p className="rounded-xl p-4 text-sm font-bold" style={{ color: "var(--text-muted)", background: "var(--bg-card-alt)" }}>
+                        <p className="rounded-lg p-4 text-sm font-bold" style={{ color: "var(--text-muted)", background: "var(--bg-card-alt)" }}>
                           Nenhum talhão cadastrado neste projeto.
                         </p>
                       ) : (
@@ -357,7 +355,7 @@ export default function ProjetosAdminPage() {
                           return (
                             <div
                               key={talhao.id}
-                              className="rounded-xl p-3"
+                              className="rounded-lg p-3"
                               style={{ background: "var(--bg-card-alt)", border: "1px solid var(--border)" }}
                             >
                               {editing ? (
@@ -403,7 +401,7 @@ export default function ProjetosAdminPage() {
                               ) : (
                                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                                   <div>
-                                    <p className="text-base font-black" style={{ color: "var(--text-primary)" }}>
+                                    <p className="text-base font-bold" style={{ color: "var(--text-primary)" }}>
                                       Talhão {talhao.codigo}
                                     </p>
                                     <p className="text-sm font-semibold" style={{ color: "var(--text-muted)" }}>
@@ -453,8 +451,8 @@ export default function ProjetosAdminPage() {
 
 function Metric({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-xl p-3" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-      <p className="text-2xl font-black" style={{ color: "var(--accent)" }}>
+    <div className="rounded-lg p-3" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+      <p className="text-2xl font-bold" style={{ color: "var(--accent)" }}>
         {value}
       </p>
       <p className="text-xs font-bold uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>

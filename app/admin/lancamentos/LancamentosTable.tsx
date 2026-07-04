@@ -175,7 +175,7 @@ export default function LancamentosTable({
       </Card>
 
       <Card>
-        <div className="border-b border-[var(--color-ink-100)] p-4">
+        <div className="border-b border-[var(--border)] p-4">
           <ListControls
             search={busca}
             onSearchChange={setBusca}
@@ -187,7 +187,7 @@ export default function LancamentosTable({
             placeholder="Projeto, talhão, atividade, equipe, insumo ou observação"
           />
         </div>
-        <div className="flex flex-col gap-1 border-b border-[var(--color-ink-100)] px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-1 border-b border-[var(--border)] px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm font-semibold">
             <strong>{itemsFiltrados.length}</strong> lançamento{itemsFiltrados.length === 1 ? "" : "s"}
           </p>
@@ -196,40 +196,40 @@ export default function LancamentosTable({
           </p>
         </div>
 
-        <div className="divide-y divide-[var(--color-ink-100)] lg:hidden">
+        <div className="divide-y divide-[var(--border)] lg:hidden">
           {itemsVisiveis.map((l) => (
             <div key={l.id} className="p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-sm font-bold text-[var(--color-ink-600)]">
+                  <p className="text-sm font-bold text-[var(--text-muted)]">
                     {ddmmyyyy(l.data)}
                   </p>
-                  <p className="mt-1 break-words text-base font-bold text-[var(--color-ink-900)]">
+                  <p className="mt-1 break-words text-base font-bold text-[var(--text-primary)]">
                     {l.atividades?.nome ?? "Atividade"}
                   </p>
-                  <p className="mt-1 text-sm font-semibold text-[var(--color-ink-700)]">
+                  <p className="mt-1 text-sm font-semibold text-[var(--text-secondary)]">
                     {l.equipes?.nome ?? "Equipe não informada"}
                   </p>
                 </div>
-                <p className="shrink-0 text-right text-sm font-bold text-[var(--color-gn-700)] tabular">
+                <p className="shrink-0 text-right text-sm font-bold text-[var(--accent)] tabular">
                   {brl(Number(l.quantidade) * Number(l.valor_unitario_snapshot))}
                 </p>
               </div>
 
               <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
-                <div className="rounded-xl bg-[var(--color-ink-50)] p-3">
-                  <p className="text-xs font-bold uppercase text-[var(--color-ink-600)]">Produção</p>
+                <div className="rounded-lg bg-[var(--bg-card-alt)] p-3">
+                  <p className="text-xs font-bold uppercase text-[var(--text-muted)]">Produção</p>
                   <p className="mt-1 font-bold tabular">
                     {num(l.quantidade)} {l.atividades?.unidade}
                   </p>
                 </div>
-                <div className="rounded-xl bg-[var(--color-ink-50)] p-3">
-                  <p className="text-xs font-bold uppercase text-[var(--color-ink-600)]">Tarifa</p>
+                <div className="rounded-lg bg-[var(--bg-card-alt)] p-3">
+                  <p className="text-xs font-bold uppercase text-[var(--text-muted)]">Tarifa</p>
                   <p className="mt-1 font-bold tabular">{brl(l.valor_unitario_snapshot)}</p>
                 </div>
               </div>
 
-              <div className="mt-3 rounded-xl bg-[var(--color-ink-50)] p-3 text-sm font-semibold text-[var(--color-ink-700)]">
+              <div className="mt-3 rounded-lg bg-[var(--bg-card-alt)] p-3 text-sm font-semibold text-[var(--text-secondary)]">
                 <p>
                   Projeto: <strong>{l.projetos?.nome ?? "não informado"}</strong>
                 </p>
@@ -263,7 +263,7 @@ export default function LancamentosTable({
             </div>
           ))}
           {itemsFiltrados.length === 0 && !loading && (
-            <div className="p-6 text-center text-sm font-semibold text-[var(--color-ink-600)]">
+            <div className="p-6 text-center text-sm font-semibold text-[var(--text-muted)]">
               Nenhum lançamento encontrado.
             </div>
           )}
@@ -271,7 +271,7 @@ export default function LancamentosTable({
 
         <div className="hidden overflow-x-auto lg:block">
           <table className="w-full text-sm">
-            <thead className="bg-[var(--color-ink-50)] text-[var(--color-ink-500)] text-left">
+            <thead className="bg-[var(--bg-card-alt)] text-left text-[var(--text-muted)]">
               <tr>
                 <th className="px-4 py-2 font-medium">Data</th>
                 <th className="px-4 py-2 font-medium">Equipe</th>
@@ -286,24 +286,24 @@ export default function LancamentosTable({
             </thead>
             <tbody>
               {itemsVisiveis.map((l) => (
-                <tr key={l.id} className="border-t border-[var(--color-ink-100)]">
+                <tr key={l.id} className="border-t border-[var(--border)]">
                   <td className="px-4 py-2 whitespace-nowrap">{ddmmyyyy(l.data)}</td>
                   <td className="px-4 py-2">{l.equipes?.nome}</td>
                   <td className="px-4 py-2">{l.atividades?.nome}</td>
                   <td className="px-4 py-2">
                     <p className="font-semibold">{l.projetos?.nome ?? "—"}</p>
-                    <p className="text-xs text-[var(--color-ink-500)]">{l.talhao ?? "—"}</p>
+                    <p className="text-xs text-[var(--text-muted)]">{l.talhao ?? "—"}</p>
                   </td>
-                  <td className="px-4 py-2 max-w-xs whitespace-pre-line text-xs text-[var(--color-ink-500)]">
+                  <td className="px-4 py-2 max-w-xs whitespace-pre-line text-xs text-[var(--text-muted)]">
                     {l.insumos && l.insumos.length > 0 ? (
-                      <div className="font-semibold text-[var(--color-ink-700)]">
+                      <div className="font-semibold text-[var(--text-secondary)]">
                         {l.insumos
                           .map((i) => `${i.nome} (${num(i.quantidade)})`)
                           .join(", ")}
                       </div>
                     ) : null}
                     {l.descarte !== null ? (
-                      <div className="mt-1 font-semibold text-[var(--color-ink-700)]">
+                      <div className="mt-1 font-semibold text-[var(--text-secondary)]">
                         Descarte: {num(l.descarte)}
                       </div>
                     ) : null}
@@ -323,7 +323,7 @@ export default function LancamentosTable({
                   <td className="px-4 py-2 text-right whitespace-nowrap">
                     <button
                       onClick={() => setEditing(l)}
-                      className="text-[var(--color-gn-700)] hover:underline mr-3"
+                      className="mr-3 text-[var(--accent)] hover:underline"
                     >
                       editar
                     </button>
@@ -338,7 +338,7 @@ export default function LancamentosTable({
               ))}
               {itemsFiltrados.length === 0 && !loading && (
                 <tr>
-                  <td colSpan={9} className="px-4 py-6 text-center text-[var(--color-ink-500)]">
+                  <td colSpan={9} className="px-4 py-6 text-center text-[var(--text-muted)]">
                     Nenhum lançamento encontrado.
                   </td>
                 </tr>
@@ -354,12 +354,12 @@ export default function LancamentosTable({
           onClick={() => setEditing(null)}
         >
           <div
-            className="max-h-[calc(100dvh_-_24px_-_env(safe-area-inset-top)_-_env(safe-area-inset-bottom))] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl sm:p-6"
+            className="max-h-[calc(100dvh_-_24px_-_env(safe-area-inset-top)_-_env(safe-area-inset-bottom))] w-full max-w-md overflow-y-auto rounded-lg bg-[var(--bg-card)] p-5 shadow-2xl sm:p-6"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="sticky top-0 -mx-5 -mt-5 mb-3 border-b border-[var(--color-ink-100)] bg-white px-5 py-4 sm:-mx-6 sm:-mt-6 sm:px-6">
+            <div className="sticky top-0 -mx-5 -mt-5 mb-3 border-b border-[var(--border)] bg-[var(--bg-card)] px-5 py-4 sm:-mx-6 sm:-mt-6 sm:px-6">
               <h3 className="text-lg font-bold">Editar lançamento</h3>
-              <p className="mt-1 text-xs font-semibold text-[var(--color-ink-500)]">
+              <p className="mt-1 text-xs font-semibold text-[var(--text-muted)]">
                 Ajuste os dados e salve sem perder a posição da página.
               </p>
             </div>
@@ -408,7 +408,7 @@ export default function LancamentosTable({
               value={editing.observacoes ?? ""}
               onChange={(e) => setEditing({ ...editing, observacoes: e.target.value })}
             />
-              <div className="sticky bottom-0 -mx-5 -mb-5 grid grid-cols-2 gap-2 border-t border-[var(--color-ink-100)] bg-white px-5 py-4 sm:-mx-6 sm:-mb-6 sm:px-6">
+              <div className="sticky bottom-0 -mx-5 -mb-5 grid grid-cols-2 gap-2 border-t border-[var(--border)] bg-[var(--bg-card)] px-5 py-4 sm:-mx-6 sm:-mb-6 sm:px-6">
                 <Button variant="ghost" onClick={() => setEditing(null)}>
                   Cancelar
                 </Button>

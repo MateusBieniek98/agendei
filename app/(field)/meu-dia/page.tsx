@@ -103,10 +103,10 @@ function StatCard({
       className="rounded-lg border p-3"
       style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}
     >
-      <p className="text-xs font-black uppercase" style={{ color: "var(--text-muted)" }}>
+      <p className="text-xs font-bold uppercase" style={{ color: "var(--text-muted)" }}>
         {label}
       </p>
-      <p className="mt-1 text-xl font-black tabular sm:text-2xl" style={{ color }}>
+      <p className="mt-1 text-xl font-bold tabular sm:text-2xl" style={{ color }}>
         {value}
       </p>
       <p className="mt-1 truncate text-[11px] font-semibold" style={{ color: "var(--text-secondary)" }}>
@@ -150,7 +150,7 @@ function ActionCard({
           {icon}
         </span>
         <div className="min-w-0">
-          <p className="truncate text-sm font-black">{title}</p>
+          <p className="truncate text-sm font-bold">{title}</p>
           <p className="truncate text-[11px] font-semibold opacity-75">{subtitle}</p>
         </div>
       </div>
@@ -171,7 +171,7 @@ function PlanejamentoCard({ item }: { item: PlanejamentoDia }) {
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-sm font-black uppercase" style={{ color: "var(--text-primary)" }}>
+          <p className="truncate text-sm font-bold uppercase" style={{ color: "var(--text-primary)" }}>
             {item.atividades?.nome ?? "Atividade"}
           </p>
           <p className="mt-0.5 truncate text-xs font-semibold" style={{ color: "var(--text-secondary)" }}>
@@ -183,7 +183,7 @@ function PlanejamentoCard({ item }: { item: PlanejamentoDia }) {
         </div>
         <Link
           href={`/lancamento?${params.toString()}`}
-          className="grid h-9 shrink-0 place-items-center rounded-lg px-3 text-xs font-black"
+          className="grid h-9 shrink-0 place-items-center rounded-lg px-3 text-xs font-bold"
           style={{ background: "var(--accent-subtle)", color: "var(--accent)" }}
         >
           Lançar
@@ -208,14 +208,14 @@ function ProducaoCard({ item }: { item: ProducaoDia }) {
   return (
     <li className="flex items-start justify-between gap-3 border-t py-2 first:border-t-0" style={{ borderColor: "var(--border)" }}>
       <div className="min-w-0">
-        <p className="truncate text-sm font-black uppercase" style={{ color: "var(--text-primary)" }}>
+        <p className="truncate text-sm font-bold uppercase" style={{ color: "var(--text-primary)" }}>
           {item.atividades?.nome ?? "Atividade"}
         </p>
         <p className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
           {num(quantidade)} {item.atividades?.unidade ?? "ha"} · {item.talhao ? `Talhao ${item.talhao}` : "Sem talhao"}
         </p>
       </div>
-      <p className="shrink-0 text-sm font-black tabular" style={{ color: "var(--accent)" }}>
+      <p className="shrink-0 text-sm font-bold tabular" style={{ color: "var(--accent)" }}>
         {brl(faturamento)}
       </p>
     </li>
@@ -227,7 +227,7 @@ function ManutencaoCard({ item }: { item: ManutencaoDia }) {
     <li className="border-t py-2 first:border-t-0" style={{ borderColor: "var(--border)" }}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-sm font-black" style={{ color: "var(--text-primary)" }}>
+          <p className="truncate text-sm font-bold" style={{ color: "var(--text-primary)" }}>
             {item.maquinas?.nome ?? "Maquina"}
           </p>
           <p className="truncate text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
@@ -235,7 +235,7 @@ function ManutencaoCard({ item }: { item: ManutencaoDia }) {
           </p>
         </div>
         <span
-          className="rounded-full px-2 py-1 text-[10px] font-black"
+          className="rounded-md px-2 py-1 text-[10px] font-bold"
           style={{ background: "var(--warn-bg)", color: "var(--warn)" }}
         >
           {item.status === "em_andamento" ? "Em andamento" : "Aberta"}
@@ -334,16 +334,16 @@ export default async function MeuDiaPage() {
         className="rounded-lg border p-4"
         style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}
       >
-        <p className="text-xs font-black uppercase" style={{ color: "var(--text-muted)" }}>
+        <p className="text-xs font-bold uppercase" style={{ color: "var(--text-muted)" }}>
           Meu dia · {ddmmyyyy(hoje)}
         </p>
         <div className="mt-1 flex items-end justify-between gap-3">
           <div>
-            <h1 className="text-xl font-black" style={{ color: "var(--text-primary)" }}>
-              Bom trabalho, {firstName}
+            <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
+              Operação de hoje
             </h1>
             <p className="text-sm font-semibold" style={{ color: "var(--text-secondary)" }}>
-              {ciclo.label}
+              {firstName} · {ciclo.label}
             </p>
           </div>
           <Link
@@ -378,10 +378,10 @@ export default async function MeuDiaPage() {
         style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}
       >
         <div className="mb-2 flex items-center justify-between gap-3">
-          <h2 className="text-sm font-black" style={{ color: "var(--text-primary)" }}>
+          <h2 className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
             Planejamento de hoje
           </h2>
-          <Link href="/planejamento" className="text-xs font-black" style={{ color: "var(--accent)" }}>
+          <Link href="/planejamento" className="text-xs font-bold" style={{ color: "var(--accent)" }}>
             Ver tudo
           </Link>
         </div>
@@ -403,10 +403,10 @@ export default async function MeuDiaPage() {
         style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}
       >
         <div className="mb-1 flex items-center justify-between gap-3">
-          <h2 className="text-sm font-black" style={{ color: "var(--text-primary)" }}>
+          <h2 className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
             Ultimos lançamentos
           </h2>
-          <Link href="/resumo" className="text-xs font-black" style={{ color: "var(--accent)" }}>
+          <Link href="/resumo" className="text-xs font-bold" style={{ color: "var(--accent)" }}>
             Feed
           </Link>
         </div>
@@ -429,10 +429,10 @@ export default async function MeuDiaPage() {
           style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}
         >
           <div className="mb-1 flex items-center justify-between gap-3">
-            <h2 className="text-sm font-black" style={{ color: "var(--text-primary)" }}>
+            <h2 className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
               Manutenção aberta
             </h2>
-            <Link href="/maquinas" className="text-xs font-black" style={{ color: "var(--accent)" }}>
+            <Link href="/maquinas" className="text-xs font-bold" style={{ color: "var(--accent)" }}>
               Resolver
             </Link>
           </div>

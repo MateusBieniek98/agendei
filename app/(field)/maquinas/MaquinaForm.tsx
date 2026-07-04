@@ -83,12 +83,12 @@ function MachinePicker({
 
   return (
     <section
-      className="rounded-2xl border p-3 shadow-sm"
+      className="rounded-lg border p-3 shadow-sm"
       style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}
     >
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-sm font-black" style={{ color: "var(--text-primary)" }}>
+          <h3 className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
             Escolha a máquina
           </h3>
           <p className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
@@ -105,10 +105,10 @@ function MachinePicker({
       </div>
 
       <div className="mt-3">
-        <label className="text-xs font-black uppercase" style={{ color: "var(--text-muted)" }}>
+        <label className="text-xs font-bold uppercase" style={{ color: "var(--text-muted)" }}>
           Buscar por nome, código ou tipo
         </label>
-        <div className="mt-1 flex min-h-12 items-center rounded-xl border-2 px-3" style={{ background: "var(--bg-input, var(--bg-card))", borderColor: "var(--border)" }}>
+        <div className="mt-1 flex min-h-11 items-center rounded-lg border px-3" style={{ background: "var(--bg-input, var(--bg-card))", borderColor: "var(--border)" }}>
           <input
             type="search"
             value={busca}
@@ -116,7 +116,7 @@ function MachinePicker({
             onKeyDown={(e) => {
               if (e.key === "Enter") e.preventDefault();
             }}
-            className="min-w-0 flex-1 bg-transparent text-base font-bold outline-none"
+            className="min-w-0 flex-1 bg-transparent text-sm font-bold outline-none"
             style={{ color: "var(--text-primary)" }}
             placeholder="Ex.: TR-012, trator, roçadeira"
           />
@@ -124,7 +124,7 @@ function MachinePicker({
             <button
               type="button"
               onClick={() => onBuscaChange("")}
-              className="ml-2 min-h-9 rounded-lg px-2 text-xs font-black"
+              className="ml-2 min-h-9 rounded-lg px-2 text-xs font-bold"
               style={{ color: "var(--accent)" }}
             >
               Limpar
@@ -146,7 +146,7 @@ function MachinePicker({
               key={option.v}
               type="button"
               onClick={() => onFiltroStatusChange(option.v)}
-              className="min-h-11 rounded-xl border px-2 text-xs font-black transition active:opacity-80"
+              className="min-h-10 rounded-lg border px-2 text-xs font-bold transition active:opacity-80"
               style={{
                 background: active ? option.color : option.bg,
                 borderColor: active ? option.color : "var(--border)",
@@ -162,7 +162,7 @@ function MachinePicker({
       <div className="mt-3 max-h-[19rem] space-y-2 overflow-y-auto pr-1">
         {maquinas.length === 0 ? (
           <div
-            className="rounded-xl border border-dashed p-4 text-center text-sm font-semibold"
+            className="rounded-lg border border-dashed p-4 text-center text-sm font-semibold"
             style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}
           >
             Nenhuma máquina encontrada.
@@ -177,14 +177,14 @@ function MachinePicker({
                 type="button"
                 onClick={() => onSelect(maquina.id)}
                 aria-pressed={active}
-                className="flex min-h-16 w-full items-center justify-between gap-3 rounded-xl border p-3 text-left transition active:scale-[0.99]"
+                className="flex min-h-14 w-full items-center justify-between gap-3 rounded-lg border p-3 text-left transition active:scale-[0.99]"
                 style={{
                   background: active ? "var(--accent-subtle)" : "var(--bg-page)",
                   borderColor: active ? "var(--accent)" : "var(--border)",
                 }}
               >
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-black" style={{ color: "var(--text-primary)" }}>
+                  <p className="truncate text-sm font-bold" style={{ color: "var(--text-primary)" }}>
                     {maquina.nome}
                   </p>
                   <p className="truncate text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
@@ -193,7 +193,7 @@ function MachinePicker({
                   </p>
                 </div>
                 <span
-                  className="shrink-0 rounded-full px-2 py-1 text-[11px] font-black"
+                  className="shrink-0 rounded-md px-2 py-1 text-[11px] font-bold"
                   style={{ background: meta.bg, color: meta.color, border: `1px solid ${meta.border}` }}
                 >
                   {meta.label}
@@ -224,11 +224,11 @@ function ProjectPicker({
 }) {
   return (
     <section
-      className="rounded-2xl border p-3 shadow-sm"
+      className="rounded-lg border p-3 shadow-sm"
       style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}
     >
       <div>
-        <h3 className="text-sm font-black" style={{ color: "var(--text-primary)" }}>
+        <h3 className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
           Projeto / fazenda
         </h3>
         <p className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
@@ -237,10 +237,10 @@ function ProjectPicker({
       </div>
 
       <div className="mt-3">
-        <label className="text-xs font-black uppercase" style={{ color: "var(--text-muted)" }}>
+        <label className="text-xs font-bold uppercase" style={{ color: "var(--text-muted)" }}>
           Buscar projeto
         </label>
-        <div className="mt-1 flex min-h-12 items-center rounded-xl border-2 px-3" style={{ background: "var(--bg-input, var(--bg-card))", borderColor: "var(--border)" }}>
+        <div className="mt-1 flex min-h-11 items-center rounded-lg border px-3" style={{ background: "var(--bg-input, var(--bg-card))", borderColor: "var(--border)" }}>
           <input
             type="search"
             value={busca}
@@ -248,7 +248,7 @@ function ProjectPicker({
             onKeyDown={(e) => {
               if (e.key === "Enter") e.preventDefault();
             }}
-            className="min-w-0 flex-1 bg-transparent text-base font-bold outline-none"
+            className="min-w-0 flex-1 bg-transparent text-sm font-bold outline-none"
             style={{ color: "var(--text-primary)" }}
             placeholder="Digite parte do projeto ou fazenda"
           />
@@ -256,7 +256,7 @@ function ProjectPicker({
             <button
               type="button"
               onClick={() => onBuscaChange("")}
-              className="ml-2 min-h-9 rounded-lg px-2 text-xs font-black"
+              className="ml-2 min-h-9 rounded-lg px-2 text-xs font-bold"
               style={{ color: "var(--accent)" }}
             >
               Limpar
@@ -268,7 +268,7 @@ function ProjectPicker({
       <div className="mt-3 max-h-56 space-y-2 overflow-y-auto pr-1">
         {projetos.length === 0 ? (
           <div
-            className="rounded-xl border border-dashed p-4 text-center text-sm font-semibold"
+            className="rounded-lg border border-dashed p-4 text-center text-sm font-semibold"
             style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}
           >
             Nenhum projeto encontrado.
@@ -282,17 +282,17 @@ function ProjectPicker({
                 type="button"
                 onClick={() => onSelect(projeto.id)}
                 aria-pressed={active}
-                className="flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border p-3 text-left transition active:scale-[0.99]"
+                className="flex min-h-12 w-full items-center justify-between gap-3 rounded-lg border p-3 text-left transition active:scale-[0.99]"
                 style={{
                   background: active ? "var(--accent-subtle)" : "var(--bg-page)",
                   borderColor: active ? "var(--accent)" : "var(--border)",
                 }}
               >
-                <span className="min-w-0 truncate text-sm font-black" style={{ color: "var(--text-primary)" }}>
+                <span className="min-w-0 truncate text-sm font-bold" style={{ color: "var(--text-primary)" }}>
                   {projeto.nome}
                 </span>
                 {active && (
-                  <span className="shrink-0 rounded-full px-2 py-1 text-[11px] font-black" style={{ background: "var(--accent)", color: "#fff" }}>
+                  <span className="shrink-0 rounded-md px-2 py-1 text-[11px] font-bold" style={{ background: "var(--accent)", color: "#fff" }}>
                     Selecionado
                   </span>
                 )}
@@ -513,7 +513,7 @@ export default function MaquinaForm({
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-bold text-[var(--color-ink-900)]">
+        <label className="text-sm font-bold text-[var(--text-primary)]">
           Status da máquina ao enviar
         </label>
         <div className="flex gap-2">
@@ -523,10 +523,10 @@ export default function MaquinaForm({
               type="button"
               onClick={() => setStatusMaquina(s.value)}
               className={
-                "flex-1 rounded-xl border-2 py-2 text-xs font-bold transition " +
+                "flex-1 rounded-lg border py-2 text-xs font-bold transition " +
                 (statusMaquina === s.value
-                  ? "border-[var(--color-gn-500)] bg-[var(--color-gn-500)] text-white"
-                  : "border-[var(--color-ink-300)] bg-white text-[var(--color-ink-800)]")
+                  ? "border-[var(--accent)] bg-[var(--accent)] text-white"
+                  : "border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-secondary)]")
               }
             >
               {s.label}
@@ -545,26 +545,26 @@ export default function MaquinaForm({
       />
 
       <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-bold text-[var(--color-ink-900)]">
+        <label className="text-sm font-bold text-[var(--text-primary)]">
           Talhão
         </label>
         <input
           value={talhao}
           onChange={(e) => setTalhao(e.target.value)}
-          className="h-13 min-h-12 rounded-xl border-2 border-[var(--color-ink-300)] bg-white px-3 text-base font-bold text-[var(--color-ink-900)] shadow-sm placeholder:font-bold placeholder:text-[var(--color-ink-700)] focus:border-[var(--color-gn-500)] outline-none transition"
+          className="h-11 rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 text-sm font-bold text-[var(--text-primary)] shadow-sm placeholder:font-bold placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] outline-none transition"
           placeholder="Ex.: 017-01"
         />
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-bold text-[var(--color-ink-900)]">
+        <label className="text-sm font-bold text-[var(--text-primary)]">
           Descrição do problema
         </label>
         <textarea
           rows={4}
           value={descricao}
           onChange={(e) => setDescricao(e.target.value)}
-          className="rounded-xl border-2 border-[var(--color-ink-300)] bg-white px-3 py-2 text-base font-bold text-[var(--color-ink-900)] shadow-sm placeholder:font-bold placeholder:text-[var(--color-ink-700)] focus:border-[var(--color-gn-500)] outline-none"
+          className="rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 py-2 text-sm font-bold text-[var(--text-primary)] shadow-sm placeholder:font-bold placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] outline-none"
           placeholder="Ex.: motor desligando em alta rotação, vazamento de óleo…"
         />
       </div>
@@ -575,13 +575,13 @@ export default function MaquinaForm({
 
       <div className="pt-2">
         <div className="flex items-baseline justify-between gap-3">
-          <h3 className="text-sm font-bold text-[var(--color-ink-900)]">
+          <h3 className="text-sm font-bold text-[var(--text-primary)]">
             Manutenções pendentes
           </h3>
           <button
             type="button"
             onClick={carregarPendentes}
-            className="text-xs font-bold text-[var(--color-gn-700)]"
+            className="text-xs font-bold text-[var(--accent)]"
           >
             atualizar
           </button>
@@ -599,14 +599,14 @@ export default function MaquinaForm({
             placeholder="Máquina, frente, projeto, talhão ou problema"
           />
           {pendentesVisiveis.map((m) => (
-            <Card key={m.id} className="p-3 space-y-3 border-red-200 bg-red-50">
+            <Card key={m.id} className="p-3 space-y-3 border-[var(--danger)] bg-[var(--danger-bg)]">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-sm font-bold text-[var(--color-ink-900)]">
+                  <p className="text-sm font-bold text-[var(--text-primary)]">
                     {m.maquinas?.nome ?? "Máquina"}
                     {m.maquinas?.identificador ? ` · ${m.maquinas.identificador}` : ""}
                   </p>
-                  <p className="text-xs font-semibold text-[var(--color-ink-700)]">
+                  <p className="text-xs font-semibold text-[var(--text-secondary)]">
                     {m.equipes?.nome ?? "Frente não informada"} · {m.projetos?.nome ?? "Projeto não informado"}
                     {m.talhao ? ` · Talhão ${m.talhao}` : ""}
                   </p>
@@ -615,10 +615,10 @@ export default function MaquinaForm({
                   {m.status.replaceAll("_", " ")}
                 </Badge>
               </div>
-              <p className="text-sm font-semibold text-[var(--color-ink-800)]">
+              <p className="text-sm font-semibold text-[var(--text-primary)]">
                 {m.descricao}
               </p>
-              <p className="text-xs font-semibold text-[var(--color-ink-600)]">
+              <p className="text-xs font-semibold text-[var(--text-muted)]">
                 Aberta em {ddmmyyyy(m.created_at)}
               </p>
               <Button
@@ -633,7 +633,7 @@ export default function MaquinaForm({
             </Card>
           ))}
           {pendentesFiltradas.length === 0 && (
-            <Card className="p-4 text-sm font-semibold text-[var(--color-ink-700)]">
+            <Card className="p-4 text-sm font-semibold text-[var(--text-secondary)]">
               Nenhuma manutenção pendente neste filtro.
             </Card>
           )}

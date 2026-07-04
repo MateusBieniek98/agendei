@@ -57,11 +57,11 @@ export default function PeriodoFiltro({
 
   return (
     <div
-      className="flex flex-col gap-3 rounded-xl border p-3 shadow-sm md:flex-row md:items-center md:justify-between"
+      className="flex flex-col gap-3 rounded-lg border p-3 shadow-sm md:flex-row md:items-center md:justify-between"
       style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}
     >
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:flex-wrap">
-        <label className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
+        <label className="text-xs font-bold uppercase" style={{ color: "var(--text-muted)" }}>
           Período:
         </label>
         <select
@@ -69,7 +69,7 @@ export default function PeriodoFiltro({
           onChange={(e) =>
             onChange({ ...value, preset: e.target.value as PeriodoPreset })
           }
-          className="h-10 w-full rounded-lg border px-3 text-sm font-bold shadow-sm md:w-auto"
+          className="h-9 w-full rounded-lg border px-3 text-sm font-semibold md:w-auto"
           style={{
             background: "var(--bg-input)",
             borderColor: "var(--border)",
@@ -94,7 +94,7 @@ export default function PeriodoFiltro({
                   onChange({ preset: "custom", de: customDe, ate: customAte });
                 }
               }}
-              className="h-10 min-w-0 rounded-lg border px-3 text-sm font-bold shadow-sm"
+              className="h-9 min-w-0 rounded-lg border px-3 text-sm font-semibold"
               style={{
                 background: "var(--bg-input)",
                 borderColor: "var(--border)",
@@ -111,7 +111,7 @@ export default function PeriodoFiltro({
                   onChange({ preset: "custom", de: customDe, ate: customAte });
                 }
               }}
-              className="h-10 min-w-0 rounded-lg border px-3 text-sm font-bold shadow-sm"
+              className="h-9 min-w-0 rounded-lg border px-3 text-sm font-semibold"
               style={{
                 background: "var(--bg-input)",
                 borderColor: "var(--border)",

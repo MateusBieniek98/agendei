@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createSupabaseServer } from "@/lib/supabase/server";
+import PageHeader from "@/components/ui/PageHeader";
 import LancamentosTable from "./LancamentosTable";
 import type { Atividade, Equipe, Projeto } from "@/lib/types";
 
@@ -15,20 +16,20 @@ export default async function LancamentosAdminPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Lançamentos de produção</h1>
-          <p className="text-sm font-semibold text-[var(--color-ink-600)]">
-            Filtre por período, equipe ou atividade. Registre, edite ou exclua apontamentos.
-          </p>
-        </div>
-        <Link
-          href="/admin/lancamentos/novo"
-          className="inline-flex h-12 items-center justify-center rounded-xl bg-[var(--color-gn-600)] px-4 text-base font-bold text-white shadow-sm transition hover:bg-[var(--color-gn-700)]"
-        >
-          + Novo lançamento
-        </Link>
-      </div>
+      <PageHeader
+        eyebrow="Produção"
+        title="Lançamentos de produção"
+        subtitle="Filtre por período, equipe ou atividade. Registre, edite ou exclua apontamentos."
+        right={
+          <Link
+            href="/admin/lancamentos/novo"
+            className="inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-bold text-white transition"
+            style={{ background: "var(--accent)", borderColor: "var(--accent)" }}
+          >
+            + Novo lançamento
+          </Link>
+        }
+      />
       <LancamentosTable
         equipes={(equipes ?? []) as Equipe[]}
         atividades={(atividades ?? []) as Atividade[]}

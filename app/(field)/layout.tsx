@@ -13,13 +13,13 @@ export default async function FieldLayout({
 
   return (
     <ToastProvider>
-      <div className="app-scroll-area with-bottom-nav" style={{ background: "var(--bg-page)" }}>
+      <div className="app-shell app-scroll-area with-bottom-nav">
         <TopBar
           title="Encarregado"
           subtitle={profile.nome}
           right={<LogoutButton />}
         />
-        <main className="mx-auto max-w-5xl px-3 py-3 sm:px-4 sm:py-5">{children}</main>
+        <main className="app-shell-main app-content-frame mx-auto max-w-5xl px-3 py-4 sm:px-4 sm:py-6">{children}</main>
         <BottomNav viewType="encarregado" />
       </div>
     </ToastProvider>

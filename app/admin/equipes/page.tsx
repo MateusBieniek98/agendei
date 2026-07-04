@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
+import PageHeader from "@/components/ui/PageHeader";
 import { useToast } from "@/components/ui/Toast";
 import { brl, todayISO } from "@/lib/format";
 import type { Equipe, Producao } from "@/lib/types";
@@ -88,7 +89,7 @@ function EquipeCard({
 
   return (
     <div
-      className="rounded-2xl p-4 flex flex-col gap-3 animate-fade-in"
+      className="rounded-lg p-3 flex flex-col gap-3 animate-fade-in"
       style={{
         background: "var(--bg-card)",
         border: `1.5px solid ${equipe.ativo ? "var(--border)" : "var(--border)"}`,
@@ -111,7 +112,7 @@ function EquipeCard({
           )}
         </div>
         <span
-          className="shrink-0 text-xs font-bold px-2 py-0.5 rounded-full"
+          className="shrink-0 rounded-md px-2 py-0.5 text-xs font-bold"
           style={{
             background: equipe.ativo ? "var(--success-bg, #f0fdf4)" : "var(--bg-page)",
             color:      equipe.ativo ? "var(--success)" : "var(--text-muted)",
@@ -140,7 +141,7 @@ function EquipeCard({
           </div>
         )}
         <div className="text-right shrink-0">
-          <p className="text-sm font-extrabold" style={{ color: "var(--accent)" }}>
+          <p className="text-sm font-bold" style={{ color: "var(--accent)" }}>
             {brl(totalSemana)}
           </p>
           <p className="text-xs" style={{ color: "var(--text-muted)" }}>7 dias</p>
@@ -271,22 +272,19 @@ export default function EquipesPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>
-            Equipes / Frentes
-          </h1>
-          <p className="text-sm mt-0.5" style={{ color: "var(--text-muted)" }}>
-            Frentes de trabalho com desempenho dos últimos 7 dias.
-          </p>
-        </div>
-        <Button
-          className="w-full sm:w-auto"
-          onClick={() => setEditing({ nome: "", descricao: "", ativo: true })}
-        >
-          + Nova equipe
-        </Button>
-      </div>
+      <PageHeader
+        eyebrow="Cadastro"
+        title="Equipes / Frentes"
+        subtitle="Frentes de trabalho com desempenho dos últimos 7 dias."
+        right={
+          <Button
+            className="w-full sm:w-auto"
+            onClick={() => setEditing({ nome: "", descricao: "", ativo: true })}
+          >
+            + Nova equipe
+          </Button>
+        }
+      />
 
       {/* Summary strip */}
       <div className="grid grid-cols-3 gap-3">
@@ -297,10 +295,10 @@ export default function EquipesPage() {
         ].map((s) => (
           <div
             key={s.label}
-            className="rounded-xl p-3 text-center"
+            className="rounded-lg p-3 text-center"
             style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}
           >
-            <p className="text-xl font-extrabold" style={{ color: s.color }}>{s.value}</p>
+            <p className="text-xl font-bold" style={{ color: s.color }}>{s.value}</p>
             <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{s.label}</p>
           </div>
         ))}
@@ -309,7 +307,7 @@ export default function EquipesPage() {
       {/* Filters */}
       <div className="flex flex-wrap gap-2 items-center">
         <input
-          className="flex-1 min-w-[160px] h-9 rounded-xl border px-3 text-sm"
+          className="h-9 min-w-[160px] flex-1 rounded-lg border px-3 text-sm"
           style={{
             background: "var(--bg-card)",
             color: "var(--text-primary)",
@@ -328,7 +326,7 @@ export default function EquipesPage() {
             <button
               key={f.v}
               onClick={() => setFiltro(f.v)}
-              className="px-3 h-9 rounded-xl text-xs font-semibold border transition-all"
+              className="h-9 rounded-lg border px-3 text-xs font-semibold transition-all"
               style={{
                 background:  statusFiltro === f.v ? "var(--accent)" : "var(--bg-card)",
                 color:       statusFiltro === f.v ? "#fff" : "var(--text-secondary)",
@@ -348,7 +346,7 @@ export default function EquipesPage() {
         </div>
       ) : filtradas.length === 0 ? (
         <div
-          className="rounded-2xl p-8 text-center text-sm"
+          className="rounded-lg p-8 text-center text-sm"
           style={{ background: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--text-muted)" }}
         >
           Nenhuma equipe encontrada.
@@ -376,8 +374,8 @@ export default function EquipesPage() {
           onClick={() => setEditing(null)}
         >
           <div
-            className="rounded-2xl w-full max-w-md p-6 space-y-3"
-            style={{ background: "var(--bg-card)" }}
+            className="w-full max-w-md rounded-lg p-5 space-y-3"
+            style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}
             onClick={(ev) => ev.stopPropagation()}
           >
             <h3 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>

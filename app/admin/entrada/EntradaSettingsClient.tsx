@@ -144,7 +144,7 @@ export default function EntradaSettingsClient() {
           {message && (
             <p
               className={
-                "rounded-xl border px-4 py-3 text-sm font-black " +
+                "rounded-lg border px-4 py-3 text-sm font-bold " +
                 (state === "saved"
                   ? "border-green-300 bg-green-50 text-green-800"
                   : "border-red-300 bg-red-50 text-red-800")
@@ -176,7 +176,7 @@ export default function EntradaSettingsClient() {
           </div>
         </section>
 
-        <aside className="relative min-h-[520px] overflow-hidden rounded-2xl border border-white/10 bg-[#06101f] p-5 text-white shadow-2xl">
+        <aside className="relative min-h-[520px] overflow-hidden rounded-lg border border-white/10 bg-[#08111d] p-5 text-white shadow-2xl">
           <div
             aria-hidden
             className="absolute inset-0 bg-cover bg-center opacity-45"
@@ -184,7 +184,7 @@ export default function EntradaSettingsClient() {
           />
           <div
             aria-hidden
-            className="absolute inset-0 bg-gradient-to-b from-[#06101f]/50 via-[#06101f]/82 to-[#06101f]"
+            className="absolute inset-0 bg-[#08111d]/80"
           />
           <div className="relative flex h-full flex-col justify-between">
             <div className="flex items-center gap-3">
@@ -193,24 +193,24 @@ export default function EntradaSettingsClient() {
                 alt="GN"
                 width={56}
                 height={56}
-                className="h-14 w-14 rounded-2xl object-cover ring-1 ring-white/20"
+                className="h-14 w-14 rounded-lg object-cover ring-1 ring-white/20"
               />
               <div>
-                <p className="text-xs font-black uppercase tracking-normal text-blue-100">
+                <p className="text-xs font-bold uppercase tracking-normal text-blue-100">
                   {settings.eyebrow}
                 </p>
-                <p className="text-lg font-black">GN</p>
+                <p className="text-lg font-bold">GN</p>
               </div>
             </div>
 
             <div>
-              <h2 className="text-4xl font-black leading-tight tracking-normal">
+              <h2 className="text-3xl font-bold leading-tight tracking-normal">
                 {settings.title}
               </h2>
-              <p className="mt-4 text-base font-bold leading-7 text-blue-50/85">
+              <p className="mt-4 text-base font-semibold leading-7 text-blue-50/85">
                 {settings.subtitle}
               </p>
-              <div className="mt-7 rounded-xl bg-blue-500 px-5 py-4 text-center text-base font-black shadow-xl">
+              <div className="mt-7 rounded-lg bg-[var(--accent)] px-5 py-3 text-center text-base font-bold shadow-xl">
                 {settings.buttonLabel}
               </div>
             </div>

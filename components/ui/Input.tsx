@@ -36,8 +36,8 @@ export default function Input({
       <input
         id={finalId}
         className={
-          "h-13 min-h-12 rounded-xl border-2 bg-[var(--bg-input)] px-3 text-base font-bold " +
-          "text-[var(--text-primary)] shadow-sm placeholder:font-bold placeholder:text-[var(--text-muted)] " +
+          "h-11 min-h-11 rounded-lg border bg-[var(--bg-input)] px-3 text-sm font-semibold " +
+          "text-[var(--text-primary)] placeholder:font-semibold placeholder:text-[var(--text-muted)] " +
           "focus:border-[var(--border-focus)] outline-none transition " +
           (error ? "border-[var(--danger)] " : "border-[var(--border)] ") +
           (className ?? "")

@@ -5,6 +5,7 @@ import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import MaintenanceFeed from "@/components/maintenance/MaintenanceFeed";
+import PageHeader from "@/components/ui/PageHeader";
 import { useToast } from "@/components/ui/Toast";
 import { ddmmyyyy } from "@/lib/format";
 import type { Equipe, Maquina, MachineStatus, MaintenanceStatus, Manutencao, Projeto } from "@/lib/types";
@@ -115,7 +116,7 @@ function ManutencaoCard({
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="truncate text-sm font-black" style={{ color: "var(--text-primary)" }}>
+          <p className="truncate text-sm font-bold" style={{ color: "var(--text-primary)" }}>
             {manut.maquinas?.nome ?? "Máquina removida"}
           </p>
           <p className="truncate text-[11px] font-semibold" style={{ color: "var(--text-muted)" }}>
@@ -124,7 +125,7 @@ function ManutencaoCard({
           </p>
         </div>
         <span
-          className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black"
+          className="shrink-0 rounded-md px-2 py-0.5 text-[10px] font-bold"
           style={{ background: meta.bg, color: meta.color, border: `1px solid ${meta.border}` }}
         >
           {meta.label}
@@ -151,7 +152,7 @@ function ManutencaoCard({
             <button
               type="button"
               onClick={() => onStatusChange(manut, "em_andamento")}
-              className="min-h-11 rounded-lg border px-3 text-xs font-black"
+              className="min-h-10 rounded-lg border px-3 text-xs font-bold"
               style={{ background: "var(--warn-bg)", borderColor: "var(--warn)", color: "var(--warn)" }}
             >
               Iniciar
@@ -159,7 +160,7 @@ function ManutencaoCard({
             <button
               type="button"
               onClick={() => onStatusChange(manut, "resolvido")}
-              className="min-h-11 rounded-lg border px-3 text-xs font-black"
+              className="min-h-10 rounded-lg border px-3 text-xs font-bold"
               style={{ background: "var(--success-bg)", borderColor: "var(--success)", color: "var(--success)" }}
             >
               Resolver
@@ -172,7 +173,7 @@ function ManutencaoCard({
             <button
               type="button"
               onClick={() => onStatusChange(manut, "aberto")}
-              className="min-h-11 rounded-lg border px-3 text-xs font-black"
+              className="min-h-10 rounded-lg border px-3 text-xs font-bold"
               style={{ background: "var(--bg-page)", borderColor: "var(--border)", color: "var(--text-secondary)" }}
             >
               Voltar
@@ -180,7 +181,7 @@ function ManutencaoCard({
             <button
               type="button"
               onClick={() => onStatusChange(manut, "resolvido")}
-              className="min-h-11 rounded-lg border px-3 text-xs font-black"
+              className="min-h-10 rounded-lg border px-3 text-xs font-bold"
               style={{ background: "var(--success-bg)", borderColor: "var(--success)", color: "var(--success)" }}
             >
               Resolver
@@ -192,7 +193,7 @@ function ManutencaoCard({
           <button
             type="button"
             onClick={() => onStatusChange(manut, "aberto")}
-            className="col-span-2 min-h-11 rounded-lg border px-3 text-xs font-black"
+            className="col-span-2 min-h-10 rounded-lg border px-3 text-xs font-bold"
             style={{ background: "var(--danger-bg)", borderColor: "var(--danger)", color: "var(--danger)" }}
           >
             Reabrir OS
@@ -216,7 +217,7 @@ function KanbanColumn({
 
   return (
     <section
-      className="flex min-h-[16rem] flex-col rounded-2xl"
+      className="flex min-h-[16rem] flex-col rounded-lg"
       style={{ background: "var(--bg-page)", border: "1px solid var(--border)" }}
     >
       <div
@@ -225,12 +226,12 @@ function KanbanColumn({
       >
         <div className="flex min-w-0 items-center gap-2">
           <span className="h-2.5 w-2.5 rounded-full" style={{ background: meta.color }} />
-          <h4 className="truncate text-sm font-black" style={{ color: "var(--text-primary)" }}>
+          <h4 className="truncate text-sm font-bold" style={{ color: "var(--text-primary)" }}>
             {meta.label}
           </h4>
         </div>
         <span
-          className="rounded-full px-2 py-0.5 text-[11px] font-black"
+          className="rounded-md px-2 py-0.5 text-[11px] font-bold"
           style={{ background: meta.bg, color: meta.color }}
         >
           {items.length}
@@ -240,7 +241,7 @@ function KanbanColumn({
       <div className="flex-1 space-y-2 p-2">
         {items.length === 0 ? (
           <div
-            className="grid min-h-28 place-items-center rounded-xl border border-dashed p-3 text-center text-xs font-semibold"
+            className="grid min-h-28 place-items-center rounded-lg border border-dashed p-3 text-center text-xs font-semibold"
             style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}
           >
             Nenhuma OS nesta etapa.
@@ -296,7 +297,7 @@ function MaquinaCard({
 
   return (
     <div
-      className="rounded-2xl p-4 flex flex-col gap-3 animate-fade-in"
+      className="rounded-lg p-3 flex flex-col gap-3 animate-fade-in"
       style={{
         background: "var(--bg-card)",
         border: `1.5px solid ${isUrgente ? meta.border : "var(--border)"}`,
@@ -322,7 +323,7 @@ function MaquinaCard({
         </div>
         {manutAbertas > 0 && (
           <span
-            className="shrink-0 text-xs font-bold px-2 py-0.5 rounded-full"
+            className="shrink-0 rounded-md px-2 py-0.5 text-xs font-bold"
             style={{ background: "var(--danger-bg)", color: "var(--danger)", border: "1px solid var(--danger)" }}
           >
             {manutAbertas} OS
@@ -332,7 +333,7 @@ function MaquinaCard({
 
       {/* Status badge pill */}
       <div
-        className="flex items-center gap-1.5 self-start px-2.5 py-1 rounded-full text-xs font-semibold"
+        className="flex items-center gap-1.5 self-start rounded-md px-2.5 py-1 text-xs font-semibold"
         style={{ background: meta.bg, color: meta.border, border: `1px solid ${meta.border}` }}
       >
         {meta.label}
@@ -342,7 +343,7 @@ function MaquinaCard({
       <select
         value={maquina.status}
         onChange={(e) => onStatusChange(e.target.value as MachineStatus)}
-        className="w-full h-9 rounded-xl border px-3 text-xs font-semibold"
+        className="h-9 w-full rounded-lg border px-3 text-xs font-semibold"
         style={{
           background: "var(--bg-input, var(--bg-card))",
           color: "var(--text-primary)",
@@ -508,20 +509,19 @@ export default function MaquinasAdminPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>Máquinas</h1>
-          <p className="text-sm mt-0.5" style={{ color: "var(--text-muted)" }}>
-            Gerencie a frota e acompanhe manutenções abertas.
-          </p>
-        </div>
-        <Button
-          className="w-full sm:w-auto"
-          onClick={() => setEditing({ nome: "", tipo: "Trator", status: "operando" })}
-        >
-          + Nova máquina
-        </Button>
-      </div>
+      <PageHeader
+        eyebrow="Frota"
+        title="Máquinas"
+        subtitle="Gerencie a frota e acompanhe manutenções abertas."
+        right={
+          <Button
+            className="w-full sm:w-auto"
+            onClick={() => setEditing({ nome: "", tipo: "Trator", status: "operando" })}
+          >
+            + Nova máquina
+          </Button>
+        }
+      />
 
       {/* Summary strip */}
       <div className="grid grid-cols-4 gap-3">
@@ -533,10 +533,10 @@ export default function MaquinasAdminPage() {
         ].map((s) => (
           <div
             key={s.label}
-            className="rounded-xl p-3 text-center"
+            className="rounded-lg p-3 text-center"
             style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}
           >
-            <p className="text-2xl font-extrabold" style={{ color: s.color }}>{s.value}</p>
+            <p className="text-2xl font-bold" style={{ color: s.color }}>{s.value}</p>
             <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{s.label}</p>
           </div>
         ))}
@@ -545,7 +545,7 @@ export default function MaquinasAdminPage() {
       {/* Filters */}
       <div className="flex flex-wrap gap-2 items-center">
         <input
-          className="flex-1 min-w-[160px] h-9 rounded-xl border px-3 text-sm"
+          className="h-9 min-w-[160px] flex-1 rounded-lg border px-3 text-sm"
           style={{
             background: "var(--bg-card)",
             color: "var(--text-primary)",
@@ -560,7 +560,7 @@ export default function MaquinasAdminPage() {
             <button
               key={f.v}
               onClick={() => setFiltro(f.v)}
-              className="px-3 h-9 rounded-xl text-xs font-semibold border transition-all"
+              className="h-9 rounded-lg border px-3 text-xs font-semibold transition-all"
               style={{
                 background: statusFiltro === f.v ? "var(--accent)" : "var(--bg-card)",
                 color: statusFiltro === f.v ? "#fff" : "var(--text-secondary)",
@@ -576,7 +576,7 @@ export default function MaquinasAdminPage() {
       {/* Grid de máquinas */}
       {maquinasFiltradas.length === 0 ? (
         <div
-          className="rounded-2xl p-8 text-center text-sm"
+          className="rounded-lg p-8 text-center text-sm"
           style={{ background: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--text-muted)" }}
         >
           Nenhuma máquina encontrada.
@@ -597,7 +597,7 @@ export default function MaquinasAdminPage() {
 
       {/* Manutenções */}
       <div
-        className="rounded-2xl p-3 sm:p-4"
+        className="rounded-lg p-3 sm:p-4"
         style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}
       >
         <div
@@ -613,13 +613,13 @@ export default function MaquinasAdminPage() {
             </p>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
-            <div className="grid grid-cols-2 rounded-xl p-1 sm:w-fit" style={{ background: "var(--bg-page)", border: "1px solid var(--border)" }}>
+            <div className="grid grid-cols-2 rounded-lg p-1 sm:w-fit" style={{ background: "var(--bg-page)", border: "1px solid var(--border)" }}>
               {(["feed", "kanban"] as const).map((view) => (
                 <button
                   type="button"
                   key={view}
                   onClick={() => setManutView(view)}
-                  className="min-h-11 rounded-lg px-4 text-xs font-black transition"
+                  className="min-h-10 rounded-lg px-4 text-xs font-bold transition"
                   style={{
                     background: manutView === view ? "var(--accent)" : "transparent",
                     color: manutView === view ? "#fff" : "var(--text-muted)",
@@ -630,13 +630,13 @@ export default function MaquinasAdminPage() {
               ))}
             </div>
             {manutView === "kanban" && (
-              <div className="grid grid-cols-2 rounded-xl p-1 sm:w-fit" style={{ background: "var(--bg-page)", border: "1px solid var(--border)" }}>
+              <div className="grid grid-cols-2 rounded-lg p-1 sm:w-fit" style={{ background: "var(--bg-page)", border: "1px solid var(--border)" }}>
                 {(["abertas", "todas"] as const).map((t) => (
               <button
                 type="button"
                 key={t}
                 onClick={() => setTabManut(t)}
-                className="min-h-11 rounded-lg px-4 text-xs font-black transition"
+                className="min-h-10 rounded-lg px-4 text-xs font-bold transition"
                 style={{
                   background: tabManut === t ? "var(--accent)" : "transparent",
                   color: tabManut === t ? "#fff" : "var(--text-muted)",
@@ -684,8 +684,8 @@ export default function MaquinasAdminPage() {
           onClick={() => setEditing(null)}
         >
           <div
-            className="rounded-2xl w-full max-w-md p-6 space-y-3"
-            style={{ background: "var(--bg-card)" }}
+            className="w-full max-w-md rounded-lg p-5 space-y-3"
+            style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>

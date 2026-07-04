@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import PageHeader from "@/components/ui/PageHeader";
 import { brl, ddmmyyyy, num, todayISO } from "@/lib/format";
 import type { PlanningStatus } from "@/lib/types";
 
@@ -91,13 +92,13 @@ function CardItem({
 
   return (
     <div
-      className="rounded-2xl p-4 space-y-3 animate-fade-in"
+      className="rounded-lg p-3 space-y-3 animate-fade-in"
       style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}
     >
       {/* Header */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
-          <p className="text-base font-bold truncate" style={{ color: "var(--text-primary)" }}>
+          <p className="text-sm font-bold truncate" style={{ color: "var(--text-primary)" }}>
             {item.atividades?.nome ?? "Atividade"}
           </p>
           <p className="text-sm truncate mt-0.5" style={{ color: "var(--text-secondary)" }}>
@@ -105,7 +106,7 @@ function CardItem({
           </p>
         </div>
         <span
-          className="shrink-0 text-xs font-bold px-2 py-1 rounded-full"
+          className="shrink-0 rounded-md px-2 py-1 text-[11px] font-bold"
           style={{ background: bg, color: cor, border: `1px solid ${cor}` }}
         >
           {STATUS_LABEL[item.status]}
@@ -157,7 +158,7 @@ function CardItem({
 
       {item.insumos_utilizados.length > 0 && (
         <div
-          className="rounded-xl px-3 py-2 text-xs"
+          className="rounded-lg px-3 py-2 text-xs"
           style={{ background: "var(--bg-active)", border: "1px solid var(--border)" }}
         >
           <p className="font-bold" style={{ color: "var(--text-primary)" }}>
@@ -181,10 +182,10 @@ function CardItem({
         <button
           type="button"
           onClick={() => onIniciar(item)}
-          className="w-full rounded-xl py-3 text-sm font-bold text-white transition active:opacity-80"
+          className="w-full rounded-lg py-3 text-sm font-bold text-white transition active:opacity-80"
           style={{ background: isHoje ? "var(--success)" : "var(--accent)" }}
         >
-          {item.status === "em_execucao" ? "▶ Continuar atividade" : "▶ Iniciar atividade"}
+          {item.status === "em_execucao" ? "Continuar atividade" : "Iniciar atividade"}
         </button>
       )}
     </div>
@@ -267,14 +268,11 @@ export default function PlanejamentoField({
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>
-          Planejamento
-        </h1>
-        <p className="text-sm mt-0.5" style={{ color: "var(--text-muted)" }}>
-          Atividades planejadas para sua equipe
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="Campo"
+        title="Planejamento"
+        subtitle="Atividades planejadas para sua equipe"
+      />
 
       {/* Filtros */}
       <div className="flex flex-wrap gap-2">
@@ -286,7 +284,7 @@ export default function PlanejamentoField({
           <button
             key={f.v}
             onClick={() => setFiltro(f.v)}
-            className="min-h-11 px-4 py-2 rounded-xl text-sm font-bold transition"
+            className="min-h-10 rounded-lg px-3 py-2 text-sm font-bold transition"
             style={{
               background: filtro === f.v ? "var(--accent)" : "var(--bg-card)",
               color:      filtro === f.v ? "#fff" : "var(--text-secondary)",
@@ -305,10 +303,9 @@ export default function PlanejamentoField({
         </div>
       ) : itensFiltrados.length === 0 ? (
         <div
-          className="rounded-2xl py-12 text-center"
+          className="rounded-lg py-10 text-center"
           style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}
         >
-          <p className="text-3xl mb-2">📋</p>
           <p className="text-sm font-semibold" style={{ color: "var(--text-muted)" }}>
             {filtro === "hoje"
               ? "Nenhuma atividade planejada para hoje."

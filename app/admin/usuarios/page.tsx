@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/Card";
 import ListControls, { searchItems, visibleItems } from "@/components/ui/ListControls";
 import Badge from "@/components/ui/Badge";
 import { useToast } from "@/components/ui/Toast";
+import PageHeader from "@/components/ui/PageHeader";
 import type { Equipe, Profile, UserRole } from "@/lib/types";
 
 type ProfileWithEquipe = Profile & {
@@ -234,40 +235,38 @@ export default function UsuariosPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Usuários</h1>
-          <p className="text-sm font-semibold text-[var(--color-ink-600)]">
-            Crie acessos personalizados (encarregado, admin, gestor),
-            altere papéis, ative/desative ou redefina senhas.
-          </p>
-        </div>
-        <Button className="w-full sm:w-auto" onClick={() => setCriando(true)}>
-          + Novo usuário
-        </Button>
-      </div>
+      <PageHeader
+        eyebrow="Acessos"
+        title="Usuários"
+        subtitle="Crie acessos personalizados, altere papéis, ative/desative ou redefina senhas."
+        right={
+          <Button className="w-full sm:w-auto" onClick={() => setCriando(true)}>
+            + Novo usuário
+          </Button>
+        }
+      />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Card className="p-4">
-          <p className="text-xs font-bold uppercase text-[var(--color-ink-500)]">
+          <p className="text-xs font-bold uppercase text-[var(--text-muted)]">
             Total
           </p>
           <p className="mt-1 text-2xl font-bold tabular">{contadores.total}</p>
         </Card>
         <Card className="p-4">
-          <p className="text-xs font-bold uppercase text-[var(--color-ink-500)]">
+          <p className="text-xs font-bold uppercase text-[var(--text-muted)]">
             Admin
           </p>
           <p className="mt-1 text-2xl font-bold tabular">{contadores.admin}</p>
         </Card>
         <Card className="p-4">
-          <p className="text-xs font-bold uppercase text-[var(--color-ink-500)]">
+          <p className="text-xs font-bold uppercase text-[var(--text-muted)]">
             Gestor
           </p>
           <p className="mt-1 text-2xl font-bold tabular">{contadores.gestor}</p>
         </Card>
         <Card className="p-4">
-          <p className="text-xs font-bold uppercase text-[var(--color-ink-500)]">
+          <p className="text-xs font-bold uppercase text-[var(--text-muted)]">
             Encarregado
           </p>
           <p className="mt-1 text-2xl font-bold tabular">{contadores.encarregado}</p>
@@ -275,14 +274,14 @@ export default function UsuariosPage() {
       </div>
 
       <Card>
-        <div className="border-b border-[var(--color-ink-100)] p-4">
+        <div className="border-b border-[var(--border)] p-4">
           {erroCarregamento && (
-            <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-bold text-red-700">
+            <div className="mb-4 rounded-lg border border-[var(--danger)] bg-[var(--danger-bg)] p-3 text-sm font-bold text-[var(--danger)]">
               Falha ao carregar usuários: {erroCarregamento}
             </div>
           )}
           {avisoCarregamento && (
-            <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-800">
+            <div className="mb-4 rounded-lg border border-[var(--warn)] bg-[var(--warn-bg)] p-3 text-sm font-bold text-[var(--warn)]">
               {avisoCarregamento}
             </div>
           )}
@@ -304,12 +303,12 @@ export default function UsuariosPage() {
                 options={ROLES}
                 placeholder="todos"
               />
-              <label className="text-sm font-bold text-[var(--color-ink-900)]">
+              <label className="text-sm font-bold text-[var(--text-primary)]">
                 Status
                 <select
                   value={statusFiltro}
                   onChange={(e) => setStatusFiltro(e.target.value)}
-                  className="mt-1 h-12 w-full rounded-xl border-2 border-[var(--color-ink-300)] bg-white px-3 text-base font-bold text-[var(--color-ink-900)] shadow-sm"
+                  className="mt-1 h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 text-sm font-bold text-[var(--text-primary)] shadow-sm"
                 >
                   <option value="ativos">ativos</option>
                   <option value="inativos">inativos</option>
@@ -319,9 +318,9 @@ export default function UsuariosPage() {
             </div>
           </ListControls>
         </div>
-        <div className="divide-y divide-[var(--color-ink-100)] lg:hidden">
+        <div className="divide-y divide-[var(--border)] lg:hidden">
           {carregando && (
-            <div className="p-6 text-center text-sm font-semibold text-[var(--color-ink-600)]">
+            <div className="p-6 text-center text-sm font-semibold text-[var(--text-muted)]">
               Carregando usuários...
             </div>
           )}
@@ -329,13 +328,13 @@ export default function UsuariosPage() {
             <div key={u.id} className="p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="break-words text-base font-bold text-[var(--color-ink-900)]">
+                  <p className="break-words text-base font-bold text-[var(--text-primary)]">
                     {u.nome}
                   </p>
-                  <p className="mt-1 break-words text-sm font-semibold text-[var(--color-ink-700)]">
+                  <p className="mt-1 break-words text-sm font-semibold text-[var(--text-secondary)]">
                     {u.email}
                   </p>
-                  <p className="mt-1 text-sm font-semibold text-[var(--color-ink-700)]">
+                  <p className="mt-1 text-sm font-semibold text-[var(--text-secondary)]">
                     Equipe: {u.equipes?.nome ?? "sem equipe"}
                   </p>
                   <div className="mt-2">
@@ -360,19 +359,19 @@ export default function UsuariosPage() {
               </div>
 
               <div className="mt-4 grid gap-3">
-                <label className="text-xs font-bold uppercase text-[var(--color-ink-700)]">
+                <label className="text-xs font-bold uppercase text-[var(--text-secondary)]">
                   Papel
                   <select
                     value={u.role}
                     onChange={(e) => patch(u.id, { role: e.target.value as UserRole })}
-                    className="mt-1 h-12 w-full rounded-xl border-2 border-[var(--color-ink-300)] bg-white px-3 text-base font-bold normal-case text-[var(--color-ink-900)] shadow-sm"
+                    className="mt-1 h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 text-sm font-bold normal-case text-[var(--text-primary)] shadow-sm"
                   >
                     {ROLES.map((r) => (
                       <option key={r.value} value={r.value}>{r.label}</option>
                     ))}
                   </select>
                 </label>
-                <label className="text-xs font-bold uppercase text-[var(--color-ink-700)]">
+                <label className="text-xs font-bold uppercase text-[var(--text-secondary)]">
                   Equipe
                   <select
                     value={u.equipe_id ?? ""}
@@ -381,7 +380,7 @@ export default function UsuariosPage() {
                         equipe_id: e.target.value ? e.target.value : null,
                       })
                     }
-                    className="mt-1 h-12 w-full rounded-xl border-2 border-[var(--color-ink-300)] bg-white px-3 text-base font-bold normal-case text-[var(--color-ink-900)] shadow-sm"
+                    className="mt-1 h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 text-sm font-bold normal-case text-[var(--text-primary)] shadow-sm"
                   >
                     <option value="">Sem equipe</option>
                     {equipes.map((eq) => (
@@ -414,7 +413,7 @@ export default function UsuariosPage() {
             </div>
           ))}
           {!carregando && filtrados.length === 0 && (
-            <div className="p-6 text-center text-sm font-semibold text-[var(--color-ink-600)]">
+            <div className="p-6 text-center text-sm font-semibold text-[var(--text-muted)]">
               Nenhum usuário encontrado neste filtro.
             </div>
           )}
@@ -422,7 +421,7 @@ export default function UsuariosPage() {
 
         <div className="hidden overflow-x-auto lg:block">
           <table className="w-full text-sm">
-            <thead className="bg-[var(--color-ink-50)] text-[var(--color-ink-500)] text-left">
+            <thead className="bg-[var(--bg-card-alt)] text-left text-[var(--text-muted)]">
               <tr>
                 <th className="px-4 py-2 font-medium">Nome</th>
                 <th className="px-4 py-2 font-medium">E-mail</th>
@@ -435,15 +434,15 @@ export default function UsuariosPage() {
             <tbody>
               {carregando && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-6 text-center text-[var(--color-ink-500)]">
+                  <td colSpan={6} className="px-4 py-6 text-center text-[var(--text-muted)]">
                     Carregando usuários...
                   </td>
                 </tr>
               )}
               {visiveis.map((u) => (
-                <tr key={u.id} className="border-t border-[var(--color-ink-100)]">
+                <tr key={u.id} className="border-t border-[var(--border)]">
                   <td className="px-4 py-2">
-                    <div className="font-semibold text-[var(--color-ink-900)]">
+                    <div className="font-semibold text-[var(--text-primary)]">
                       {u.nome}
                     </div>
                     {(u.profile_missing || u.auth_missing) && (
@@ -455,12 +454,12 @@ export default function UsuariosPage() {
                       </div>
                     )}
                   </td>
-                  <td className="px-4 py-2 text-[var(--color-ink-700)]">{u.email}</td>
+                  <td className="px-4 py-2 text-[var(--text-secondary)]">{u.email}</td>
                   <td className="px-4 py-2">
                     <select
                       value={u.role}
                       onChange={(e) => patch(u.id, { role: e.target.value as UserRole })}
-                      className="rounded-md border-2 border-[var(--color-ink-300)] bg-white px-2 py-1 text-sm font-semibold text-[var(--color-ink-900)] shadow-sm"
+                      className="rounded-md border border-[var(--border)] bg-[var(--bg-input)] px-2 py-1 text-sm font-semibold text-[var(--text-primary)] shadow-sm"
                     >
                       {ROLES.map((r) => (
                         <option key={r.value} value={r.value}>{r.label}</option>
@@ -475,7 +474,7 @@ export default function UsuariosPage() {
                           equipe_id: e.target.value ? e.target.value : null,
                         })
                       }
-                      className="rounded-md border-2 border-[var(--color-ink-300)] bg-white px-2 py-1 text-sm font-semibold text-[var(--color-ink-900)] shadow-sm"
+                      className="rounded-md border border-[var(--border)] bg-[var(--bg-input)] px-2 py-1 text-sm font-semibold text-[var(--text-primary)] shadow-sm"
                     >
                       <option value="">—</option>
                       {equipes.map((eq) => (
@@ -495,7 +494,7 @@ export default function UsuariosPage() {
                   <td className="px-4 py-2 text-right whitespace-nowrap">
                     <button
                       onClick={() => setResetando(u)}
-                      className="text-[var(--color-gn-700)] hover:underline mr-3 text-xs"
+                      className="mr-3 text-xs text-[var(--accent)] hover:underline"
                     >
                       resetar senha
                     </button>
@@ -520,7 +519,7 @@ export default function UsuariosPage() {
               ))}
               {!carregando && filtrados.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-6 text-center text-[var(--color-ink-500)]">
+                  <td colSpan={6} className="px-4 py-6 text-center text-[var(--text-muted)]">
                     Nenhum usuário encontrado neste filtro.
                   </td>
                 </tr>
@@ -537,12 +536,12 @@ export default function UsuariosPage() {
           onClick={() => setCriando(false)}
         >
           <div
-            className="bg-white rounded-2xl w-full max-w-md p-6 space-y-3"
+            className="w-full max-w-md space-y-3 rounded-lg bg-[var(--bg-card)] p-6"
             onClick={(e) => e.stopPropagation()}
           >
             <div>
               <h3 className="text-lg font-bold">Novo usuário</h3>
-              <p className="text-xs text-[var(--color-ink-500)] mt-1">
+              <p className="mt-1 text-xs text-[var(--text-muted)]">
                 Cria conta com e-mail/senha já confirmados — o usuário pode
                 logar imediatamente.
               </p>
@@ -607,11 +606,11 @@ export default function UsuariosPage() {
           }}
         >
           <div
-            className="bg-white rounded-2xl w-full max-w-md p-6 space-y-3"
+            className="w-full max-w-md space-y-3 rounded-lg bg-[var(--bg-card)] p-6"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-lg font-bold">Redefinir senha</h3>
-            <p className="text-sm text-[var(--color-ink-700)]">
+            <p className="text-sm text-[var(--text-secondary)]">
               Defina uma nova senha para <strong>{resetando.nome}</strong>{" "}
               ({resetando.email}).
             </p>

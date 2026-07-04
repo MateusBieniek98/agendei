@@ -1,6 +1,7 @@
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { resolvePreset } from "@/lib/period";
 import LancamentoForm from "@/app/(field)/lancamento/LancamentoForm";
+import PageHeader from "@/components/ui/PageHeader";
 import type { Atividade, Equipe, Producao, Profile, Projeto } from "@/lib/types";
 
 export type LancamentoFormSearchParams = {
@@ -106,17 +107,11 @@ export default async function LancamentoFormPage({
 
   return (
     <div className="mx-auto max-w-md space-y-4">
-      <div>
-        <h2 className="text-xl font-bold">
-          {title ?? (editing ? "Editar lançamento" : "Novo lançamento")}
-        </h2>
-        <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-          {subtitle ??
-            (editing
-              ? "Revise os campos e reenvie o apontamento da equipe."
-              : "Preencha em poucos toques.")}
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="Produção"
+        title={title ?? (editing ? "Editar lançamento" : "Novo lançamento")}
+        subtitle={subtitle ?? (editing ? "Revise os campos e reenvie o apontamento da equipe." : "Preencha em poucos toques.")}
+      />
       <LancamentoForm
         equipes={(equipes ?? []) as Equipe[]}
         atividades={dedupeAtividadesPorNome((atividades ?? []) as Atividade[], editing?.atividade_id)}

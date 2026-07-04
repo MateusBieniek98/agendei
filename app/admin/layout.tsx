@@ -13,11 +13,11 @@ export default async function AdminLayout({
 
   return (
     <ToastProvider>
-      <div className="app-scroll-area with-bottom-nav" style={{ background: "var(--bg-page)" }}>
+      <div className="app-shell app-scroll-area with-bottom-nav">
         <TopBar title="Admin" subtitle={profile.nome} right={<LogoutButton />} />
         <AdminToolsNav />
         <main
-          className="mx-auto w-full max-w-7xl overflow-x-clip px-3 py-3 sm:px-4 sm:py-5 md:px-6"
+          className="app-shell-main app-content-frame mx-auto w-full max-w-7xl overflow-x-clip px-3 py-4 sm:px-4 sm:py-6 md:px-6"
           style={{ color: "var(--text-primary)" }}
         >
           {children}
