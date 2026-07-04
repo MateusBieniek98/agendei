@@ -1,13 +1,20 @@
 /**
- * GN — Service Worker v2
- * Estratégia: Network-first para API, Cache-first para páginas estáticas.
- * Permite navegação básica quando offline.
+ * GN — Service Worker v3
+ * Estratégia: navegação network-first com fallback cacheado, assets cache-first.
+ * POSTs continuam sob controle do app para que a fila IndexedDB decida o sync.
  */
 
-const CACHE_NAME = "gn-cache-v2";
+const CACHE_NAME = "gn-cache-v3";
 
 // Páginas essenciais para pré-cache
-const PRE_CACHE = ["/lancamento", "/resumo", "/"];
+const PRE_CACHE = ["/", "/sincronizar", "/meu-dia", "/lancamento", "/resumo", "/maquinas"];
+
+function offlineHtml() {
+  return new Response(
+    "<!doctype html><html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>GN Offline</title></head><body style=\"font-family:system-ui,sans-serif;margin:0;padding:24px;background:#061020;color:#fff\"><h1>GN — Offline</h1><p>Sem conexão. Lançamentos feitos pelo app ficam na fila do celular e serão enviados quando a internet voltar.</p></body></html>",
+    { headers: { "content-type": "text/html; charset=utf-8" } }
+  );
+}
 
 /* ── Install ────────────────────────────────────────────── */
 self.addEventListener("install", (event) => {
@@ -42,7 +49,7 @@ self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Skip non-GET API requests — let them fail naturally (offline queue handled in app)
+  // Non-GET requests must reach the app unchanged. Offline queue is handled in IndexedDB.
   if (url.pathname.startsWith("/api/") && request.method !== "GET") {
     return;
   }
@@ -61,27 +68,26 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Navigation requests: network-first, fallback to cache
+  // Navigation requests: network-first, fallback to cached page shell
   if (request.mode === "navigate") {
     event.respondWith(
       fetch(request)
         .then((res) => {
-          // Cache a fresh copy
-          const clone = res.clone();
-          caches.open(CACHE_NAME).then((c) => c.put(request, clone));
+          if (res.ok) {
+            const clone = res.clone();
+            caches.open(CACHE_NAME).then((c) => c.put(request, clone));
+          }
           return res;
         })
         .catch(async () => {
           const cached = await caches.match(request);
           if (cached) return cached;
-          // Last resort: return the root page shell
+          for (const path of PRE_CACHE) {
+            const fallback = await caches.match(path);
+            if (fallback) return fallback;
+          }
           const root = await caches.match("/");
-          return (
-            root ||
-            new Response("<h1>GN — Offline</h1><p>Sem conexão. Recarregue quando voltar.</p>", {
-              headers: { "content-type": "text/html" },
-            })
-          );
+          return root || offlineHtml();
         })
     );
     return;

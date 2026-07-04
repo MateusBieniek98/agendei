@@ -2,17 +2,6 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ComposedChart,
-  Line,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
 import BottomNav, { type BottomNavViewType, type DashboardDockTab } from "@/components/nav/BottomNav";
 import { brl, ddmmyyyy } from "@/lib/format";
 import { LinhaChart } from "@/app/gestor/GestorCharts";
@@ -21,17 +10,12 @@ import PlanejamentoField from "@/app/(field)/planejamento/PlanejamentoField";
 import PlanejamentoAdminPage from "@/app/admin/planejamento/page";
 
 type DashboardMode = "admin" | "gestor" | "encarregado";
-type DashboardChartId = "daily" | "accumulated" | "activities" | "teams";
 type IndicatorWidgetId =
   | "dailyRevenue"
   | "periodTotal"
-  | "projectedRevenue"
   | "dailyAverage"
   | "goalProgress"
-  | "dailyChart"
-  | "topActivities"
-  | "teamSnapshot"
-  | "maintenanceSnapshot";
+  | "dailyChart";
 
 type DashboardLinks = {
   maquinas: string;
@@ -61,6 +45,7 @@ type AdminDashboardProps = {
   mode?: DashboardMode;
   showExports?: boolean;
   initialTab?: DashboardDockTab;
+  hideBottomNav?: boolean;
 };
 
 type Manut = {
@@ -125,36 +110,20 @@ type DashboardData = {
 const INDICATOR_WIDGET_OPTIONS: { id: IndicatorWidgetId; label: string }[] = [
   { id: "dailyRevenue", label: "Hoje/Ontem" },
   { id: "periodTotal", label: "Total" },
-  { id: "projectedRevenue", label: "Projetado" },
   { id: "dailyAverage", label: "Média" },
   { id: "goalProgress", label: "Meta" },
   { id: "dailyChart", label: "Gráfico" },
-  { id: "topActivities", label: "Atividades" },
-  { id: "teamSnapshot", label: "Equipes" },
-  { id: "maintenanceSnapshot", label: "Manutenção" },
 ];
 
 const DEFAULT_INDICATOR_WIDGETS: IndicatorWidgetId[] = [
   "dailyRevenue",
   "periodTotal",
-  "projectedRevenue",
   "dailyAverage",
   "goalProgress",
   "dailyChart",
-  "topActivities",
-  "teamSnapshot",
 ];
 
 const INDICATOR_WIDGET_IDS = new Set(INDICATOR_WIDGET_OPTIONS.map((item) => item.id));
-const DASHBOARD_CHART_OPTIONS: { id: DashboardChartId; label: string; description: string }[] = [
-  { id: "daily", label: "Diário", description: "Faturamento por dia" },
-  { id: "accumulated", label: "Acumulado", description: "Realizado x meta" },
-  { id: "activities", label: "Atividades", description: "Top faturamento" },
-  { id: "teams", label: "Equipes", description: "Realizado x projeção" },
-];
-
-const DEFAULT_DASHBOARD_CHARTS: DashboardChartId[] = ["daily"];
-const DASHBOARD_CHART_IDS = new Set(DASHBOARD_CHART_OPTIONS.map((item) => item.id));
 
 function dashboardStorageKey(mode: DashboardMode) {
   return `gn:dashboard-builder:${mode}:indicadores`;
@@ -167,15 +136,6 @@ function normalizeIndicatorWidgets(value: unknown): IndicatorWidgetId[] {
       typeof item === "string" && INDICATOR_WIDGET_IDS.has(item as IndicatorWidgetId)
   );
   return valid.length > 0 ? valid : DEFAULT_INDICATOR_WIDGETS;
-}
-
-function normalizeDashboardCharts(value: unknown): DashboardChartId[] {
-  if (!Array.isArray(value)) return DEFAULT_DASHBOARD_CHARTS;
-  const valid = value.filter(
-    (item): item is DashboardChartId =>
-      typeof item === "string" && DASHBOARD_CHART_IDS.has(item as DashboardChartId)
-  );
-  return valid.length > 0 ? valid : DEFAULT_DASHBOARD_CHARTS;
 }
 
 function compactBrl(value: number | null | undefined) {
@@ -216,6 +176,7 @@ export default function AdminDashboard({
   mode = "admin",
   showExports,
   initialTab = "indicadores",
+  hideBottomNav = false,
 }: AdminDashboardProps) {
   const [activeTab, setActiveTab] = useState<DashboardDockTab>(initialTab);
   const [periodo, setPeriodo] = useState<PeriodoState>({ preset: "ciclo_atual" });
@@ -356,7 +317,9 @@ export default function AdminDashboard({
         </>
       )}
 
-      <BottomNav viewType={bottomNavViewType} activeTab={activeTab} onTabChange={setActiveTab} />
+      {!hideBottomNav && (
+        <BottomNav viewType={bottomNavViewType} activeTab={activeTab} onTabChange={setActiveTab} />
+      )}
     </div>
   );
 }
@@ -384,13 +347,8 @@ function IndicadoresPage({
   const hasKpis =
     hasWidget("dailyRevenue") ||
     hasWidget("periodTotal") ||
-    hasWidget("projectedRevenue") ||
     hasWidget("dailyAverage") ||
     hasWidget("goalProgress");
-  const hasSecondary =
-    hasWidget("topActivities") ||
-    hasWidget("teamSnapshot") ||
-    hasWidget("maintenanceSnapshot");
 
   return (
     <section className="space-y-3">
@@ -422,24 +380,10 @@ function IndicadoresPage({
       </div>
 
       {hasKpis && (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {hasWidget("dailyRevenue") && <DailyRevenueCard hoje={data.hoje} ontem={data.ontem} />}
           {hasWidget("periodTotal") && (
             <KpiCard label="Total no período" value={brl(data.total)} hint={data.periodo.label} />
-          )}
-          {hasWidget("projectedRevenue") && (
-            <KpiCard
-              label="Faturamento projetado"
-              value={compactBrl(data.faturamentoProjetado)}
-              hint={`${formatBusinessDays(data.periodo.diasUteisTotais)} úteis no ciclo`}
-              tone={
-                data.meta > 0 && data.faturamentoProjetado >= data.meta
-                  ? "success"
-                  : data.meta > 0 && data.faturamentoProjetado < data.meta * 0.75
-                    ? "warn"
-                    : "neutral"
-              }
-            />
           )}
           {hasWidget("dailyAverage") && (
             <KpiCard label="Média diária" value={brl(data.mediaDia)} hint={`${data.periodo.diasDecorridos} dias`} />
@@ -457,14 +401,6 @@ function IndicadoresPage({
       )}
 
       {hasWidget("dailyChart") && <DailyProductionWidget data={data} />}
-
-      {hasSecondary && (
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
-          {hasWidget("topActivities") && <TopActivitiesWidget data={data} />}
-          {hasWidget("teamSnapshot") && <TeamSnapshotWidget data={data} />}
-          {hasWidget("maintenanceSnapshot") && <MaintenanceSnapshotWidget data={data} links={links} />}
-        </div>
-      )}
     </section>
   );
 }
@@ -553,35 +489,6 @@ function DashboardBuilder({
   );
 }
 
-function DashboardTooltip({
-  active,
-  payload,
-  label,
-}: {
-  active?: boolean;
-  payload?: { name?: string; value?: number; color?: string }[];
-  label?: string;
-}) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div
-      className="rounded-lg border p-2 text-xs shadow-sm"
-      style={{ background: "var(--bg-elevated)", borderColor: "var(--border)", color: "var(--text-primary)" }}
-    >
-      {label && <p className="mb-1 font-black">{label}</p>}
-      <div className="space-y-1">
-        {payload.map((item) => (
-          <p key={`${item.name}-${item.value}`} className="flex items-center gap-2 font-semibold">
-            <span className="h-2 w-2 rounded-full" style={{ background: item.color ?? "var(--accent)" }} />
-            <span style={{ color: "var(--text-muted)" }}>{item.name}</span>
-            <span className="tabular">{brl(Number(item.value ?? 0))}</span>
-          </p>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function ChartFrame({ title, hint, children }: { title: string; hint: string; children: ReactNode }) {
   return (
     <div className="rounded-lg border p-3" style={{ background: "var(--bg-card-alt)", borderColor: "var(--border)" }}>
@@ -598,391 +505,58 @@ function ChartFrame({ title, hint, children }: { title: string; hint: string; ch
   );
 }
 
-function AccumulatedChart({ data }: { data: DashboardData }) {
-  const rows = data.serie.reduce<{ label: string; acumulado: number; metaRitmo: number }[]>((acc, row, index) => {
-    const previous = acc[index - 1]?.acumulado ?? 0;
-    const acumulado = previous + Number(row.faturamento ?? 0);
-    const metaRitmo =
-      data.meta > 0 && data.periodo.diasUteisTotais > 0
-        ? (data.meta / data.periodo.diasUteisTotais) * Math.min(index + 1, data.periodo.diasUteisTotais)
-        : 0;
-    acc.push({
-      label: ddmmyyyy(row.data).slice(0, 5),
-      acumulado,
-      metaRitmo,
-    });
-    return acc;
-  }, []);
-
-  return (
-    <ChartFrame title="Acumulado x meta" hint={data.meta > 0 ? `Meta ${compactBrl(data.meta)}` : "sem meta"}>
-      <div className="h-[218px] w-full overflow-hidden">
-        <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={rows} margin={{ top: 8, right: 8, left: -10, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-            <XAxis dataKey="label" tick={{ fontSize: 11, fill: "var(--text-muted)" }} axisLine={false} tickLine={false} />
-            <YAxis
-              tick={{ fontSize: 11, fill: "var(--text-muted)" }}
-              axisLine={false}
-              tickLine={false}
-              tickFormatter={(v) => (Number(v) >= 1000 ? `${(Number(v) / 1000).toFixed(0)}k` : String(v))}
-            />
-            <Tooltip content={<DashboardTooltip />} />
-            <Line
-              type="monotone"
-              name="Realizado"
-              dataKey="acumulado"
-              stroke="var(--accent)"
-              strokeWidth={2.6}
-              dot={false}
-              activeDot={{ r: 4 }}
-            />
-            <Line
-              type="monotone"
-              name="Ritmo da meta"
-              dataKey="metaRitmo"
-              stroke="var(--warn)"
-              strokeWidth={2}
-              strokeDasharray="5 4"
-              dot={false}
-            />
-          </ComposedChart>
-        </ResponsiveContainer>
-      </div>
-    </ChartFrame>
-  );
-}
-
-function HorizontalRevenueChart({
-  title,
-  hint,
-  rows,
-}: {
-  title: string;
-  hint: string;
-  rows: { name: string; value: number; secondary?: number }[];
-}) {
-  const chartRows = rows
-    .filter((row) => Number(row.value ?? 0) > 0 || Number(row.secondary ?? 0) > 0)
-    .slice(0, 8)
-    .map((row) => ({
-      ...row,
-      label: row.name.length > 24 ? `${row.name.slice(0, 23)}...` : row.name,
-    }));
-
-  return (
-    <ChartFrame title={title} hint={hint}>
-      {chartRows.length === 0 ? (
-        <p className="grid h-[218px] place-items-center text-sm font-semibold" style={{ color: "var(--text-muted)" }}>
-          Sem dados para este gráfico.
-        </p>
-      ) : (
-        <div className="h-[218px] w-full overflow-hidden">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartRows} layout="vertical" margin={{ top: 4, right: 10, left: 8, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
-              <XAxis
-                type="number"
-                tick={{ fontSize: 11, fill: "var(--text-muted)" }}
-                axisLine={false}
-                tickLine={false}
-                tickFormatter={(v) => (Number(v) >= 1000 ? `${(Number(v) / 1000).toFixed(0)}k` : String(v))}
-              />
-              <YAxis
-                type="category"
-                dataKey="label"
-                width={118}
-                tick={{ fontSize: 11, fill: "var(--text-muted)" }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <Tooltip content={<DashboardTooltip />} />
-              <Bar name="Realizado" dataKey="value" fill="var(--accent)" radius={[0, 8, 8, 0]} />
-              <Bar name="Projeção" dataKey="secondary" fill="var(--success)" radius={[0, 8, 8, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      )}
-    </ChartFrame>
-  );
-}
-
 function DailyProductionWidget({ data }: { data: DashboardData }) {
-  const [activeCharts, setActiveCharts] = useState<DashboardChartId[]>(DEFAULT_DASHBOARD_CHARTS);
-
-  function toggleChart(chartId: DashboardChartId) {
-    const active = activeCharts.includes(chartId);
-    if (active && activeCharts.length === 1) return;
-    setActiveCharts(
-      normalizeDashboardCharts(
-        active ? activeCharts.filter((id) => id !== chartId) : [...activeCharts, chartId]
-      )
-    );
-  }
-
-  const activityRows = [...data.porAtividade]
-    .sort((a, b) => Number(b.faturamento ?? 0) - Number(a.faturamento ?? 0))
-    .map((row) => ({ name: row.nome, value: Number(row.faturamento ?? 0), secondary: Number(row.projecao ?? 0) }));
-
-  const teamRows = [...data.ranking]
-    .sort((a, b) => Number(b.faturamento ?? 0) - Number(a.faturamento ?? 0))
-    .map((row) => ({ name: row.nome, value: Number(row.faturamento ?? 0), secondary: Number(row.projecao ?? 0) }));
-
   return (
     <div
       className="rounded-lg border p-3 sm:p-4"
       style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}
     >
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <h2 className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
-            Gráficos do dashboard
-          </h2>
-          <p className="mt-0.5 text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
-            Selecione um ou mais gráficos. A visualização muda instantaneamente.
-          </p>
-        </div>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:w-[34rem]">
-          {DASHBOARD_CHART_OPTIONS.map((option) => {
-            const active = activeCharts.includes(option.id);
-            return (
-              <button
-                key={option.id}
-                type="button"
-                onClick={() => toggleChart(option.id)}
-                className="min-w-0 rounded-lg border px-3 py-2 text-left transition hover:opacity-85"
-                style={{
-                  background: active ? "var(--accent-subtle)" : "var(--bg-card-alt)",
-                  borderColor: active ? "var(--accent)" : "var(--border)",
-                  color: active ? "var(--accent)" : "var(--text-secondary)",
-                }}
-                aria-pressed={active}
-              >
-                <span className="block truncate text-xs font-black">{option.label}</span>
-                <span className="mt-0.5 block truncate text-[10px] font-bold opacity-80">{option.description}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-2">
-        {activeCharts.includes("daily") && (
-          <ChartFrame title="Produção diária" hint={data.periodo.label}>
-            <LinhaChart
-              serie={data.serie}
-              mediaDia={data.mediaDia}
-              className="h-[218px] max-h-[250px] w-full overflow-hidden"
-            />
-          </ChartFrame>
-        )}
-        {activeCharts.includes("accumulated") && <AccumulatedChart data={data} />}
-        {activeCharts.includes("activities") && (
-          <HorizontalRevenueChart title="Atividades" hint="realizado x projeção" rows={activityRows} />
-        )}
-        {activeCharts.includes("teams") && (
-          <HorizontalRevenueChart title="Equipes" hint="realizado x projeção" rows={teamRows} />
-        )}
-      </div>
-    </div>
-  );
-}
-
-function CompactListWidget({
-  title,
-  action,
-  children,
-}: {
-  title: string;
-  action?: ReactNode;
-  children: ReactNode;
-}) {
-  return (
-    <div
-      className="min-w-0 rounded-lg border p-3"
-      style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}
-    >
-      <div className="mb-2 flex items-center justify-between gap-3">
-        <h2 className="truncate text-sm font-bold" style={{ color: "var(--text-primary)" }}>
-          {title}
-        </h2>
-        {action}
-      </div>
-      {children}
-    </div>
-  );
-}
-
-function TopActivitiesWidget({ data }: { data: DashboardData }) {
-  const rows = [...data.porAtividade]
-    .sort((a, b) => Number(b.faturamento ?? 0) - Number(a.faturamento ?? 0))
-    .slice(0, 5);
-
-  return (
-    <CompactListWidget title="Atividades">
-      {rows.length === 0 ? (
-        <p className="py-4 text-center text-sm font-semibold" style={{ color: "var(--text-muted)" }}>
-          Sem produção no período.
-        </p>
-      ) : (
-        <ul className="divide-y" style={{ borderColor: "var(--border)" }}>
-          {rows.map((row) => (
-            <li key={row.id} className="flex items-center justify-between gap-3 py-2">
-              <div className="min-w-0">
-                <p className="truncate text-xs font-black uppercase" style={{ color: "var(--text-primary)" }}>
-                  {row.nome}
-                </p>
-                <p className="text-[11px] font-semibold tabular" style={{ color: "var(--text-muted)" }}>
-                  {row.total.toFixed(1)} {row.unidade}
-                </p>
-              </div>
-              <p className="shrink-0 text-sm font-black tabular" style={{ color: "var(--accent)" }}>
-                {compactBrl(row.faturamento)}
-              </p>
-            </li>
-          ))}
-        </ul>
-      )}
-    </CompactListWidget>
-  );
-}
-
-function TeamSnapshotWidget({ data }: { data: DashboardData }) {
-  const rows = [...data.ranking]
-    .sort((a, b) => Number(b.faturamento ?? 0) - Number(a.faturamento ?? 0))
-    .slice(0, 5);
-
-  return (
-    <CompactListWidget title="Equipes">
-      {rows.length === 0 ? (
-        <p className="py-4 text-center text-sm font-semibold" style={{ color: "var(--text-muted)" }}>
-          Sem equipes no período.
-        </p>
-      ) : (
-        <ul className="divide-y" style={{ borderColor: "var(--border)" }}>
-          {rows.map((row) => {
-            const color = progressColor(row);
-            const progress = Math.min(Math.max(row.pctProjecao, row.pctMeta, 0), 100);
-            return (
-              <li key={row.id} className="py-2">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-xs font-black uppercase" style={{ color: "var(--text-primary)" }}>
-                      {row.nome}
-                    </p>
-                    <p className="text-[11px] font-semibold tabular" style={{ color: "var(--text-muted)" }}>
-                      {row.lancamentos} lanç. · {compactBrl(row.faturamento)}
-                    </p>
-                  </div>
-                  <p className="shrink-0 text-sm font-black tabular" style={{ color }}>
-                    {row.pctProjecao.toFixed(0)}%
-                  </p>
-                </div>
-                <div className="mt-1.5 h-1.5 overflow-hidden rounded-full" style={{ background: "var(--bg-active)" }}>
-                  <div className="h-full rounded-full" style={{ width: `${progress}%`, background: color }} />
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </CompactListWidget>
-  );
-}
-
-function MaintenanceSnapshotWidget({ data, links }: { data: DashboardData; links: DashboardLinks }) {
-  const abertas = data.manutencoesAbertas.length;
-  const urgentes = data.maquinas.urgentes;
-  return (
-    <CompactListWidget
-      title="Manutenção"
-      action={
-        <Link href={links.maquinas} className="text-xs font-black" style={{ color: "var(--accent)" }}>
-          Abrir
-        </Link>
-      }
-    >
-      <div className="grid grid-cols-3 gap-2">
-        <MiniMetric label="Abertas" value={abertas} color={abertas > 0 ? "var(--warn)" : "var(--success)"} />
-        <MiniMetric label="Urgentes" value={urgentes} color={urgentes > 0 ? "var(--danger)" : "var(--success)"} />
-        <MiniMetric label="Frota" value={data.maquinas.total} color="var(--text-primary)" />
-      </div>
-      <p className="mt-3 text-xs font-semibold" style={{ color: abertas > 0 ? "var(--warn)" : "var(--success)" }}>
-        {abertas > 0 ? `${abertas} manutenção(ões) pendente(s).` : "Frota sem pendências abertas."}
-      </p>
-    </CompactListWidget>
-  );
-}
-
-function MiniMetric({ label, value, color }: { label: string; value: number; color: string }) {
-  return (
-    <div className="rounded-lg p-2 text-center" style={{ background: "var(--bg-card-alt)" }}>
-      <p className="text-lg font-black tabular" style={{ color }}>
-        {value}
-      </p>
-      <p className="truncate text-[10px] font-bold uppercase" style={{ color: "var(--text-muted)" }}>
-        {label}
-      </p>
+      <ChartFrame title="Produção diária" hint={data.periodo.label}>
+        <LinhaChart
+          serie={data.serie}
+          mediaDia={data.mediaDia}
+          className="h-[218px] max-h-[250px] w-full overflow-hidden"
+        />
+      </ChartFrame>
     </div>
   );
 }
 
 function DailyRevenueCard({ hoje, ontem }: { hoje: number; ontem: number }) {
   return (
-    <>
-      <div
-        className="rounded-lg border p-3 sm:hidden"
-        style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}
-      >
-        <p className="text-xs font-bold uppercase" style={{ color: "var(--text-muted)" }}>
-          Faturamento diário
-        </p>
-        <div className="mt-2 grid grid-cols-2 gap-2">
-          <div className="min-w-0 rounded-lg p-2" style={{ background: "var(--bg-card-alt)" }}>
-            <p className="text-[11px] font-bold uppercase" style={{ color: "var(--text-muted)" }}>
-              Hoje
-            </p>
-            <p className="mt-1 truncate text-xl font-black tabular" style={{ color: "var(--success)" }}>
-              {brl(hoje)}
-            </p>
-          </div>
-          <div className="min-w-0 rounded-lg p-2" style={{ background: "var(--bg-card-alt)" }}>
-            <p className="text-[11px] font-bold uppercase" style={{ color: "var(--text-muted)" }}>
-              Ontem
-            </p>
-            <p className="mt-1 truncate text-xl font-black tabular" style={{ color: "var(--accent)" }}>
-              {brl(ontem)}
-            </p>
-          </div>
-        </div>
-      </div>
-      <DailyRevenueMetricCard label="Faturamento hoje" value={brl(hoje)} tone="success" />
-      <DailyRevenueMetricCard label="Faturamento ontem" value={brl(ontem)} tone="accent" />
-    </>
-  );
-}
-
-function DailyRevenueMetricCard({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: string;
-  tone: "success" | "accent";
-}) {
-  return (
     <div
-      className="hidden rounded-lg border p-4 sm:block"
+      className="rounded-lg border p-3 sm:p-4"
       style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}
     >
       <p className="text-xs font-bold uppercase" style={{ color: "var(--text-muted)" }}>
+        Faturamento diário
+      </p>
+      <div className="mt-2 grid grid-cols-2 gap-2">
+        <DailyRevenueSlice label="Hoje" value={brl(hoje)} color="var(--success)" />
+        <DailyRevenueSlice label="Ontem" value={brl(ontem)} color="var(--accent)" />
+      </div>
+    </div>
+  );
+}
+
+function DailyRevenueSlice({
+  label,
+  value,
+  color,
+}: {
+  label: string;
+  value: string;
+  color: string;
+}) {
+  return (
+    <div
+      className="min-w-0 rounded-lg p-2"
+      style={{ background: "var(--bg-card-alt)" }}
+    >
+      <p className="text-[11px] font-bold uppercase" style={{ color: "var(--text-muted)" }}>
         {label}
       </p>
-      <p
-        className="mt-2 truncate text-2xl font-black tabular"
-        style={{ color: tone === "success" ? "var(--success)" : "var(--accent)" }}
-      >
+      <p className="mt-1 truncate text-xl font-black tabular sm:text-2xl" style={{ color }}>
         {value}
       </p>
     </div>

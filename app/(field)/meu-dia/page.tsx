@@ -347,7 +347,7 @@ export default async function MeuDiaPage() {
             </p>
           </div>
           <Link
-            href="/gestor?tab=indicadores"
+            href="/dashboard"
             className="grid h-11 w-11 shrink-0 place-items-center rounded-lg"
             style={{ background: "var(--accent-subtle)", color: "var(--accent)" }}
             aria-label="Abrir indicadores"

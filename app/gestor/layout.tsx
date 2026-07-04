@@ -1,19 +1,18 @@
-import { requireRole } from "@/lib/auth";
 import TopBar from "@/components/nav/TopBar";
 import LogoutButton from "@/components/nav/LogoutButton";
+import { requireGestorShellProfile } from "./access";
 
 export default async function GestorLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const profile = await requireRole(["gestor", "admin", "encarregado"]);
-  const title = profile.role === "encarregado" ? "Encarregado" : "Gestor";
+  const profile = await requireGestorShellProfile();
 
   return (
     <div className="app-scroll-area with-bottom-nav bg-[var(--bg-page)]">
       <TopBar
-        title={title}
+        title="Gestor"
         subtitle={profile.nome}
         right={<LogoutButton />}
       />

@@ -7,6 +7,16 @@ import { notifyApontamentosSheet } from "@/lib/google-sheets-apontamentos";
 import { optionalNumber, sanitizeInsumos } from "@/lib/insumos";
 import { syncPlanningProgressForProduction } from "@/lib/planning-progress";
 
+function normalizeClientId(value: unknown) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (!/^[A-Za-z0-9][A-Za-z0-9_-]{5,119}$/.test(trimmed)) {
+    throw new Error("client_id inválido");
+  }
+  return trimmed;
+}
+
 export async function GET(req: NextRequest) {
   const profile = await getCurrentProfile();
   if (!profile) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
@@ -58,13 +68,37 @@ export async function POST(req: NextRequest) {
     insumos,
     descarte,
     observacoes,
+    client_id,
   } = body;
 
   if (!equipe_id || !atividade_id || !projeto_id || !talhao || !quantidade) {
     return NextResponse.json({ error: "campos obrigatórios faltando" }, { status: 400 });
   }
 
+  let clientId: string | null = null;
+  try {
+    clientId = normalizeClientId(client_id);
+  } catch (error) {
+    return NextResponse.json({ error: (error as Error).message }, { status: 400 });
+  }
+
   const supabase = await createSupabaseServer();
+  const origemChave = clientId ? `gn-app:${profile.id}:${clientId}` : null;
+
+  if (origemChave) {
+    const { data: existing, error: existingError } = await supabase
+      .from("producao")
+      .select("*")
+      .eq("origem_chave", origemChave)
+      .maybeSingle();
+
+    if (existingError) {
+      return NextResponse.json({ error: existingError.message }, { status: 400 });
+    }
+    if (existing) {
+      return NextResponse.json({ item: existing, deduplicated: true });
+    }
+  }
 
   // captura valor unitário atual da atividade
   const { data: ativ, error: errAt } = await supabase
@@ -90,11 +124,27 @@ export async function POST(req: NextRequest) {
       observacoes: observacoes ?? null,
       valor_unitario_snapshot: ativ.valor_unitario,
       registrado_por: profile.id,
+      origem: origemChave ? "gn-app" : null,
+      origem_chave: origemChave,
+      import_metadata: clientId ? { client_id: clientId } : {},
     })
     .select()
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  if (error) {
+    if (origemChave && error.code === "23505") {
+      const { data: existing, error: existingError } = await supabase
+        .from("producao")
+        .select("*")
+        .eq("origem_chave", origemChave)
+        .maybeSingle();
+
+      if (!existingError && existing) {
+        return NextResponse.json({ item: existing, deduplicated: true });
+      }
+    }
+    return NextResponse.json({ error: error.message }, { status: 400 });
+  }
   const syncError = await syncPlanningProgressForProduction(supabase, data);
   const sheetsSyncError = await notifyApontamentosSheet("criado", data.id);
   return NextResponse.json(

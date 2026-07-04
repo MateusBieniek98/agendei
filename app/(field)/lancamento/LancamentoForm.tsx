@@ -9,6 +9,11 @@ import { useToast } from "@/components/ui/Toast";
 import { brl, todayISO } from "@/lib/format";
 import { searchItems } from "@/components/ui/ListControls";
 import { INSUMOS_CATALOGO, insumoCatalogDisplay, normalizeInsumoInput } from "@/lib/insumos";
+import {
+  createOfflineProductionClientId,
+  enqueueOfflineProduction,
+  type OfflineProductionPayload,
+} from "@/lib/offline-production-queue";
 import type { Atividade, Equipe, Producao, Projeto } from "@/lib/types";
 
 /* ── Card de insumo com sugestões inline ── */
@@ -464,6 +469,9 @@ export default function LancamentoForm({
   initialProjetoId,
   initialTalhao,
   editingItem,
+  afterCreateHref,
+  afterEditHref = "/resumo",
+  resetAfterCreate = true,
 }: {
   equipes: Equipe[];
   atividades: Atividade[];
@@ -472,6 +480,9 @@ export default function LancamentoForm({
   initialProjetoId?: string;
   initialTalhao?: string;
   editingItem?: EditingItem;
+  afterCreateHref?: string;
+  afterEditHref?: string;
+  resetAfterCreate?: boolean;
 }) {
   const { toast } = useToast();
   const router = useRouter();
@@ -550,30 +561,36 @@ export default function LancamentoForm({
     setTemPrefill(false);
   }
 
-  async function enviarDados(formData: object) {
+  async function enviarDados(formData: OfflineProductionPayload): Promise<"saved" | "queued" | false> {
     setEnviando(true);
+    const payload = modoEdicao
+      ? formData
+      : { ...formData, client_id: createOfflineProductionClientId() };
     try {
       const r = await fetch(modoEdicao ? `/api/producao/${editingItem!.id}` : "/api/producao", {
         method: modoEdicao ? "PATCH" : "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
       if (!r.ok) {
         const j = await r.json().catch(() => ({}));
-        throw new Error((j as { error?: string }).error ?? "Falha ao salvar");
+        const error = new Error((j as { error?: string }).error ?? "Falha ao salvar");
+        (error as Error & { shouldQueue?: boolean }).shouldQueue = false;
+        throw error;
       }
-      return true;
+      return "saved";
     } catch (err) {
       if (modoEdicao) {
         toast(`Erro: ${(err as Error).message}`, "error");
         return false;
       }
+      if ((err as Error & { shouldQueue?: boolean }).shouldQueue === false) {
+        toast(`Erro: ${(err as Error).message}`, "error");
+        return false;
+      }
       try {
-        const pend = JSON.parse(localStorage.getItem("gn:pendentes") ?? "[]");
-        pend.push({ ...formData, ts: Date.now() });
-        localStorage.setItem("gn:pendentes", JSON.stringify(pend));
-        toast("Sem conexão — salvo offline. Reenviaremos depois.", "info");
-        return true;
+        await enqueueOfflineProduction(payload);
+        return "queued";
       } catch {
         toast(`Erro: ${(err as Error).message}`, "error");
         return false;
@@ -600,16 +617,30 @@ export default function LancamentoForm({
       descarte: descarte === "" ? null : Number(descarte),
       insumos: insumosValidos, observacoes: obs || null,
     };
-    const ok = await enviarDados(formData);
-    if (ok) {
-      toast(modoEdicao ? "Apontamento atualizado!" : "Produção registrada!", "success");
+    const result = await enviarDados(formData);
+    if (result) {
+      toast(
+        result === "queued"
+          ? "Sem conexão — salvo offline. Reenviaremos depois."
+          : modoEdicao
+          ? "Apontamento atualizado!"
+          : "Produção registrada!",
+        result === "queued" ? "info" : "success"
+      );
       if (modoEdicao) {
-        router.push("/resumo");
+        router.push(afterEditHref);
         router.refresh();
         return;
       }
-      limpar();
-      setStep(1);
+      if (afterCreateHref) {
+        router.push(afterCreateHref);
+        router.refresh();
+        return;
+      }
+      if (resetAfterCreate) {
+        limpar();
+        setStep(1);
+      }
     }
   }
 

@@ -12,24 +12,12 @@
  */
 
 import { useEffect, useState, useCallback } from "react";
-
-const QUEUE_KEY = "gn:pendentes";
-
-type PendingItem = Record<string, unknown>;
-
-function readQueue(): PendingItem[] {
-  try {
-    const raw = localStorage.getItem(QUEUE_KEY);
-    const arr = raw ? JSON.parse(raw) : [];
-    return Array.isArray(arr) ? arr : [];
-  } catch {
-    return [];
-  }
-}
-
-function writeQueue(items: PendingItem[]) {
-  localStorage.setItem(QUEUE_KEY, JSON.stringify(items));
-}
+import {
+  flushOfflineProductions,
+  getOfflineProductionSnapshot,
+  subscribeOfflineProductions,
+  type OfflineProductionQueueSnapshot,
+} from "@/lib/offline-production-queue";
 
 /* ── Icons ──────────────────────────────────────────────── */
 function SpinIcon() {
@@ -85,68 +73,59 @@ function CheckIcon({ color = "currentColor" }: { color?: string }) {
 
 /* ── Main component ─────────────────────────────────────── */
 export default function SyncStatus({ className = "" }: { className?: string }) {
-  const [online,  setOnline]  = useState(true);
-  const [pending, setPending] = useState(0);
+  const [online, setOnline] = useState(true);
+  const [snapshot, setSnapshot] = useState<OfflineProductionQueueSnapshot | null>(null);
   const [syncing, setSyncing] = useState(false);
-  const [error,   setError]   = useState(false);
+  const [error, setError] = useState(false);
 
-  const refresh = useCallback(() => {
-    setPending(readQueue().length);
+  const refresh = useCallback(async () => {
+    setSnapshot(await getOfflineProductionSnapshot());
   }, []);
 
   const flush = useCallback(async () => {
-    const queue = readQueue();
-    if (queue.length === 0) return;
+    const current = await getOfflineProductionSnapshot();
+    if (current.total === 0) {
+      setSnapshot(current);
+      return;
+    }
     setSyncing(true);
     setError(false);
-    const failed: PendingItem[] = [];
-    for (const item of queue) {
-      try {
-        const r = await fetch("/api/producao", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(item),
-        });
-        if (!r.ok) failed.push(item);
-      } catch {
-        failed.push(item);
-      }
+    try {
+      const result = await flushOfflineProductions();
+      setError(result.remaining > 0);
+      await refresh();
+    } finally {
+      setSyncing(false);
     }
-    writeQueue(failed);
-    setPending(failed.length);
-    setSyncing(false);
-    if (failed.length > 0) setError(true);
-    // Notify other tabs
-    window.dispatchEvent(new StorageEvent("storage", { key: QUEUE_KEY }));
-  }, []);
+  }, [refresh]);
 
   useEffect(() => {
     setOnline(navigator.onLine);
-    refresh();
+    void refresh();
 
     const handleOnline = () => {
       setOnline(true);
-      // Small delay to ensure network is stable
-      setTimeout(() => flush(), 1500);
+      window.setTimeout(() => void flush(), 1500);
     };
     const handleOffline = () => setOnline(false);
-    const handleStorage = (e: StorageEvent) => {
-      if (!e.key || e.key === QUEUE_KEY) refresh();
-    };
+    const unsubscribe = subscribeOfflineProductions(() => void refresh());
 
     window.addEventListener("online",  handleOnline);
     window.addEventListener("offline", handleOffline);
-    window.addEventListener("storage", handleStorage);
 
-    const interval = setInterval(refresh, 15_000);
+    const interval = setInterval(() => void refresh(), 15_000);
+    if (navigator.onLine) window.setTimeout(() => void flush(), 800);
 
     return () => {
       window.removeEventListener("online",  handleOnline);
       window.removeEventListener("offline", handleOffline);
-      window.removeEventListener("storage", handleStorage);
+      unsubscribe();
       clearInterval(interval);
     };
   }, [refresh, flush]);
+
+  const pending = snapshot?.total ?? 0;
+  const hasFailed = (snapshot?.failed ?? 0) > 0 || error;
 
   /* ── Render ─────────────────────────────────────────────── */
   const base = `relative flex items-center justify-center w-8 h-8 rounded-xl transition-all ${className}`;
@@ -166,15 +145,15 @@ export default function SyncStatus({ className = "" }: { className?: string }) {
         title={pending > 0
           ? `Offline — ${pending} lançamento(s) serão enviados ao reconectar`
           : "Sem conexão com a internet"}
-        style={{ color: pending > 0 ? "var(--warn)" : "var(--text-muted)" }}
+        style={{ color: pending > 0 ? (hasFailed ? "var(--danger)" : "var(--warn)") : "var(--text-muted)" }}
       >
-        <WifiOffIcon color={pending > 0 ? "var(--warn)" : "var(--text-muted)"} />
+        <WifiOffIcon color={pending > 0 ? (hasFailed ? "var(--danger)" : "var(--warn)") : "var(--text-muted)"} />
         {pending > 0 && (
           <span
             className="absolute -top-1 -right-1 flex items-center justify-center rounded-full text-[9px] font-bold"
             style={{
               width: 16, height: 16,
-              background: "var(--warn)",
+              background: hasFailed ? "var(--danger)" : "var(--warn)",
               color: "#fff",
             }}
           >
@@ -191,14 +170,14 @@ export default function SyncStatus({ className = "" }: { className?: string }) {
         className={base}
         onClick={flush}
         title={`${pending} lançamento(s) pendentes — clique para sincronizar`}
-        style={{ color: error ? "var(--danger)" : "var(--accent)" }}
+        style={{ color: hasFailed ? "var(--danger)" : "var(--accent)" }}
       >
-        <CloudUpIcon color={error ? "var(--danger)" : "var(--accent)"} />
+        <CloudUpIcon color={hasFailed ? "var(--danger)" : "var(--accent)"} />
         <span
           className="absolute -top-1 -right-1 flex items-center justify-center rounded-full text-[9px] font-bold"
           style={{
             width: 16, height: 16,
-            background: error ? "var(--danger)" : "var(--accent)",
+            background: hasFailed ? "var(--danger)" : "var(--accent)",
             color: "#fff",
           }}
         >

@@ -25,7 +25,7 @@ const DASHBOARD_ITEMS: DockItem[] = [
 ];
 
 const FIELD_ITEMS: RouteItem[] = [
-  { href: "/meu-dia", label: "Hoje", icon: <IconToday /> },
+  { href: "/sincronizar", label: "Sync", icon: <IconSync /> },
   { href: "/resumo", label: "Resultados", icon: <IconChart /> },
   { href: "/lancamento", label: "Lançar", icon: <IconPlus /> },
   { href: "/maquinas", label: "Manut.", icon: <IconWrench /> },
@@ -166,12 +166,13 @@ function IconCalendar() {
   );
 }
 
-function IconToday() {
+function IconSync() {
   return (
     <SvgIcon>
-      <rect x="3" y="4" width="18" height="18" rx="2" />
-      <path d="M16 2v4M8 2v4M3 10h18" />
-      <path d="M8 15h4M8 18h8" />
+      <path d="M21 12a9 9 0 0 1-15.5 6.2" />
+      <path d="M3 12a9 9 0 0 1 15.5-6.2" />
+      <path d="M18 3v4h-4" />
+      <path d="M6 21v-4h4" />
     </SvgIcon>
   );
 }

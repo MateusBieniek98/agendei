@@ -23,7 +23,7 @@ export default async function LancamentosAdminPage() {
           </p>
         </div>
         <Link
-          href="/lancamento"
+          href="/admin/lancamentos/novo"
           className="inline-flex h-12 items-center justify-center rounded-xl bg-[var(--color-gn-600)] px-4 text-base font-bold text-white shadow-sm transition hover:bg-[var(--color-gn-700)]"
         >
           + Novo lançamento

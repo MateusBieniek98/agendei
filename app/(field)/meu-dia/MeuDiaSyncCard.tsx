@@ -1,26 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-
-const QUEUE_KEY = "gn:pendentes";
-const LAST_SYNC_KEY = "gn:last-manual-sync";
-
-type PendingItem = Record<string, unknown>;
-
-function readQueue(): PendingItem[] {
-  try {
-    const raw = localStorage.getItem(QUEUE_KEY);
-    const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function writeQueue(items: PendingItem[]) {
-  localStorage.setItem(QUEUE_KEY, JSON.stringify(items));
-}
+import {
+  flushOfflineProductions,
+  getOfflineProductionSnapshot,
+  subscribeOfflineProductions,
+  type OfflineProductionQueueSnapshot,
+} from "@/lib/offline-production-queue";
 
 function formatDateTime(value: string | null) {
   if (!value) return "Sem registro";
@@ -34,69 +21,70 @@ function formatDateTime(value: string | null) {
 
 export default function MeuDiaSyncCard() {
   const [online, setOnline] = useState(true);
-  const [pending, setPending] = useState(0);
+  const [snapshot, setSnapshot] = useState<OfflineProductionQueueSnapshot | null>(null);
   const [lastSync, setLastSync] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
-  function refresh() {
+  const refresh = useCallback(async () => {
+    const next = await getOfflineProductionSnapshot();
     setOnline(navigator.onLine);
-    setPending(readQueue().length);
-    setLastSync(localStorage.getItem(LAST_SYNC_KEY));
-  }
-
-  useEffect(() => {
-    refresh();
-    const interval = window.setInterval(refresh, 10_000);
-    window.addEventListener("online", refresh);
-    window.addEventListener("offline", refresh);
-    window.addEventListener("storage", refresh);
-    return () => {
-      window.clearInterval(interval);
-      window.removeEventListener("online", refresh);
-      window.removeEventListener("offline", refresh);
-      window.removeEventListener("storage", refresh);
-    };
+    setSnapshot(next);
+    setLastSync(next.lastSync);
   }, []);
 
-  async function flushOfflineQueue() {
-    const queue = readQueue();
-    if (queue.length === 0) {
-      setMessage("Sem lançamentos offline pendentes.");
+  const flushOfflineQueue = useCallback(async (silent = false) => {
+    const current = await getOfflineProductionSnapshot();
+    if (current.total === 0) {
+      if (!silent) setMessage("Sem lançamentos offline pendentes.");
       return;
     }
 
     setBusy(true);
-    setMessage(null);
+    if (!silent) setMessage(null);
 
-    const failed: PendingItem[] = [];
-    for (const item of queue) {
-      try {
-        const response = await fetch("/api/producao", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(item),
-        });
-        if (!response.ok) failed.push(item);
-      } catch {
-        failed.push(item);
+    try {
+      const result = await flushOfflineProductions();
+      const next = await getOfflineProductionSnapshot();
+      setSnapshot(next);
+      setLastSync(next.lastSync);
+
+      if (result.remaining > 0) {
+        setMessage(`${result.remaining} pendente(s) continuam na fila.`);
+      } else if (!silent) {
+        setMessage("Sincronizacao concluida.");
       }
+    } finally {
+      setBusy(false);
     }
+  }, []);
 
-    writeQueue(failed);
-    setPending(failed.length);
+  useEffect(() => {
+    void refresh();
+    const interval = window.setInterval(() => void refresh(), 10_000);
+    const handleOnline = () => {
+      setOnline(true);
+      void refresh();
+      window.setTimeout(() => void flushOfflineQueue(true), 1200);
+    };
+    const handleOffline = () => {
+      setOnline(false);
+      void refresh();
+    };
+    const unsubscribe = subscribeOfflineProductions(() => void refresh());
 
-    if (failed.length > 0) {
-      setMessage(`${failed.length} pendente(s) continuam na fila.`);
-    } else {
-      const now = new Date().toISOString();
-      localStorage.setItem(LAST_SYNC_KEY, now);
-      setLastSync(now);
-      setMessage("Sincronizacao concluida.");
-    }
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+      unsubscribe();
+    };
+  }, [flushOfflineQueue, refresh]);
 
-    setBusy(false);
-  }
+  const pending = snapshot?.total ?? 0;
+  const failed = snapshot?.failed ?? 0;
 
   return (
     <section
@@ -111,6 +99,11 @@ export default function MeuDiaSyncCard() {
           <p className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
             {online ? "Online" : "Offline"} · ultima: {formatDateTime(lastSync)}
           </p>
+          {failed > 0 && (
+            <p className="text-xs font-semibold" style={{ color: "var(--danger)" }}>
+              {failed} lançamento(s) com erro
+            </p>
+          )}
         </div>
         <span
           className="rounded-full px-2 py-1 text-xs font-black tabular"
@@ -127,7 +120,7 @@ export default function MeuDiaSyncCard() {
         <button
           type="button"
           disabled={busy || !online}
-          onClick={flushOfflineQueue}
+          onClick={() => flushOfflineQueue()}
           className="h-11 rounded-lg px-3 text-sm font-black transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
           style={{ background: "var(--accent)", color: "#fff" }}
         >

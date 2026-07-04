@@ -1,26 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-
-const QUEUE_KEY = "gn:pendentes";
-const LAST_SYNC_KEY = "gn:last-manual-sync";
-
-type PendingItem = Record<string, unknown>;
-
-function readQueue(): PendingItem[] {
-  try {
-    const raw = localStorage.getItem(QUEUE_KEY);
-    const items = raw ? JSON.parse(raw) : [];
-    return Array.isArray(items) ? items : [];
-  } catch {
-    return [];
-  }
-}
-
-function writeQueue(items: PendingItem[]) {
-  localStorage.setItem(QUEUE_KEY, JSON.stringify(items));
-}
+import {
+  flushOfflineProductions,
+  getOfflineProductionSnapshot,
+  subscribeOfflineProductions,
+  type OfflineProductionQueueSnapshot,
+} from "@/lib/offline-production-queue";
 
 function formatDateTime(value: string | null) {
   if (!value) return "Ainda não sincronizado";
@@ -38,7 +25,7 @@ export default function SyncHome({
   nome: string;
 }) {
   const [online, setOnline] = useState(true);
-  const [pending, setPending] = useState(0);
+  const [snapshot, setSnapshot] = useState<OfflineProductionQueueSnapshot | null>(null);
   const [lastSync, setLastSync] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: "ok" | "error"; text: string } | null>(null);
@@ -48,78 +35,71 @@ export default function SyncHome({
     return `Olá, ${first}`;
   }, [nome]);
 
-  function refreshLocalState() {
+  const refreshLocalState = useCallback(async () => {
+    const next = await getOfflineProductionSnapshot();
     setOnline(navigator.onLine);
-    setPending(readQueue().length);
-    setLastSync(localStorage.getItem(LAST_SYNC_KEY));
-  }
-
-  useEffect(() => {
-    refreshLocalState();
-
-    const handleOnline = () => {
-      setOnline(true);
-      refreshLocalState();
-    };
-    const handleOffline = () => setOnline(false);
-    const handleStorage = () => refreshLocalState();
-    const interval = window.setInterval(refreshLocalState, 10000);
-
-    window.addEventListener("online", handleOnline);
-    window.addEventListener("offline", handleOffline);
-    window.addEventListener("storage", handleStorage);
-
-    return () => {
-      window.removeEventListener("online", handleOnline);
-      window.removeEventListener("offline", handleOffline);
-      window.removeEventListener("storage", handleStorage);
-      window.clearInterval(interval);
-    };
+    setSnapshot(next);
+    setLastSync(next.lastSync);
   }, []);
 
-  async function flushOfflineQueue() {
-    const queue = readQueue();
-    if (queue.length === 0) {
-      setMessage({ type: "ok", text: "Nenhum lançamento offline pendente." });
+  const flushOfflineQueue = useCallback(async (silent = false) => {
+    const current = await getOfflineProductionSnapshot();
+    if (current.total === 0) {
+      if (!silent) setMessage({ type: "ok", text: "Nenhum lançamento offline pendente." });
       return;
     }
 
     setBusy("pendentes");
-    setMessage(null);
+    if (!silent) setMessage(null);
 
-    const failed: PendingItem[] = [];
-    for (const item of queue) {
-      try {
-        const response = await fetch("/api/producao", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(item),
+    try {
+      const result = await flushOfflineProductions();
+      const next = await getOfflineProductionSnapshot();
+      setSnapshot(next);
+      setLastSync(next.lastSync);
+
+      if (result.remaining > 0) {
+        setMessage({
+          type: "error",
+          text: `${result.remaining} lançamento(s) ainda não foram enviados. ${result.lastError ?? "Verifique a conexão e tente novamente."}`,
         });
-        if (!response.ok) failed.push(item);
-      } catch {
-        failed.push(item);
+      } else if (!silent) {
+        setMessage({
+          type: "ok",
+          text: result.sent > 0 ? "Lançamentos offline enviados com sucesso." : "Nenhum lançamento offline pendente.",
+        });
       }
+    } finally {
+      setBusy(null);
     }
+  }, []);
 
-    writeQueue(failed);
-    setPending(failed.length);
+  useEffect(() => {
+    void refreshLocalState();
 
-    if (failed.length > 0) {
-      setMessage({
-        type: "error",
-        text: `${failed.length} lançamento(s) ainda não foram enviados. Verifique a conexão e tente novamente.`,
-      });
-    } else {
-      const now = new Date().toISOString();
-      localStorage.setItem(LAST_SYNC_KEY, now);
-      setLastSync(now);
-      setMessage({ type: "ok", text: "Lançamentos offline enviados com sucesso." });
-    }
+    const handleOnline = () => {
+      setOnline(true);
+      void refreshLocalState();
+      window.setTimeout(() => void flushOfflineQueue(true), 1200);
+    };
+    const handleOffline = () => setOnline(false);
+    const unsubscribe = subscribeOfflineProductions(() => void refreshLocalState());
+    const interval = window.setInterval(() => void refreshLocalState(), 10000);
 
-    setBusy(null);
-  }
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+      unsubscribe();
+      window.clearInterval(interval);
+    };
+  }, [flushOfflineQueue, refreshLocalState]);
 
   const loading = busy !== null;
+  const pending = snapshot?.total ?? 0;
+  const failed = snapshot?.failed ?? 0;
 
   return (
     <div className="-mx-4 -my-4 min-h-[calc(100dvh-156px)] bg-[#061020] px-4 py-5 text-white sm:-mx-0 sm:rounded-3xl sm:p-6">
@@ -150,6 +130,11 @@ export default function SyncHome({
             <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
               <p className="text-xs font-bold text-slate-400">Pendentes no celular</p>
               <p className="mt-2 text-3xl font-black tabular-nums">{pending}</p>
+              {failed > 0 && (
+                <p className="mt-1 text-xs font-bold text-red-200">
+                  {failed} com erro de envio
+                </p>
+              )}
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
               <p className="text-xs font-bold text-slate-400">Última sincronização</p>
@@ -174,7 +159,7 @@ export default function SyncHome({
           <button
             type="button"
             disabled={loading || !online}
-            onClick={flushOfflineQueue}
+            onClick={() => flushOfflineQueue()}
             className="min-h-[64px] rounded-2xl bg-blue-500 px-5 text-left text-base font-black text-white shadow-lg shadow-blue-950/40 transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {busy === "pendentes" ? "Enviando pendentes..." : "Enviar lançamentos offline pendentes"}
