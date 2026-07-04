@@ -54,9 +54,9 @@
   --shadow-elevated: 0 14px 36px rgba(15, 23, 42, 0.12);
 
   /* Superfícies */
-  --bg-page:      #dfe6ee;
-  --bg-card:      #fbfcfe;
-  --bg-card-alt:  #f0f4f8;
+  --bg-page:      #eef2f6;
+  --bg-card:      #ffffff;
+  --bg-card-alt:  #f6f8fb;
   --bg-elevated:  #ffffff;
   --bg-input:     #ffffff;
   --bg-hover:     #e9eff5;
@@ -83,10 +83,10 @@
   --nav-border:     rgba(255,255,255,0.1);
 
   /* Barra inferior (mobile field) */
-  --bottomnav-bg:   #071420;
-  --bottomnav-border: rgba(255,255,255,0.12);
-  --bottomnav-text: rgba(255,255,255,0.66);
-  --bottomnav-active: #d9f3e5;
+  --bottomnav-bg:   #ffffff;
+  --bottomnav-border: #c8d3df;
+  --bottomnav-text: #5f6f82;
+  --bottomnav-active: #1f6f55;
 
   /* Accent / Brand */
   --accent:         #1f6f55;
@@ -240,7 +240,7 @@ body {
   background: var(--bg-page);
 }
 .app-content-frame {
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  border-top: 1px solid var(--border);
 }
 
 /* ──────────────────────────────────────────────────────────

@@ -31,7 +31,7 @@ export default function AdminToolsNav() {
     <nav
       aria-label="Funções administrativas"
       className="border-b"
-      style={{ background: "var(--shell-panel)", borderColor: "var(--shell-line)" }}
+      style={{ background: "var(--bg-elevated)", borderColor: "var(--border)" }}
     >
       <div className="scrollbar-none mx-auto flex max-w-7xl gap-1 overflow-x-auto px-3 py-2 sm:px-4 md:px-6">
         {ADMIN_TOOLS.map((item) => {
@@ -46,9 +46,9 @@ export default function AdminToolsNav() {
               href={item.href}
               className="inline-flex h-10 min-w-11 shrink-0 items-center gap-2 rounded-lg border px-3 text-xs font-bold transition"
               style={{
-                borderColor: active ? "rgba(255,255,255,0.2)" : "transparent",
-                background: active ? "rgba(255,255,255,0.12)" : "transparent",
-                color: active ? "#fff" : "rgba(255,255,255,0.68)",
+                borderColor: active ? "var(--border-strong)" : "transparent",
+                background: active ? "var(--bg-card-alt)" : "transparent",
+                color: active ? "var(--text-primary)" : "var(--text-secondary)",
                 boxShadow: active ? "inset 0 -2px 0 var(--brand-green)" : "none",
               }}
               aria-current={active ? "page" : undefined}

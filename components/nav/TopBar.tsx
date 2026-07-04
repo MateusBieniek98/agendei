@@ -21,8 +21,8 @@ export default function TopBar({
     <header
       className="sticky top-0 z-50"
       style={{
-        background: "color-mix(in srgb, var(--shell-bg) 96%, transparent)",
-        borderBottom: "1px solid var(--shell-line)",
+        background: "color-mix(in srgb, var(--bg-card) 96%, transparent)",
+        borderBottom: "1px solid var(--border)",
         paddingTop: "max(var(--app-top-safe-area), 8px)",
         backdropFilter: "blur(14px)",
       }}
@@ -30,19 +30,19 @@ export default function TopBar({
       <div className="mx-auto grid min-h-[64px] max-w-7xl grid-cols-[auto_1fr_auto] items-center gap-3 px-3 py-2 sm:px-4 md:px-6">
         <div className="flex min-w-10 items-center">
           {showLogo && (
-            <span className="rounded-lg border border-white/10 bg-white/5 px-2 py-1">
-              <Logo size={30} variant="mono-light" withWordmark />
+            <span className="rounded-lg border border-[var(--border)] bg-[var(--bg-card-alt)] px-2 py-1">
+              <Logo size={30} variant="color" withWordmark />
             </span>
           )}
         </div>
         <div className="min-w-0 text-left">
-          <p className="text-[10px] font-bold uppercase" style={{ color: "rgba(255,255,255,0.52)" }}>
+          <p className="text-[10px] font-bold uppercase" style={{ color: "var(--text-muted)" }}>
             GN Operações
           </p>
           {title && (
             <h1
               className="truncate text-base font-bold leading-tight sm:text-lg"
-              style={{ color: "#fff" }}
+              style={{ color: "var(--text-primary)" }}
             >
               {title}
             </h1>
@@ -50,7 +50,7 @@ export default function TopBar({
           {subtitle && (
             <p
               className="truncate text-[11px] font-semibold leading-tight sm:text-xs"
-              style={{ color: "rgba(255,255,255,0.64)" }}
+              style={{ color: "var(--text-muted)" }}
             >
               {subtitle}
             </p>
