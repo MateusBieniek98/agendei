@@ -1,5 +1,5 @@
 import { createSupabaseServer } from "@/lib/supabase/server";
-import MaquinaForm from "./MaquinaForm";
+import MaintenanceFeed from "@/components/maintenance/MaintenanceFeed";
 import type { Equipe, Maquina, Projeto } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -13,14 +13,9 @@ export default async function MaquinasFieldPage() {
   ]);
 
   return (
-    <div className="mx-auto max-w-md space-y-4">
-      <div>
-        <h2 className="text-xl font-bold">Reportar problema</h2>
-        <p className="text-sm text-[var(--color-ink-500)]">
-          Avise a manutenção sobre uma máquina parada ou com defeito.
-        </p>
-      </div>
-      <MaquinaForm
+    <div className="mx-auto max-w-5xl">
+      <MaintenanceFeed
+        mode="field"
         maquinas={(maquinas ?? []) as Maquina[]}
         equipes={(equipes ?? []) as Equipe[]}
         projetos={(projetos ?? []) as Projeto[]}

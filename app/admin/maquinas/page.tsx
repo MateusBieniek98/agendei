@@ -4,9 +4,10 @@ import { useCallback, useEffect, useState } from "react";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
+import MaintenanceFeed from "@/components/maintenance/MaintenanceFeed";
 import { useToast } from "@/components/ui/Toast";
 import { ddmmyyyy } from "@/lib/format";
-import type { Maquina, MachineStatus, MaintenanceStatus, Manutencao } from "@/lib/types";
+import type { Equipe, Maquina, MachineStatus, MaintenanceStatus, Manutencao, Projeto } from "@/lib/types";
 
 type ManutComMaquina = Manutencao & {
   maquinas: { nome: string; tipo: string; identificador: string | null; status: MachineStatus } | null;
@@ -371,6 +372,8 @@ export default function MaquinasAdminPage() {
   const { toast } = useToast();
   const [maquinas, setMaquinas] = useState<Maquina[]>([]);
   const [manuts, setManuts] = useState<ManutComMaquina[]>([]);
+  const [equipes, setEquipes] = useState<Equipe[]>([]);
+  const [projetos, setProjetos] = useState<Projeto[]>([]);
   const [editing, setEditing] = useState<Partial<Maquina> | null>(null);
   const [busca, setBusca] = useState("");
   const [statusFiltro, setStatusFiltro] = useState(() => {
@@ -380,15 +383,20 @@ export default function MaquinasAdminPage() {
     return "";
   });
   const [tabManut, setTabManut] = useState<"abertas" | "todas">("abertas");
+  const [manutView, setManutView] = useState<"feed" | "kanban">("feed");
 
   const carregar = useCallback(async () => {
     try {
-      const [mr, mn] = await Promise.all([
+      const [mr, mn, er, pr] = await Promise.all([
         fetch("/api/maquinas").then((r) => r.json()),
         fetch("/api/manutencoes").then((r) => r.json()),
+        fetch("/api/equipes").then((r) => r.json()),
+        fetch("/api/projetos").then((r) => r.json()),
       ]);
       setMaquinas(Array.isArray(mr.items) ? (mr.items as Maquina[]) : []);
       setManuts(Array.isArray(mn.items) ? (mn.items as ManutComMaquina[]) : []);
+      setEquipes(Array.isArray(er.items) ? (er.items as Equipe[]) : []);
+      setProjetos(Array.isArray(pr.items) ? (pr.items as Projeto[]) : []);
     } catch (err) {
       toast(`Erro ao carregar: ${(err as Error).message}`, "error");
     }
@@ -598,14 +606,32 @@ export default function MaquinasAdminPage() {
         >
           <div className="min-w-0">
             <h3 className="font-bold text-base" style={{ color: "var(--text-primary)" }}>
-              Ordens de Serviço
+              Manutenções
             </h3>
             <p className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
-              Kanban por etapa da manutenção
+              Feed social e Kanban por etapa da manutenção
             </p>
           </div>
-          <div className="grid grid-cols-2 rounded-xl p-1 sm:w-fit" style={{ background: "var(--bg-page)", border: "1px solid var(--border)" }}>
-            {(["abertas", "todas"] as const).map((t) => (
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <div className="grid grid-cols-2 rounded-xl p-1 sm:w-fit" style={{ background: "var(--bg-page)", border: "1px solid var(--border)" }}>
+              {(["feed", "kanban"] as const).map((view) => (
+                <button
+                  type="button"
+                  key={view}
+                  onClick={() => setManutView(view)}
+                  className="min-h-11 rounded-lg px-4 text-xs font-black transition"
+                  style={{
+                    background: manutView === view ? "var(--accent)" : "transparent",
+                    color: manutView === view ? "#fff" : "var(--text-muted)",
+                  }}
+                >
+                  {view === "feed" ? "Feed" : "Kanban"}
+                </button>
+              ))}
+            </div>
+            {manutView === "kanban" && (
+              <div className="grid grid-cols-2 rounded-xl p-1 sm:w-fit" style={{ background: "var(--bg-page)", border: "1px solid var(--border)" }}>
+                {(["abertas", "todas"] as const).map((t) => (
               <button
                 type="button"
                 key={t}
@@ -618,11 +644,24 @@ export default function MaquinasAdminPage() {
               >
                 {t === "abertas" ? `Ativas (${nOSAbertas})` : "Todas"}
               </button>
-            ))}
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
-        {manutsKanban.length === 0 ? (
+        {manutView === "feed" ? (
+          <div className="mt-3">
+            <MaintenanceFeed
+              mode="admin"
+              maquinas={maquinas}
+              equipes={equipes}
+              projetos={projetos}
+              compact
+              onChanged={carregar}
+            />
+          </div>
+        ) : manutsKanban.length === 0 ? (
           <div className="p-8 text-center text-sm font-semibold" style={{ color: "var(--text-muted)" }}>
             {tabManut === "abertas" ? "Nenhuma OS ativa." : "Sem manutenções registradas."}
           </div>

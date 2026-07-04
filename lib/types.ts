@@ -115,6 +115,69 @@ export type Manutencao = {
   created_at: string;
 };
 
+export type MentionableProfile = {
+  id: string;
+  nome: string;
+  role: UserRole;
+  equipe_id: string | null;
+  equipes?: { nome: string } | null;
+};
+
+export type ManutencaoAnexo = {
+  id: string;
+  manutencao_id: string;
+  storage_path: string;
+  file_name: string;
+  mime_type: string;
+  size_bytes: number;
+  uploaded_by: string;
+  created_at: string;
+  url?: string | null;
+};
+
+export type ManutencaoMencao = {
+  id: string;
+  manutencao_id: string;
+  comentario_id: string | null;
+  mentioned_profile_id: string;
+  mentioned_by: string;
+  read_at: string | null;
+  created_at: string;
+  mentioned?: MentionableProfile | null;
+};
+
+export type ManutencaoComentario = {
+  id: string;
+  manutencao_id: string;
+  autor_id: string;
+  texto: string;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+  autor?: MentionableProfile | null;
+  mencoes?: ManutencaoMencao[];
+};
+
+export type ManutencaoThread = Manutencao & {
+  maquinas: {
+    nome: string;
+    tipo: string;
+    identificador: string | null;
+    status: MachineStatus;
+  } | null;
+  equipes: { nome: string } | null;
+  projetos: { nome: string } | null;
+  autor: MentionableProfile | null;
+  anexos: ManutencaoAnexo[];
+  comentarios: ManutencaoComentario[];
+  comentarios_count: number;
+  unread_mentions_count: number;
+  mentioned_profile_ids: string[];
+  can_comment: boolean;
+  can_resolve: boolean;
+  can_manage_status: boolean;
+};
+
 export type Meta = {
   id: string;
   ano: number;
