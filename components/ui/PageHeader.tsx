@@ -22,8 +22,7 @@ export default function PageHeader({
         color: "var(--text-primary)",
       }}
     >
-      <div className="h-1" style={{ background: "var(--brand-green)" }} />
-      <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-end sm:justify-between">
+      <div className="flex flex-col gap-3 border-l-4 p-4 sm:flex-row sm:items-end sm:justify-between" style={{ borderLeftColor: "var(--brand-green)" }}>
         <div className="min-w-0">
           <p className="text-[10px] font-bold uppercase" style={{ color: "var(--accent)" }}>
             {eyebrow}

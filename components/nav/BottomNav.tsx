@@ -91,16 +91,20 @@ export default function BottomNav({
                     href={item.href}
                     className="relative flex h-full min-h-11 touch-manipulation flex-col items-center justify-center gap-0.5 rounded-none border-t-2 px-1 text-[10px] font-bold leading-tight transition sm:text-xs"
                     style={{
-                      background: primary ? "rgba(31,111,85,0.18)" : "transparent",
-                      borderColor: active || primary ? "var(--bottomnav-active)" : "transparent",
+                      background: active ? "var(--accent-subtle)" : "transparent",
+                      borderColor: active ? "var(--bottomnav-active)" : "transparent",
                       color: active || primary ? "var(--bottomnav-active)" : "var(--bottomnav-text)",
                     }}
                     aria-current={active ? "page" : undefined}
                   >
                     <span
                       aria-hidden
-                      className="grid h-6 w-6 place-items-center transition-transform"
-                      style={{ transform: active ? "translateY(-1px)" : "none" }}
+                      className="grid h-6 w-6 place-items-center rounded-md transition-transform"
+                      style={{
+                        transform: active ? "translateY(-1px)" : "none",
+                        background: primary ? "var(--accent)" : "transparent",
+                        color: primary ? "#fff" : "currentColor",
+                      }}
                     >
                       {item.icon}
                     </span>
