@@ -15,6 +15,7 @@ const ADMIN_TOOLS: AdminToolItem[] = [
   { href: "/admin/automacoes", label: "Automações", icon: <AutomationIcon /> },
   { href: "/admin/lancamentos", label: "Lançamentos", icon: <ListIcon /> },
   { href: "/admin/atividades", label: "Serviços", icon: <TagIcon /> },
+  { href: "/admin/insumos", label: "Insumos", icon: <PackageIcon /> },
   { href: "/admin/equipes", label: "Cad. equipes", icon: <UsersIcon /> },
   { href: "/admin/projetos", label: "Projetos", icon: <MapIcon /> },
   { href: "/admin/maquinas", label: "Frota", icon: <CogIcon /> },
@@ -106,6 +107,16 @@ function TagIcon() {
     <SvgIcon>
       <path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0l-7.2-7.2a2 2 0 0 1 0-2.8L10.6 3.4a2 2 0 0 1 1.4-.6h6.6a2 2 0 0 1 2 2v6.6a2 2 0 0 1-.6 1.4Z" />
       <circle cx="16" cy="8" r="1.5" />
+    </SvgIcon>
+  );
+}
+
+function PackageIcon() {
+  return (
+    <SvgIcon>
+      <path d="m21 8-9-5-9 5 9 5 9-5Z" />
+      <path d="M3 8v8l9 5 9-5V8" />
+      <path d="M12 13v8" />
     </SvgIcon>
   );
 }

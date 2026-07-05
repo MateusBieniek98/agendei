@@ -4,7 +4,11 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
 import { notifyApontamentosSheet } from "@/lib/google-sheets-apontamentos";
-import { optionalNumber, sanitizeInsumos } from "@/lib/insumos";
+import {
+  hasOnlyControlledInsumos,
+  optionalNumber,
+  sanitizeControlledInsumos,
+} from "@/lib/insumos";
 import { syncPlanningProgressForProduction } from "@/lib/planning-progress";
 
 function normalizeClientId(value: unknown) {
@@ -28,7 +32,7 @@ export async function GET(req: NextRequest) {
     .from("producao")
     .select(
       "id, data, equipe_id, atividade_id, quantidade, observacoes, " +
-        "projeto_id, talhao, insumos, descarte, valor_unitario_snapshot, registrado_por, created_at, " +
+        "projeto_id, talhao, insumos, descarte, estoque_controlado, valor_unitario_snapshot, registrado_por, created_at, " +
         "equipes(nome), atividades(nome, unidade), projetos(nome)"
     )
     .order("data", { ascending: false })
@@ -100,36 +104,26 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // captura valor unitário atual da atividade
-  const { data: ativ, error: errAt } = await supabase
-    .from("atividades")
-    .select("valor_unitario, ativo")
-    .eq("id", atividade_id)
-    .maybeSingle();
-  if (errAt || !ativ || !ativ.ativo) {
-    return NextResponse.json({ error: "atividade inválida" }, { status: 400 });
+  if (!hasOnlyControlledInsumos(insumos)) {
+    return NextResponse.json(
+      { error: "Selecione apenas insumos cadastrados no estoque." },
+      { status: 400 }
+    );
   }
 
-  const { data, error } = await supabase
-    .from("producao")
-    .insert({
-      data: dataLanc ?? new Date().toISOString().slice(0, 10),
-      equipe_id,
-      atividade_id,
-      projeto_id,
-      talhao: String(talhao).trim(),
-      quantidade,
-      insumos: sanitizeInsumos(insumos),
-      descarte: optionalNumber(descarte),
-      observacoes: observacoes ?? null,
-      valor_unitario_snapshot: ativ.valor_unitario,
-      registrado_por: profile.id,
-      origem: origemChave ? "gn-app" : null,
-      origem_chave: origemChave,
-      import_metadata: clientId ? { client_id: clientId } : {},
-    })
-    .select()
-    .single();
+  const { data: rpcData, error } = await supabase.rpc("create_producao_with_stock", {
+    p_data: dataLanc ?? null,
+    p_equipe_id: equipe_id,
+    p_atividade_id: atividade_id,
+    p_projeto_id: projeto_id,
+    p_talhao: String(talhao).trim(),
+    p_quantidade: Number(quantidade),
+    p_descarte: optionalNumber(descarte),
+    p_observacoes: observacoes ?? null,
+    p_insumos: sanitizeControlledInsumos(insumos),
+    p_client_id: clientId,
+    p_origem_chave: origemChave,
+  });
 
   if (error) {
     if (origemChave && error.code === "23505") {
@@ -145,8 +139,21 @@ export async function POST(req: NextRequest) {
     }
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
+
+  const rpcResult = rpcData as {
+    item?: { id: string; projeto_id?: string | null; talhao?: string | null; atividade_id?: string | null };
+    deduplicated?: boolean;
+  } | null;
+  const data = rpcResult?.item;
+  if (!data?.id) {
+    return NextResponse.json({ error: "Resposta inválida ao salvar apontamento." }, { status: 500 });
+  }
+  if (rpcResult?.deduplicated) {
+    return NextResponse.json({ item: data, deduplicated: true });
+  }
+
   const syncError = await syncPlanningProgressForProduction(supabase, data);
-  const sheetsSyncError = await notifyApontamentosSheet("criado", data.id);
+  const sheetsSyncError = await notifyApontamentosSheet("criado", String(data.id));
   return NextResponse.json(
     {
       item: data,

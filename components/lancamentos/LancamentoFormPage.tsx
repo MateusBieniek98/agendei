@@ -69,7 +69,7 @@ export default async function LancamentoFormPage({
     ? supabase
         .from("producao")
         .select(
-          "id, data, equipe_id, atividade_id, projeto_id, talhao, quantidade, insumos, descarte, observacoes, " +
+          "id, data, equipe_id, atividade_id, projeto_id, talhao, quantidade, insumos, descarte, estoque_controlado, observacoes, " +
             "valor_unitario_snapshot, registrado_por, editado_por, created_at, updated_at"
         )
         .eq("id", searchParams.edit_id)

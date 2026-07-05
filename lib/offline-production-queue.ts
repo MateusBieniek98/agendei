@@ -17,7 +17,7 @@ export type OfflineProductionPayload = {
   talhao?: string | null;
   quantidade?: number;
   descarte?: number | null;
-  insumos?: { nome: string; quantidade: number }[];
+  insumos?: { insumo_id?: string; id?: string; nome?: string; quantidade: number }[];
   observacoes?: string | null;
   valor_unitario_snapshot?: number | string;
   [key: string]: unknown;

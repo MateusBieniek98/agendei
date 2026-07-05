@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
@@ -8,7 +8,11 @@ import Select from "@/components/ui/Select";
 import { useToast } from "@/components/ui/Toast";
 import { brl, todayISO } from "@/lib/format";
 import { searchItems } from "@/components/ui/ListControls";
-import { INSUMOS_CATALOGO, insumoCatalogDisplay, normalizeInsumoInput } from "@/lib/insumos";
+import {
+  readCachedInsumos,
+  writeCachedInsumos,
+  type InsumoEstoqueItem,
+} from "@/lib/insumos";
 import {
   createOfflineProductionClientId,
   enqueueOfflineProduction,
@@ -16,27 +20,34 @@ import {
 } from "@/lib/offline-production-queue";
 import type { Atividade, Equipe, Producao, Projeto } from "@/lib/types";
 
-/* ── Card de insumo com sugestões inline ── */
+type FormInsumo = {
+  insumo_id: string;
+  quantidade: string;
+  legacyNome?: string;
+};
+
+/* ── Card de insumo controlado por estoque ── */
 function InsumoCard({
   insumo,
   index,
+  catalogo,
+  selectedIds,
+  getAvailable,
+  legado,
   onChange,
 }: {
-  insumo: { nome: string; quantidade: string };
+  insumo: FormInsumo;
   index: number;
-  onChange: (campo: "nome" | "quantidade", valor: string) => void;
+  catalogo: InsumoEstoqueItem[];
+  selectedIds: Set<string>;
+  getAvailable: (id: string) => number;
+  legado: boolean;
+  onChange: (campo: "insumo_id" | "quantidade", valor: string) => void;
 }) {
-  const [focado, setFocado] = useState(false);
-
-  const sugestoes = useMemo(() => {
-    const q = insumo.nome.trim().toLowerCase();
-    if (q.length < 1) return [];
-    return INSUMOS_CATALOGO.filter((i) =>
-      insumoCatalogDisplay(i).toLowerCase().includes(q)
-    ).slice(0, 6);
-  }, [insumo.nome]);
-
-  const mostrarLista = focado && sugestoes.length > 0;
+  const selecionado = catalogo.find((item) => item.id === insumo.insumo_id);
+  const quantidade = Number(insumo.quantidade || 0);
+  const disponivel = selecionado ? getAvailable(selecionado.id) : 0;
+  const excedeuSaldo = !!selecionado && quantidade > disponivel;
 
   return (
     <div
@@ -51,16 +62,30 @@ function InsumoCard({
           >
             Insumo {index + 1}
           </span>
-          <input
-            value={insumo.nome}
-            onChange={(e) => onChange("nome", e.target.value)}
-            onFocus={() => setFocado(true)}
-            onBlur={() => setTimeout(() => setFocado(false), 150)}
-            placeholder="Buscar por código ou nome"
-            autoComplete="off"
-            className="h-11 w-full rounded-lg border bg-transparent px-3 text-sm font-bold outline-none"
+          <select
+            value={insumo.insumo_id}
+            onChange={(e) => onChange("insumo_id", e.target.value)}
+            className="h-11 w-full rounded-lg border bg-[var(--bg-input)] px-3 text-sm font-bold outline-none"
             style={{ color: "var(--text-primary)", borderColor: "var(--border)" }}
-          />
+          >
+            <option value="">
+              {legado && insumo.legacyNome ? insumo.legacyNome : "Selecione no estoque"}
+            </option>
+            {catalogo.map((item) => {
+              const selectedElsewhere = selectedIds.has(item.id) && item.id !== insumo.insumo_id;
+              const saldo = getAvailable(item.id);
+              return (
+                <option
+                  key={item.id}
+                  value={item.id}
+                  disabled={!item.ativo || selectedElsewhere || saldo <= 0}
+                >
+                  {item.codigo ? `${item.codigo} · ` : ""}
+                  {item.nome} · saldo {saldo.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} {item.unidade}
+                </option>
+              );
+            })}
+          </select>
         </label>
         <label className="block">
           <span
@@ -78,35 +103,23 @@ function InsumoCard({
             onChange={(e) => onChange("quantidade", e.target.value)}
             placeholder="0"
             className="h-11 w-full rounded-lg border bg-transparent px-3 text-sm font-bold outline-none"
-            style={{ color: "var(--text-primary)", borderColor: "var(--border)" }}
+            style={{
+              color: "var(--text-primary)",
+              borderColor: excedeuSaldo ? "var(--danger)" : "var(--border)",
+            }}
           />
         </label>
       </div>
 
-      {mostrarLista && (
-        <div
-          className="mt-3 grid gap-2 rounded-lg border p-2"
-          style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}
+      {selecionado && (
+        <p
+          className="mt-2 text-xs font-semibold"
+          style={{ color: excedeuSaldo ? "var(--danger)" : "var(--text-secondary)" }}
         >
-          {sugestoes.map((item, i) => {
-            const display = insumoCatalogDisplay(item);
-            return (
-              <button
-                key={i}
-                type="button"
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  onChange("nome", display);
-                  setFocado(false);
-                }}
-                className="w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold active:opacity-70"
-                style={{ color: "var(--text-primary)", background: "var(--bg-card-alt)" }}
-              >
-                {display}
-              </button>
-            );
-          })}
-        </div>
+          Disponível: {disponivel.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}{" "}
+          {selecionado.unidade}
+          {excedeuSaldo ? " · quantidade acima do estoque" : ""}
+        </p>
       )}
     </div>
   );
@@ -120,8 +133,8 @@ const STEPS = [
 
 type StepId = (typeof STEPS)[number]["id"];
 
-function emptyInsumos() {
-  return Array.from({ length: 3 }, () => ({ nome: "", quantidade: "" }));
+function emptyInsumos(): FormInsumo[] {
+  return Array.from({ length: 3 }, () => ({ insumo_id: "", quantidade: "" }));
 }
 
 /* ── Stepper Header ── */
@@ -443,6 +456,7 @@ type EditingItem = Pick<
   | "quantidade"
   | "insumos"
   | "descarte"
+  | "estoque_controlado"
   | "observacoes"
 >;
 
@@ -455,8 +469,9 @@ function maskTalhao(value: string | null | undefined) {
 function initialInsumos(editingItem?: EditingItem) {
   if (!editingItem?.insumos?.length) return emptyInsumos();
   return editingItem.insumos.map((insumo) => ({
-    nome: insumo.nome ?? "",
+    insumo_id: insumo.insumo_id ?? insumo.id ?? "",
     quantidade: String(insumo.quantidade ?? ""),
+    legacyNome: insumo.insumo_id || insumo.id ? undefined : insumo.nome ?? "",
   }));
 }
 
@@ -487,6 +502,7 @@ export default function LancamentoForm({
   const { toast } = useToast();
   const router = useRouter();
   const modoEdicao = !!editingItem;
+  const editandoLegado = modoEdicao && editingItem?.estoque_controlado !== true;
   const [step, setStep] = useState<StepId>(1);
   const [temPrefill, setTemPrefill] = useState(
     !!(editingItem || initialAtividadeId || initialProjetoId || initialTalhao)
@@ -507,6 +523,30 @@ export default function LancamentoForm({
   const [insumos,        setInsumos]        = useState(() => initialInsumos(editingItem));
   const [obs,            setObs]            = useState(editingItem?.observacoes ?? "");
   const [enviando,       setEnviando]       = useState(false);
+  const [catalogoInsumos, setCatalogoInsumos] = useState<InsumoEstoqueItem[]>(() =>
+    readCachedInsumos()
+  );
+
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/insumos")
+      .then(async (res) => {
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || json.error) throw new Error(json.error ?? res.statusText);
+        const items = Array.isArray(json.items) ? (json.items as InsumoEstoqueItem[]) : [];
+        if (!alive) return;
+        setCatalogoInsumos(items);
+        writeCachedInsumos(items);
+      })
+      .catch(() => {
+        if (alive && catalogoInsumos.length === 0) setCatalogoInsumos(readCachedInsumos());
+      });
+    return () => {
+      alive = false;
+    };
+    // O cache inicial já foi lido no estado; a busca remota deve rodar uma vez por abertura.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const atividade = useMemo(
     () => atividades.find((a) => a.id === atividadeId),
@@ -535,13 +575,69 @@ export default function LancamentoForm({
       : projetosFiltrados;
   }, [projetoId, projetos, projetosFiltrados]);
 
-  const insumosValidos = useMemo(
-    () =>
-      insumos
-        .map((i) => ({ nome: normalizeInsumoInput(i.nome), quantidade: Number(i.quantidade) }))
-        .filter((i) => i.nome && Number.isFinite(i.quantidade) && i.quantidade > 0),
+  const quantidadesOriginais = useMemo(() => {
+    const map = new Map<string, number>();
+    if (!editingItem?.estoque_controlado) return map;
+    for (const insumo of editingItem.insumos ?? []) {
+      const id = insumo.insumo_id ?? insumo.id;
+      const quantidade = Number(insumo.quantidade ?? 0);
+      if (id && quantidade > 0) map.set(id, (map.get(id) ?? 0) + quantidade);
+    }
+    return map;
+  }, [editingItem]);
+
+  const selectedInsumoIds = useMemo(
+    () => new Set(insumos.map((insumo) => insumo.insumo_id).filter(Boolean)),
     [insumos]
   );
+
+  const saldoDisponivel = useCallback((id: string) => {
+    const item = catalogoInsumos.find((insumo) => insumo.id === id);
+    return Number(item?.saldo_atual ?? 0) + Number(quantidadesOriginais.get(id) ?? 0);
+  }, [catalogoInsumos, quantidadesOriginais]);
+
+  const insumosValidos = useMemo(() => {
+    if (editandoLegado) {
+      return insumos
+        .map((i) => {
+          const selecionado = catalogoInsumos.find((item) => item.id === i.insumo_id);
+          const nome = selecionado?.nome ?? i.legacyNome ?? "";
+          const quantidade = Number(i.quantidade);
+          return { nome, quantidade };
+        })
+        .filter((i) => i.nome && Number.isFinite(i.quantidade) && i.quantidade > 0);
+    }
+
+    return insumos
+      .map((i) => {
+        const selecionado = catalogoInsumos.find((item) => item.id === i.insumo_id);
+        const quantidade = Number(i.quantidade);
+        if (!selecionado || !Number.isFinite(quantidade) || quantidade <= 0) return null;
+        return { insumo_id: selecionado.id, quantidade };
+      })
+      .filter((item): item is { insumo_id: string; quantidade: number } => item !== null);
+  }, [catalogoInsumos, editandoLegado, insumos]);
+
+  const erroEstoque = useMemo(() => {
+    if (editandoLegado) return null;
+    const totais = new Map<string, number>();
+    for (const insumo of insumosValidos) {
+      if (!("insumo_id" in insumo)) continue;
+      totais.set(insumo.insumo_id, (totais.get(insumo.insumo_id) ?? 0) + insumo.quantidade);
+    }
+    for (const [id, quantidade] of totais) {
+      const item = catalogoInsumos.find((insumo) => insumo.id === id);
+      const disponivel = saldoDisponivel(id);
+      if (!item?.ativo) return "Insumo inativo selecionado.";
+      if (quantidade > disponivel) {
+        return `Estoque insuficiente para ${item.nome}. Disponível: ${disponivel.toLocaleString("pt-BR", {
+          maximumFractionDigits: 2,
+        })} ${item.unidade}.`;
+      }
+    }
+    return null;
+  }, [catalogoInsumos, editandoLegado, insumosValidos, saldoDisponivel]);
+
   const insumosHint =
     insumosValidos.length > 0 ? `${insumosValidos.length} adicionado${insumosValidos.length > 1 ? "s" : ""}` : undefined;
 
@@ -552,7 +648,7 @@ export default function LancamentoForm({
     3: true,
   };
 
-  function alterarInsumo(index: number, campo: "nome" | "quantidade", valor: string) {
+  function alterarInsumo(index: number, campo: "insumo_id" | "quantidade", valor: string) {
     setInsumos((a) => a.map((insumo, i) => (i === index ? { ...insumo, [campo]: valor } : insumo)));
   }
 
@@ -608,6 +704,10 @@ export default function LancamentoForm({
     }
     if (!talhaoValido) {
       toast("Talhão inválido. Use o formato 000-00 (ex.: 018-01).", "error");
+      return;
+    }
+    if (erroEstoque) {
+      toast(erroEstoque, "error");
       return;
     }
     const formData = {
@@ -806,21 +906,41 @@ export default function LancamentoForm({
 
           <Accordion title="Insumos utilizados" hint={insumosHint}>
             <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-              Digite parte do código ou nome. Não aparece para o gestor.
+              Selecione apenas insumos cadastrados com saldo disponível.
             </p>
+            {catalogoInsumos.length === 0 && (
+              <div
+                className="rounded-lg border px-3 py-2 text-xs font-semibold"
+                style={{ borderColor: "var(--warn)", color: "var(--warn)", background: "var(--warn-bg)" }}
+              >
+                Nenhum insumo disponível no cache. Conecte para atualizar o estoque ou peça ao admin cadastrar saldo.
+              </div>
+            )}
+            {erroEstoque && (
+              <div
+                className="rounded-lg border px-3 py-2 text-xs font-semibold"
+                style={{ borderColor: "var(--danger)", color: "var(--danger)", background: "var(--danger-bg)" }}
+              >
+                {erroEstoque}
+              </div>
+            )}
             <div className="flex flex-col gap-2">
               {insumos.map((insumo, index) => (
                 <InsumoCard
                   key={index}
                   insumo={insumo}
                   index={index}
+                  catalogo={catalogoInsumos}
+                  selectedIds={selectedInsumoIds}
+                  getAvailable={saldoDisponivel}
+                  legado={editandoLegado}
                   onChange={(campo, valor) => alterarInsumo(index, campo, valor)}
                 />
               ))}
             </div>
             <button
               type="button"
-              onClick={() => setInsumos((v) => [...v, { nome: "", quantidade: "" }])}
+              onClick={() => setInsumos((v) => [...v, { insumo_id: "", quantidade: "" }])}
               className="text-xs font-semibold"
               style={{ color: "var(--accent)" }}
             >

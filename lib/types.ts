@@ -65,14 +65,64 @@ export type Producao = {
   projeto_id: string | null;
   talhao: string | null;
   quantidade: number;
-  insumos: { nome: string; quantidade: number }[];
+  insumos: InsumoLancamento[];
   descarte: number | null;
+  estoque_controlado?: boolean;
   observacoes: string | null;
   valor_unitario_snapshot: number;
   registrado_por: string;
   editado_por: string | null;
   created_at: string;
   updated_at: string;
+};
+
+export type Insumo = {
+  id: string;
+  codigo: string | null;
+  nome: string;
+  grupo: string;
+  unidade: string;
+  saldo_atual: number;
+  estoque_minimo: number;
+  ativo: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type InsumoMovimentacaoTipo =
+  | "entrada"
+  | "ajuste"
+  | "saida_apontamento"
+  | "estorno_apontamento";
+
+export type InsumoMovimentacao = {
+  id: string;
+  insumo_id: string;
+  tipo: InsumoMovimentacaoTipo;
+  quantidade: number;
+  saldo_anterior: number;
+  saldo_posterior: number;
+  producao_id: string | null;
+  usuario_id: string | null;
+  observacoes: string | null;
+  created_at: string;
+};
+
+export type InsumoLancamento = {
+  insumo_id?: string;
+  id?: string;
+  codigo?: string | null;
+  nome: string;
+  unidade?: string | null;
+  quantidade: number;
+};
+
+export type InsumoLancamentoControlado = {
+  insumo_id: string;
+  codigo: string | null;
+  nome: string;
+  unidade: string;
+  quantidade: number;
 };
 
 export type Planejamento = {

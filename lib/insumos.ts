@@ -1,5 +1,9 @@
 export type InsumoLancamento = {
+  insumo_id?: string;
+  id?: string;
+  codigo?: string | null;
   nome: string;
+  unidade?: string | null;
   quantidade: number;
 };
 
@@ -49,6 +53,26 @@ export const INSUMOS_CATALOGO: InsumoCatalogItem[] = [
   { nome: "SUZA", grupo: "Clone" },
 ];
 
+export type InsumoEstoqueItem = {
+  id: string;
+  codigo: string | null;
+  nome: string;
+  grupo: string;
+  unidade: string;
+  saldo_atual: number;
+  estoque_minimo: number;
+  ativo: boolean;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type ControlledInsumoPayload = {
+  insumo_id: string;
+  quantidade: number;
+};
+
+const INSUMOS_CACHE_KEY = "gn:insumos-cache:v1";
+
 function catalogKey(value: string) {
   return value
     .normalize("NFD")
@@ -87,17 +111,97 @@ export function normalizeInsumoInput(input: unknown) {
 export function sanitizeInsumos(input: unknown): InsumoLancamento[] {
   if (!Array.isArray(input)) return [];
 
-  return input
-    .map((item) => {
-      if (!item || typeof item !== "object") return null;
-      const record = item as Record<string, unknown>;
-      const nome = normalizeInsumoInput(record.nome);
-      const quantidade = Number(record.quantidade ?? 0);
-      if (!nome || !Number.isFinite(quantidade) || quantidade <= 0) return null;
-      return { nome, quantidade };
-    })
-    .filter((item): item is InsumoLancamento => item !== null)
-    .slice(0, 5);
+  const rows: InsumoLancamento[] = [];
+  for (const item of input) {
+    if (!item || typeof item !== "object") continue;
+    const record = item as Record<string, unknown>;
+    const nome = normalizeInsumoInput(record.nome);
+    const quantidade = Number(record.quantidade ?? 0);
+    if (!nome || !Number.isFinite(quantidade) || quantidade <= 0) continue;
+    rows.push({
+      insumo_id: typeof record.insumo_id === "string" ? record.insumo_id : undefined,
+      id: typeof record.id === "string" ? record.id : undefined,
+      codigo: record.codigo == null ? null : String(record.codigo),
+      nome,
+      unidade: record.unidade == null ? null : String(record.unidade),
+      quantidade,
+    });
+  }
+
+  return rows.slice(0, 5);
+}
+
+export function sanitizeControlledInsumos(input: unknown): ControlledInsumoPayload[] {
+  if (!Array.isArray(input)) return [];
+
+  const totals = new Map<string, number>();
+  for (const item of input) {
+    if (!item || typeof item !== "object") continue;
+    const record = item as Record<string, unknown>;
+    const rawId = record.insumo_id ?? record.id;
+    const insumoId = typeof rawId === "string" ? rawId.trim() : "";
+    const quantidade = Number(record.quantidade ?? 0);
+    if (!insumoId || !Number.isFinite(quantidade) || quantidade <= 0) continue;
+    totals.set(insumoId, (totals.get(insumoId) ?? 0) + quantidade);
+  }
+
+  return Array.from(totals, ([insumo_id, quantidade]) => ({
+    insumo_id,
+    quantidade,
+  })).slice(0, 5);
+}
+
+export function hasOnlyControlledInsumos(input: unknown) {
+  if (!Array.isArray(input)) return true;
+  return input.every((item) => {
+    if (!item || typeof item !== "object") return true;
+    const record = item as Record<string, unknown>;
+    const quantidade = Number(record.quantidade ?? 0);
+    const hasQuantity = Number.isFinite(quantidade) && quantidade > 0;
+    if (!hasQuantity) return true;
+    return typeof record.insumo_id === "string" || typeof record.id === "string";
+  });
+}
+
+function normalizeCachedInsumo(item: unknown): InsumoEstoqueItem | null {
+  if (!item || typeof item !== "object" || Array.isArray(item)) return null;
+  const record = item as Record<string, unknown>;
+  const id = typeof record.id === "string" ? record.id : "";
+  const nome = typeof record.nome === "string" ? record.nome : "";
+  if (!id || !nome) return null;
+  return {
+    id,
+    codigo: record.codigo == null ? null : String(record.codigo),
+    nome,
+    grupo: typeof record.grupo === "string" ? record.grupo : "Operacional",
+    unidade: typeof record.unidade === "string" ? record.unidade : "un",
+    saldo_atual: Number(record.saldo_atual ?? 0),
+    estoque_minimo: Number(record.estoque_minimo ?? 0),
+    ativo: record.ativo !== false,
+    created_at: typeof record.created_at === "string" ? record.created_at : undefined,
+    updated_at: typeof record.updated_at === "string" ? record.updated_at : undefined,
+  };
+}
+
+export function readCachedInsumos(): InsumoEstoqueItem[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(INSUMOS_CACHE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map(normalizeCachedInsumo).filter((item): item is InsumoEstoqueItem => !!item);
+  } catch {
+    return [];
+  }
+}
+
+export function writeCachedInsumos(items: InsumoEstoqueItem[]) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(INSUMOS_CACHE_KEY, JSON.stringify(items));
+  } catch {
+    // O cache é apenas uma conveniência para operação offline.
+  }
 }
 
 export function optionalNumber(input: unknown): number | null {

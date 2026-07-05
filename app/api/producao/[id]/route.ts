@@ -5,11 +5,37 @@ import { createSupabaseServer } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getCurrentProfile } from "@/lib/auth";
 import { notifyApontamentosSheet } from "@/lib/google-sheets-apontamentos";
-import { optionalNumber, sanitizeInsumos } from "@/lib/insumos";
+import {
+  hasOnlyControlledInsumos,
+  optionalNumber,
+  sanitizeControlledInsumos,
+  sanitizeInsumos,
+} from "@/lib/insumos";
 import { syncPlanningProgressForProduction } from "@/lib/planning-progress";
 import { resolvePreset } from "@/lib/period";
 
 type Ctx = { params: Promise<{ id: string }> };
+
+type ProducaoRouteRow = {
+  registrado_por: string;
+  projeto_id: string | null;
+  talhao: string | null;
+  atividade_id: string;
+  data: string;
+  equipe_id: string;
+  quantidade: number | string;
+  descarte: number | string | null;
+  observacoes: string | null;
+  insumos: unknown;
+  estoque_controlado?: boolean;
+};
+
+type ProducaoSyncRow = {
+  projeto_id?: string | null;
+  talhao?: string | null;
+  atividade_id?: string | null;
+  estoque_controlado?: boolean;
+};
 
 export async function PATCH(req: NextRequest, ctx: Ctx) {
   const profile = await getCurrentProfile();
@@ -19,11 +45,15 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   const body = await req.json();
 
   const supabase = await createSupabaseServer();
-  const { data: anterior } = await supabase
+  const { data: anteriorRaw } = await supabase
     .from("producao")
-    .select("registrado_por, projeto_id, talhao, atividade_id, data, equipe_id")
+    .select(
+      "registrado_por, projeto_id, talhao, atividade_id, data, equipe_id, " +
+        "quantidade, descarte, observacoes, insumos, estoque_controlado"
+    )
     .eq("id", id)
     .maybeSingle();
+  const anterior = anteriorRaw as ProducaoRouteRow | null;
 
   if (!anterior) {
     return NextResponse.json({ error: "lançamento não encontrado" }, { status: 404 });
@@ -75,6 +105,72 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
       );
     }
   }
+
+  if (anterior.estoque_controlado === true) {
+    if (body.insumos !== undefined && !hasOnlyControlledInsumos(body.insumos)) {
+      return NextResponse.json(
+        { error: "Selecione apenas insumos cadastrados no estoque." },
+        { status: 400 }
+      );
+    }
+
+    const finalData = String(allowed.data ?? anterior.data);
+    const finalEquipeId = String(allowed.equipe_id ?? anterior.equipe_id);
+    const finalAtividadeId = String(allowed.atividade_id ?? anterior.atividade_id);
+    const finalProjetoId = String(allowed.projeto_id ?? anterior.projeto_id);
+    const finalTalhao = String(allowed.talhao ?? anterior.talhao ?? "").trim();
+    const finalQuantidade = Number(allowed.quantidade ?? anterior.quantidade);
+    const finalDescarte =
+      body.descarte !== undefined ? optionalNumber(body.descarte) : optionalNumber(anterior.descarte);
+    const finalObservacoes =
+      allowed.observacoes === undefined
+        ? anterior.observacoes ?? null
+        : allowed.observacoes == null || String(allowed.observacoes).trim() === ""
+        ? null
+        : String(allowed.observacoes);
+    const finalInsumos =
+      body.insumos !== undefined
+        ? sanitizeControlledInsumos(body.insumos)
+        : sanitizeControlledInsumos(anterior.insumos);
+
+    if (!finalEquipeId || !finalAtividadeId || !finalProjetoId || !finalTalhao || finalQuantidade <= 0) {
+      return NextResponse.json({ error: "campos obrigatórios faltando" }, { status: 400 });
+    }
+
+    const { data: rpcData, error } = await supabase.rpc("update_producao_with_stock", {
+      p_id: id,
+      p_data: finalData,
+      p_equipe_id: finalEquipeId,
+      p_atividade_id: finalAtividadeId,
+      p_projeto_id: finalProjetoId,
+      p_talhao: finalTalhao,
+      p_quantidade: finalQuantidade,
+      p_descarte: finalDescarte,
+      p_observacoes: finalObservacoes,
+      p_insumos: finalInsumos,
+    });
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    const data = (rpcData as {
+      item?: { id: string; projeto_id?: string | null; talhao?: string | null; atividade_id?: string | null };
+    } | null)?.item;
+    if (!data?.id) {
+      return NextResponse.json({ error: "Resposta inválida ao atualizar apontamento." }, { status: 500 });
+    }
+
+    const syncErrors = await Promise.all([
+      syncPlanningProgressForProduction(supabase, anterior),
+      syncPlanningProgressForProduction(supabase, data),
+    ]);
+    const sheetsSyncError = await notifyApontamentosSheet("editado", String(data.id));
+
+    return NextResponse.json({
+      item: data,
+      planejamento_sync_error: syncErrors.find(Boolean)?.message ?? null,
+      sheets_sync_error: sheetsSyncError,
+    });
+  }
+
   if (body.insumos !== undefined) allowed.insumos = sanitizeInsumos(body.insumos);
   if (body.descarte !== undefined) allowed.descarte = optionalNumber(body.descarte);
   if (body.atividade_id !== undefined && body.atividade_id !== anterior.atividade_id) {
@@ -129,13 +225,21 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
   }
   const { id } = await ctx.params;
   const supabase = await createSupabaseServer();
-  const { data: anterior } = await supabase
+  const { data: anteriorRaw } = await supabase
     .from("producao")
-    .select("projeto_id, talhao, atividade_id")
+    .select("projeto_id, talhao, atividade_id, estoque_controlado")
     .eq("id", id)
     .maybeSingle();
-  const { error } = await supabase.from("producao").delete().eq("id", id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  const anterior = anteriorRaw as ProducaoSyncRow | null;
+
+  if (anterior?.estoque_controlado === true) {
+    const { error } = await supabase.rpc("delete_producao_with_stock", { p_id: id });
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  } else {
+    const { error } = await supabase.from("producao").delete().eq("id", id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+
   const syncError = await syncPlanningProgressForProduction(supabase, anterior);
   const sheetsSyncError = await notifyApontamentosSheet("excluido", id);
   return NextResponse.json({
