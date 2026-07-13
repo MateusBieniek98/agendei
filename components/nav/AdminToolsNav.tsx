@@ -12,10 +12,9 @@ type AdminToolItem = {
 
 const ADMIN_TOOLS: AdminToolItem[] = [
   { href: "/admin", label: "Dashboard", icon: <DashboardIcon /> },
-  { href: "/admin/automacoes", label: "Automações", icon: <AutomationIcon /> },
+  { href: "/admin/insumos", label: "Insumos", icon: <PackageIcon /> },
   { href: "/admin/lancamentos", label: "Lançamentos", icon: <ListIcon /> },
   { href: "/admin/atividades", label: "Serviços", icon: <TagIcon /> },
-  { href: "/admin/insumos", label: "Insumos", icon: <PackageIcon /> },
   { href: "/admin/equipes", label: "Cad. equipes", icon: <UsersIcon /> },
   { href: "/admin/projetos", label: "Projetos", icon: <MapIcon /> },
   { href: "/admin/maquinas", label: "Frota", icon: <CogIcon /> },
@@ -23,6 +22,7 @@ const ADMIN_TOOLS: AdminToolItem[] = [
   { href: "/admin/metas", label: "Metas", icon: <TargetIcon /> },
   { href: "/admin/usuarios", label: "Usuários", icon: <UserIcon /> },
   { href: "/admin/entrada", label: "Entrada", icon: <TextIcon /> },
+  { href: "/admin/automacoes", label: "Automações", icon: <AutomationIcon /> },
 ];
 
 export default function AdminToolsNav() {
@@ -34,7 +34,7 @@ export default function AdminToolsNav() {
       className="border-b"
       style={{ background: "var(--bg-elevated)", borderColor: "var(--border)" }}
     >
-      <div className="scrollbar-none mx-auto flex max-w-7xl gap-1 overflow-x-auto px-3 py-2 sm:px-4 md:px-6">
+      <div className="scrollbar-none mx-auto flex max-w-7xl gap-1 overflow-x-auto px-3 py-2 sm:flex-wrap sm:overflow-x-visible sm:px-4 md:px-6">
         {ADMIN_TOOLS.map((item) => {
           const active =
             item.href === "/admin"
