@@ -7,7 +7,8 @@
 
 -- ───── extensões ────────────────────────────────────────────────────────
 create extension if not exists pgcrypto;
-create extension if not exists unaccent;
+create schema if not exists extensions;
+create extension if not exists unaccent with schema extensions;
 
 -- ───── tipos enumerados ─────────────────────────────────────────────────
 do $$ begin
@@ -112,13 +113,13 @@ with atividades_source as (
     a.valor_unitario,
     coalesce(
       nullif(a.service_key, ''),
-      'srv-' || coalesce(nullif(trim(both '-' from regexp_replace(lower(unaccent(a.nome)), '[^a-z0-9]+', '-', 'g')), ''), a.id::text)
+      'srv-' || coalesce(nullif(trim(both '-' from regexp_replace(lower(extensions.unaccent(a.nome)), '[^a-z0-9]+', '-', 'g')), ''), a.id::text)
     ) as service_key
   from public.atividades a
   order by
     coalesce(
       nullif(a.service_key, ''),
-      'srv-' || coalesce(nullif(trim(both '-' from regexp_replace(lower(unaccent(a.nome)), '[^a-z0-9]+', '-', 'g')), ''), a.id::text)
+      'srv-' || coalesce(nullif(trim(both '-' from regexp_replace(lower(extensions.unaccent(a.nome)), '[^a-z0-9]+', '-', 'g')), ''), a.id::text)
     ),
     a.created_at,
     a.id
@@ -170,7 +171,7 @@ from (
     id,
     coalesce(
       nullif(service_key, ''),
-      'srv-' || coalesce(nullif(trim(both '-' from regexp_replace(lower(unaccent(nome)), '[^a-z0-9]+', '-', 'g')), ''), id::text)
+      'srv-' || coalesce(nullif(trim(both '-' from regexp_replace(lower(extensions.unaccent(nome)), '[^a-z0-9]+', '-', 'g')), ''), id::text)
     ) as service_key
   from public.atividades
 ) s
@@ -480,8 +481,8 @@ as $$
   select role from public.profiles where id = auth.uid();
 $$;
 
-revoke all on function public.current_role() from public;
-grant execute on function public.current_role() to anon, authenticated, service_role;
+revoke all on function public.current_role() from public, anon, authenticated;
+grant execute on function public.current_role() to authenticated, service_role;
 
 create or replace function public.set_machine_status(
   p_maquina_id uuid,
@@ -577,7 +578,7 @@ as $$
   select lower(
     trim(
       regexp_replace(
-        regexp_replace(unaccent(coalesce(p_value, '')), '[º°ª]', '', 'g'),
+        regexp_replace(extensions.unaccent(coalesce(p_value, '')), '[º°ª]', '', 'g'),
         '[[:space:]]+',
         ' ',
         'g'

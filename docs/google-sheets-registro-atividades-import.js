@@ -7,7 +7,8 @@
  * Controle de Producao GN
  *
  * Depois:
- * 1. Troque GN_SHARED_SYNC_TOKEN pelo mesmo valor configurado no Vercel.
+ * 1. Em Configuracoes do projeto -> Propriedades do script, crie
+ *    GN_SYNC_TOKEN com o mesmo valor configurado no Vercel.
  * 2. Rode importarRegistroAtividadesParaAppGN() uma vez.
  * 3. Autorize o script quando o Google pedir.
  * 4. Se quiser automatico, rode instalarAutomacaoCompletaGN().
@@ -17,10 +18,15 @@ const GN_IMPORT_SPREADSHEET_ID = '1KrTQYh1JkNCUj4UvgSZm4LCd58MFSAAzP0sdC1jMv9Y';
 const GN_IMPORT_SHEET_NAME = 'Registro de atividades';
 const GN_IMPORT_API_URL = 'https://agendei-rho.vercel.app/api/sync/google-sheets/registro-atividades';
 const GN_METADATA_API_URL = 'https://agendei-rho.vercel.app/api/sync/metadata';
-const GN_SHARED_SYNC_TOKEN = 'COLE_AQUI_O_SHARED_SYNC_TOKEN';
 const GN_ID_HEADER = 'GN App ID';
 const GN_STATUS_HEADER = 'GN Sync Status';
 const GN_BATCH_SIZE = 25;
+
+function obterTokenImportacaoGN_() {
+  const token = PropertiesService.getScriptProperties().getProperty('GN_SYNC_TOKEN');
+  if (!token) throw new Error('Configure GN_SYNC_TOKEN nas Propriedades do script.');
+  return token;
+}
 
 function onOpen() {
   SpreadsheetApp.getUi()
@@ -140,7 +146,7 @@ function enviarLoteRegistroAtividadesGN(headers, rows, dryRun) {
     contentType: 'application/json',
     muteHttpExceptions: true,
     headers: {
-      Authorization: `Bearer ${GN_SHARED_SYNC_TOKEN}`,
+      Authorization: `Bearer ${obterTokenImportacaoGN_()}`,
     },
     payload: JSON.stringify({
       spreadsheetName: 'Controle de Producao GN',
@@ -225,7 +231,7 @@ function testarConexaoImportacaoRegistroAtividadesGN() {
     contentType: 'application/json',
     muteHttpExceptions: true,
     headers: {
-      Authorization: `Bearer ${GN_SHARED_SYNC_TOKEN}`,
+      Authorization: `Bearer ${obterTokenImportacaoGN_()}`,
     },
     payload: JSON.stringify({
       spreadsheetName: 'Controle de Producao GN',
@@ -267,7 +273,7 @@ function enviarMetadataServicosGN(sheetName, headers, rows, editedRange) {
     contentType: 'application/json',
     muteHttpExceptions: true,
     headers: {
-      Authorization: `Bearer ${GN_SHARED_SYNC_TOKEN}`,
+      Authorization: `Bearer ${obterTokenImportacaoGN_()}`,
     },
     payload: JSON.stringify({
       spreadsheetName: 'Controle de Producao GN',

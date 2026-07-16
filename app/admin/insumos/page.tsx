@@ -156,6 +156,10 @@ export default function AdminInsumosPage() {
   }, [items, busca, statusFiltro]);
 
   const visiveis = visibleItems(filtradas, expandida, 25);
+  const estoqueAindaNaoInicializado =
+    !loading &&
+    items.some((item) => item.ativo) &&
+    items.filter((item) => item.ativo).every((item) => Number(item.saldo_atual) === 0);
 
   return (
     <div className="space-y-4">
@@ -181,6 +185,15 @@ export default function AdminInsumosPage() {
           </Button>
         }
       />
+
+      {estoqueAindaNaoInicializado && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
+          <p className="font-bold">Estoque inicial ainda não informado</p>
+          <p className="mt-1">
+            Todos os insumos ativos estão zerados. Registre uma entrada ou ajuste com o saldo físico real antes de usar o controle nos próximos apontamentos.
+          </p>
+        </div>
+      )}
 
       <Card>
         <div className="border-b border-[var(--border)] p-4">

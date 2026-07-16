@@ -52,7 +52,7 @@ components/
   nav/                    BottomNav, Sidebar, TopBar, LogoutButton
 
 lib/
-  db/schema.sql           DDL completo (tabelas, RLS, views, triggers)
+  db/schema.sql           Bootstrap legado (base anterior às migrations)
   db/seed.sql             Dados mockados para dev
   supabase/client.ts      Browser client
   supabase/server.ts      Server client (cookies)
@@ -61,6 +61,8 @@ lib/
   integrations/           Google Sheets, Power BI, webhooks
   types.ts                Tipos compartilhados
 
+supabase/migrations/      Evolução versionada do banco de produção
+tests/                    Testes unitários Vitest
 proxy.ts                  Proxy do Next.js 16 (refresh sessão + guard)
 ```
 
@@ -81,15 +83,20 @@ cp .env.local.example .env.local
 Preencha as variáveis com seu projeto Supabase
 (Project Settings → API → URL + anon public).
 
-### 2. Crie o schema no Supabase
+### 2. Crie o banco local
 
-No painel do Supabase → **SQL Editor** → cole e rode:
+Para um ambiente vazio, use `lib/db/schema.sql` apenas como bootstrap legado,
+carregue o seed opcional e aplique as migrations de `supabase/migrations/` em
+ordem. O banco de produção deve evoluir somente por migrations versionadas.
+
+No SQL Editor, o primeiro arquivo é:
 
 ```
 lib/db/schema.sql
 ```
 
-(idempotente — pode rodar várias vezes)
+Depois siga [docs/DATABASE_MIGRATIONS.md](docs/DATABASE_MIGRATIONS.md). O
+`schema.sql` não substitui o histórico de migrations.
 
 ### 3. Crie os 3 usuários de teste
 
@@ -143,6 +150,9 @@ Abra http://localhost:3000 → faça login com qualquer um dos 3 usuários.
     abre manutenções
   - admin: leitura/escrita total
   - gestor: leitura
+- **Estoque controlado para frente**: lançamentos novos usam RPCs transacionais
+  no Supabase para baixar/estornar saldo. O histórico legado continua legível e
+  não é reescrito.
 
 ## Auditoria
 
@@ -185,6 +195,37 @@ Para a sincronização automática com Google Sheets, configure também:
 
 - `SUPABASE_SERVICE_ROLE_KEY` — chave service role do projeto Supabase.
 - `SHARED_SYNC_TOKEN` — token secreto único compartilhado com o Apps Script.
+- `GOOGLE_SHEETS_APONTAMENTOS_WEBHOOK_URL` — URL publicada do Apps Script,
+  obrigatoriamente terminando em `/exec`.
+- `CRON_SECRET` — token usado pela Vercel para autenticar o reprocessamento
+  diário da fila em `/api/sync/google-sheets/apontamentos/retry`.
+
+O cron de `vercel.json` roda diariamente às 09:00 UTC. A publicação correta do
+Apps Script continua sendo necessária; respostas HTTP 404 permanecem na fila
+com tentativa e erro registrados.
+
+Nos projetos do Apps Script, salve o token em **Configurações do projeto →
+Propriedades do script** com o nome `GN_SYNC_TOKEN`. Os scripts em `docs/` não
+contêm mais segredos em texto. Se um token já tiver sido versionado, atualize a
+propriedade, rotacione o valor correspondente na Vercel e publique uma nova
+versão do Web App antes de reprocessar a fila.
+
+## Qualidade
+
+Antes de publicar, rode o gate completo:
+
+```bash
+npm run check
+git diff --check
+```
+
+O mesmo conjunto (lint, TypeScript, Vitest e build) roda em
+`.github/workflows/ci.yml`. O build não ignora mais erros de TypeScript.
+
+Consulte também:
+
+- [Migrations do banco](docs/DATABASE_MIGRATIONS.md)
+- [Rollout do estoque](docs/ESTOQUE_ROLLOUT.md)
 
 ## Licença
 

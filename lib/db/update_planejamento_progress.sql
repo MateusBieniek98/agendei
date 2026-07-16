@@ -7,7 +7,8 @@
 -- - O projeto ignora apenas sufixos contratuais finais como "- SRP", "- RRP" e "- CPG".
 --   Ex.: "Água Limpa" casa com "Água Limpa - SRP".
 
-create extension if not exists unaccent;
+create schema if not exists extensions;
+create extension if not exists unaccent with schema extensions;
 
 create index if not exists idx_producao_planejamento_chave
   on public.producao (projeto_id, atividade_id, lower(trim(talhao)));
@@ -24,7 +25,7 @@ as $$
   select lower(
     trim(
       regexp_replace(
-        regexp_replace(unaccent(coalesce(p_value, '')), '[º°ª]', '', 'g'),
+        regexp_replace(extensions.unaccent(coalesce(p_value, '')), '[º°ª]', '', 'g'),
         '[[:space:]]+',
         ' ',
         'g'

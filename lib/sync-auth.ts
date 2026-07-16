@@ -27,6 +27,12 @@ export function isAuthorizedSyncRequest(req: NextRequest) {
   return configuredSyncTokens().includes(token);
 }
 
+export function isAuthorizedCronRequest(req: NextRequest) {
+  const cronSecret = process.env.CRON_SECRET?.trim();
+  if (!cronSecret) return false;
+  return req.headers.get("authorization") === `Bearer ${cronSecret}`;
+}
+
 export function syncTokenMissingMessage() {
   return "Token de sincronizacao nao configurado no servidor. Configure SHARED_SYNC_TOKEN ou GOOGLE_SHEETS_SYNC_TOKEN no Vercel.";
 }

@@ -8,7 +8,8 @@
  * 2. Vá em Extensões → Apps Script.
  * 3. Cole TODO este código no editor (substitua qualquer código existente OU
  *    crie um novo arquivo .gs).
- * 4. Troque GN_SHARED_SYNC_TOKEN pelo token configurado no Vercel.
+ * 4. Em Configurações do projeto → Propriedades do script, crie
+ *    GN_SYNC_TOKEN com o token configurado no Vercel.
  * 5. Ajuste GN_PLAN_ABA_PRINCIPAL com o nome exato da aba de planejamento.
  * 6. Verifique GN_PLAN_ANO e GN_PLAN_MES (ou deixe 0 para detectar automático).
  * 7. Rode instalarSyncPlanejamentoGN() UMA VEZ para instalar os triggers.
@@ -20,8 +21,11 @@
 
 // ─── CONFIGURAÇÃO ──────────────────────────────────────────────────────────────
 
-/** Token idêntico ao SHARED_SYNC_TOKEN configurado no Vercel/Railway. */
-const GN_PLAN_SYNC_TOKEN = 'gn-sync-2026-secreto';
+function _tokenPlanejamentoGN_() {
+  const token = PropertiesService.getScriptProperties().getProperty('GN_SYNC_TOKEN');
+  if (!token) throw new Error('Configure GN_SYNC_TOKEN nas Propriedades do script.');
+  return token;
+}
 
 /** URL base do app em produção. */
 const GN_PLAN_APP_URL = 'https://agendei-rho.vercel.app';
@@ -283,7 +287,7 @@ function _chamarApiPlan_(url, payload) {
       contentType: 'application/json',
       muteHttpExceptions: true,
       headers: {
-        Authorization: 'Bearer ' + GN_PLAN_SYNC_TOKEN,
+        Authorization: 'Bearer ' + _tokenPlanejamentoGN_(),
       },
       payload: JSON.stringify(payload),
     });

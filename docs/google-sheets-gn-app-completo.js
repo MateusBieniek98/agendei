@@ -11,9 +11,9 @@
  * - A coluna "GN Source ID" evita apontamentos duplicados no app.
  * - A coluna "GN Sync Status" marca o que já foi enviado.
  * - O endpoint do app também usa upsert por chave de origem.
+ * - Configure GN_SYNC_TOKEN em Configurações do projeto → Propriedades do
+ *   script. Nunca grave o token neste arquivo.
  */
-
-const GN_SYNC_TOKEN = 'gn-sync-2026-mateus-app-planilha';
 
 const GN_APP_BASE_URL = 'https://agendei-rho.vercel.app';
 const GN_IMPORT_SHEET_NAME = 'Registro de atividades';
@@ -22,6 +22,12 @@ const GN_LOG_SHEET_NAME = 'GN Logs';
 
 const GN_SOURCE_ID_HEADER = 'GN Source ID';
 const GN_STATUS_HEADER = 'GN Sync Status';
+
+function obterSyncTokenGN_() {
+  const token = PropertiesService.getScriptProperties().getProperty('GN_SYNC_TOKEN');
+  if (!token) throw new Error('Configure GN_SYNC_TOKEN nas Propriedades do script.');
+  return token;
+}
 
 const GN_IMPORT_API_URL = GN_APP_BASE_URL + '/api/sync/google-sheets/registro-atividades';
 const GN_EXPORT_API_URL = GN_APP_BASE_URL + '/api/sync/google-sheets/apontamentos?escopo=tudo';
@@ -59,7 +65,7 @@ function doPost(e) {
       : {};
     const token = String(body.token || (e && e.parameter && e.parameter.token) || '').trim();
 
-    if (token !== GN_SYNC_TOKEN) {
+    if (token !== obterSyncTokenGN_()) {
       escreverLogGN('Webhook recusado: token inválido.');
       return criarJsonGN_({ ok: false, error: 'unauthorized' });
     }
@@ -271,7 +277,7 @@ function testeConexaoGN() {
     const apontamentos = UrlFetchApp.fetch(GN_EXPORT_API_URL, {
       method: 'get',
       muteHttpExceptions: true,
-      headers: { Authorization: 'Bearer ' + GN_SYNC_TOKEN }
+      headers: { Authorization: 'Bearer ' + obterSyncTokenGN_() }
     });
     escreverLogGN(
       'Teste apontamentos: Status ' +
@@ -318,7 +324,7 @@ function chamarApiGN_(url, method, payload) {
   const options = {
     method: method,
     muteHttpExceptions: true,
-    headers: { Authorization: 'Bearer ' + GN_SYNC_TOKEN }
+    headers: { Authorization: 'Bearer ' + obterSyncTokenGN_() }
   };
 
   if (payload !== undefined) {

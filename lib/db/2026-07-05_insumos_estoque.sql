@@ -530,19 +530,19 @@ begin
 end;
 $$;
 
-revoke all on function public.registrar_movimentacao_insumo(uuid, text, numeric, text) from public;
-revoke all on function public.validate_and_lock_insumos(jsonb) from public;
-revoke all on function public.baixar_insumos_apontamento(uuid, jsonb, uuid) from public;
-revoke all on function public.estornar_insumos_apontamento(uuid, jsonb, uuid) from public;
-revoke all on function public.can_edit_producao_controlada(public.profiles, public.producao) from public;
-revoke all on function public.create_producao_with_stock(date, uuid, uuid, uuid, text, numeric, numeric, text, jsonb, text, text) from public;
-revoke all on function public.update_producao_with_stock(uuid, date, uuid, uuid, uuid, text, numeric, numeric, text, jsonb) from public;
-revoke all on function public.delete_producao_with_stock(uuid) from public;
+revoke all on function public.registrar_movimentacao_insumo(uuid, text, numeric, text) from public, anon, authenticated;
+revoke all on function public.validate_and_lock_insumos(jsonb) from public, anon, authenticated;
+revoke all on function public.baixar_insumos_apontamento(uuid, jsonb, uuid) from public, anon, authenticated;
+revoke all on function public.estornar_insumos_apontamento(uuid, jsonb, uuid) from public, anon, authenticated;
+revoke all on function public.can_edit_producao_controlada(public.profiles, public.producao) from public, anon, authenticated;
+revoke all on function public.create_producao_with_stock(date, uuid, uuid, uuid, text, numeric, numeric, text, jsonb, text, text) from public, anon, authenticated;
+revoke all on function public.update_producao_with_stock(uuid, date, uuid, uuid, uuid, text, numeric, numeric, text, jsonb) from public, anon, authenticated;
+revoke all on function public.delete_producao_with_stock(uuid) from public, anon, authenticated;
 
-grant execute on function public.registrar_movimentacao_insumo(uuid, text, numeric, text) to authenticated;
-grant execute on function public.create_producao_with_stock(date, uuid, uuid, uuid, text, numeric, numeric, text, jsonb, text, text) to authenticated;
-grant execute on function public.update_producao_with_stock(uuid, date, uuid, uuid, uuid, text, numeric, numeric, text, jsonb) to authenticated;
-grant execute on function public.delete_producao_with_stock(uuid) to authenticated;
+grant execute on function public.registrar_movimentacao_insumo(uuid, text, numeric, text) to authenticated, service_role;
+grant execute on function public.create_producao_with_stock(date, uuid, uuid, uuid, text, numeric, numeric, text, jsonb, text, text) to authenticated, service_role;
+grant execute on function public.update_producao_with_stock(uuid, date, uuid, uuid, uuid, text, numeric, numeric, text, jsonb) to authenticated, service_role;
+grant execute on function public.delete_producao_with_stock(uuid) to authenticated, service_role;
 
 with src(codigo, nome, grupo, unidade) as (
   values

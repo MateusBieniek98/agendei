@@ -5,12 +5,14 @@ silvicultura da GN**, não apenas refinamentos genéricos.
 
 ## Curto prazo (próximos sprints)
 
-### 1. PWA offline-first robusto
-Hoje há um fallback rudimentar com `localStorage`. Evoluir para:
-- Service Worker com **Workbox** para cachear assets e API
-- Background Sync para reenviar lançamentos quando voltar a conexão
-- IndexedDB para fila de operações pendentes
-- Indicador visual claro de "offline / sincronizando / sincronizado"
+### 1. PWA offline-first — base entregue, robustez em evolução
+A operação de campo já possui Service Worker, fila em IndexedDB, cache local do
+catálogo de insumos e estados visuais de conectividade/sincronização. Próximos
+passos opcionais:
+- migrar a manutenção manual do Service Worker para **Workbox**
+- avaliar Background Sync nativo nos aparelhos suportados
+- adicionar testes de interrupção de rede e conflitos de sincronização
+- manter o servidor como autoridade final para estoque e idempotência
 
 ### 2. Foto de comprovação por lançamento
 Encarregado pode anexar 1–3 fotos no momento do registro. Storage no
@@ -25,10 +27,10 @@ permite:
 - Mostrar no admin um pin do local em mapa (Leaflet + tiles abertos)
 - Identificar "pingos fora" (lançamentos suspeitos)
 
-### 4. App nativo (React Native + Expo)
-Reaproveita o backend Supabase. Ganha câmera nativa, GPS contínuo,
-push notifications, e funcionamento offline mais previsível em
-celulares Android antigos. Mantém uma única base de schema/auth.
+### 4. Wrapper nativo Capacitor — base entregue
+Android e iOS já usam Capacitor e reaproveitam o app atual. Evoluções futuras
+podem adicionar câmera, GPS contínuo e push nativos sem criar uma segunda base
+React Native/Expo.
 
 ## Médio prazo
 
@@ -107,7 +109,7 @@ Tela específica para fechamento de folha:
 - **Busca global** (Ctrl+K) para encontrar lançamentos / máquinas / equipes
 - **Tema escuro** completo — operação noturna em alguns turnos
 - **Internacionalização** (PT-BR padrão; ES e EN para clientes futuros)
-- **Testes** — Playwright pra fluxos críticos de campo, Vitest pras
-  funções de cálculo de meta e faturamento
+- **Testes** — Vitest já cobre regras puras de estoque e calendário; ampliar
+  cobertura e adicionar Playwright aos fluxos críticos de campo
 - **Observability** — Sentry para erros + Posthog/Mixpanel para entender
   como o encarregado realmente usa em campo

@@ -2,7 +2,8 @@
 -- Rode este arquivo no SQL Editor do Supabase. Ele é idempotente.
 
 create extension if not exists pgcrypto;
-create extension if not exists unaccent;
+create schema if not exists extensions;
+create extension if not exists unaccent with schema extensions;
 
 create table if not exists public.services_metadata (
   id                 uuid primary key default gen_random_uuid(),
@@ -51,13 +52,13 @@ with atividades_source as (
     a.valor_unitario,
     coalesce(
       nullif(a.service_key, ''),
-      'srv-' || coalesce(nullif(trim(both '-' from regexp_replace(lower(unaccent(a.nome)), '[^a-z0-9]+', '-', 'g')), ''), a.id::text)
+      'srv-' || coalesce(nullif(trim(both '-' from regexp_replace(lower(extensions.unaccent(a.nome)), '[^a-z0-9]+', '-', 'g')), ''), a.id::text)
     ) as service_key
   from public.atividades a
   order by
     coalesce(
       nullif(a.service_key, ''),
-      'srv-' || coalesce(nullif(trim(both '-' from regexp_replace(lower(unaccent(a.nome)), '[^a-z0-9]+', '-', 'g')), ''), a.id::text)
+      'srv-' || coalesce(nullif(trim(both '-' from regexp_replace(lower(extensions.unaccent(a.nome)), '[^a-z0-9]+', '-', 'g')), ''), a.id::text)
     ),
     a.created_at,
     a.id
@@ -109,7 +110,7 @@ from (
     id,
     coalesce(
       nullif(service_key, ''),
-      'srv-' || coalesce(nullif(trim(both '-' from regexp_replace(lower(unaccent(nome)), '[^a-z0-9]+', '-', 'g')), ''), id::text)
+      'srv-' || coalesce(nullif(trim(both '-' from regexp_replace(lower(extensions.unaccent(nome)), '[^a-z0-9]+', '-', 'g')), ''), id::text)
     ) as service_key
   from public.atividades
 ) s

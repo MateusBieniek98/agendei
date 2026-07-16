@@ -8,7 +8,8 @@
  * 2. Vá em Extensões → Apps Script.
  * 3. Cole TODO este código no editor (substitua qualquer código existente OU
  *    crie um novo arquivo .gs e cole aqui).
- * 4. Troque GN_SHARED_SYNC_TOKEN pelo token configurado no Vercel.
+ * 4. Em Configurações do projeto → Propriedades do script, crie
+ *    GN_SYNC_TOKEN com o token configurado no Vercel.
  * 5. Ajuste GN_ABA_SERVICOS e GN_ABA_PROJETOS com os nomes exatos das abas.
  * 6. Rode instalarSyncControleProducaoGN() UMA VEZ para instalar os triggers.
  * 7. Autorize o script quando o Google pedir.
@@ -19,8 +20,11 @@
 
 // ─── CONFIGURAÇÃO ──────────────────────────────────────────────────────────────
 
-/** Token idêntico ao SHARED_SYNC_TOKEN configurado no Vercel/Railway. */
-const GN_CP_SYNC_TOKEN = 'gn-sync-2026-secreto';
+function _tokenControleProducao_() {
+  const token = PropertiesService.getScriptProperties().getProperty('GN_SYNC_TOKEN');
+  if (!token) throw new Error('Configure GN_SYNC_TOKEN nas Propriedades do script.');
+  return token;
+}
 
 /** URL base do app em produção. */
 const GN_CP_APP_URL = 'https://agendei-rho.vercel.app';
@@ -240,7 +244,7 @@ function _chamarApi_(url, method, payload) {
       contentType: 'application/json',
       muteHttpExceptions: true,
       headers: {
-        Authorization: 'Bearer ' + GN_CP_SYNC_TOKEN,
+        Authorization: 'Bearer ' + _tokenControleProducao_(),
       },
       payload: JSON.stringify(payload),
     });

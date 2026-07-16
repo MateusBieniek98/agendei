@@ -93,6 +93,16 @@ function formatWebhookFailure(status: number, text: string) {
   }`;
 }
 
+export function isWebhookConfigurationError(message: string) {
+  return [
+    "Webhook da planilha nao configurado.",
+    "Token de sincronizacao da planilha nao configurado.",
+    "URL de webhook invalida",
+    "O Google retornou uma pagina HTML em vez de JSON.",
+    "Apps Script respondeu, mas nao retornou JSON valido.",
+  ].some((fragment) => message.includes(fragment));
+}
+
 function configuredWebhookUrl() {
   return (
     process.env.GOOGLE_SHEETS_APONTAMENTOS_WEBHOOK_URL?.trim() ||
@@ -214,13 +224,23 @@ export async function retryPendingApontamentosSheetSyncJobs(limit = 25) {
 
   let enviados = 0;
   let falhas = 0;
+  let processados = 0;
+  const deadline = Date.now() + 50_000;
 
   for (const job of jobs) {
+    if (Date.now() >= deadline) break;
+
     const attempts = Number(job.attempts ?? 0) + 1;
-    await supabase
+    const { data: lockedJob, error: lockError } = await supabase
       .from("sync_jobs")
       .update({ status: "processando", attempts, locked_at: new Date().toISOString() })
-      .eq("id", job.id);
+      .eq("id", job.id)
+      .in("status", ["pendente", "erro"])
+      .select("id")
+      .maybeSingle();
+
+    if (lockError || !lockedJob) continue;
+    processados += 1;
 
     const sendError = await sendApontamentosSheetWebhook(job.payload, 5000);
     if (!sendError) {
@@ -238,6 +258,21 @@ export async function retryPendingApontamentosSheetSyncJobs(limit = 25) {
     }
 
     falhas += 1;
+    if (isWebhookConfigurationError(sendError)) {
+      await supabase
+        .from("sync_jobs")
+        .update({
+          status: "pendente",
+          attempts: Number(job.attempts ?? 0),
+          last_error: sendError,
+          locked_at: null,
+          scheduled_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", job.id);
+      continue;
+    }
+
     const maxAttempts = Number(job.max_attempts ?? 8);
     const delayMinutes = Math.min(60, 2 ** Math.min(attempts, 6));
     const scheduledAt = new Date(Date.now() + delayMinutes * 60 * 1000).toISOString();
@@ -256,8 +291,10 @@ export async function retryPendingApontamentosSheetSyncJobs(limit = 25) {
 
   return {
     ok: falhas === 0,
-    total: jobs.length,
+    total: processados,
+    selecionados: jobs.length,
     enviados,
     falhas,
+    adiados: jobs.length - processados,
   };
 }

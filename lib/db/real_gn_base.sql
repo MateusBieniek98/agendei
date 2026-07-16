@@ -20,8 +20,8 @@ as $$
   select role from public.profiles where id = auth.uid();
 $$;
 
-revoke all on function public.current_role() from public;
-grant execute on function public.current_role() to anon, authenticated, service_role;
+revoke all on function public.current_role() from public, anon, authenticated;
+grant execute on function public.current_role() to authenticated, service_role;
 
 delete from public.profiles p
 where p.email in ('encarregado@gn.local', 'admin@gn.local', 'gestor@gn.local')

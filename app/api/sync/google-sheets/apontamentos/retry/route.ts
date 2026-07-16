@@ -2,19 +2,29 @@ import { NextResponse, type NextRequest } from "next/server";
 import { retryPendingApontamentosSheetSyncJobs } from "@/lib/google-sheets-apontamentos";
 import {
   configuredSyncTokens,
+  isAuthorizedCronRequest,
   isAuthorizedSyncRequest,
   syncTokenMissingMessage,
 } from "@/lib/sync-auth";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 async function handle(req: NextRequest) {
-  if (configuredSyncTokens().length === 0) {
-    return NextResponse.json({ error: syncTokenMissingMessage() }, { status: 500 });
+  const hasSyncToken = configuredSyncTokens().length > 0;
+  const hasCronSecret = Boolean(process.env.CRON_SECRET?.trim());
+
+  if (!hasSyncToken && !hasCronSecret) {
+    return NextResponse.json(
+      {
+        error: `${syncTokenMissingMessage()} Configure tambem CRON_SECRET para o agendamento da Vercel.`,
+      },
+      { status: 500 }
+    );
   }
 
-  if (!isAuthorizedSyncRequest(req)) {
+  if (!isAuthorizedSyncRequest(req) && !isAuthorizedCronRequest(req)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 

@@ -3,9 +3,10 @@
  * Planilha: Controle de Produção GN
  *
  * v2 — detecta automaticamente a linha de cabeçalho e loga diagnóstico.
+ * Configure GN_SYNC_TOKEN em Configurações do projeto → Propriedades do
+ * script. Nunca grave o token neste arquivo.
  */
 
-const GN_RA_SYNC_TOKEN   = 'gn-sync-2026-secreto';
 const GN_RA_APP_URL      = 'https://agendei-rho.vercel.app';
 const GN_RA_ABA          = 'Registro de atividades';
 const GN_RA_MAX_LINHAS   = 2000;
@@ -13,6 +14,12 @@ const GN_RA_MAX_LINHAS   = 2000;
 // Palavras-chave usadas para detectar a linha de cabeçalho
 // (qualquer coluna que contenha uma dessas palavras conta)
 var GN_RA_PALAVRAS_CABECALHO = ['data', 'serviço', 'servico', 'atividade', 'projeto', 'fazenda', 'talhão', 'talhao'];
+
+function _tokenRegistroAtividades_() {
+  var token = PropertiesService.getScriptProperties().getProperty('GN_SYNC_TOKEN');
+  if (!token) throw new Error('Configure GN_SYNC_TOKEN nas Propriedades do script.');
+  return token;
+}
 
 // ─── FUNÇÕES PÚBLICAS ──────────────────────────────────────────────────────────
 
@@ -223,7 +230,7 @@ function _post_(url, payload) {
   try {
     var res  = UrlFetchApp.fetch(url, {
       method: 'post', contentType: 'application/json', muteHttpExceptions: true,
-      headers: { Authorization: 'Bearer ' + GN_RA_SYNC_TOKEN },
+      headers: { Authorization: 'Bearer ' + _tokenRegistroAtividades_() },
       payload: JSON.stringify(payload),
     });
     var code = res.getResponseCode();

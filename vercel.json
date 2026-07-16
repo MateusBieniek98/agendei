@@ -14,5 +14,11 @@
         { "key": "X-Robots-Tag", "value": "noindex" }
       ]
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/sync/google-sheets/apontamentos/retry?limit=25",
+      "schedule": "0 9 * * *"
+    }
   ]
 }

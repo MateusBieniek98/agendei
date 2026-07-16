@@ -1,9 +1,7 @@
 import type { NextConfig } from "next";
 
-// Configuração mínima. Em Next.js 16 a opção `eslint` foi removida
-// daqui — lint agora roda separadamente via `npm run lint`.
-const nextConfig = {
-  typescript: { ignoreBuildErrors: true },
-} as NextConfig;
+// Em Next.js 16 o lint roda separadamente. Erros de TypeScript continuam
+// bloqueando o build para evitar publicar uma versão inconsistente.
+const nextConfig: NextConfig = {};
 
 export default nextConfig;

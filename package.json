@@ -8,6 +8,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "typecheck": "tsc --noEmit --pretty false",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "npm run lint && npm run typecheck && npm run test && npm run build",
     "apk:add": "npx cap add android",
     "apk:sync": "npx cap sync android",
     "apk:open": "npx cap open android",
@@ -16,20 +20,19 @@
     "ios:sync": "npx cap sync ios",
     "ios:open": "npx cap open ios",
     "ios:build:sim": "npm run ios:sync && xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug -sdk iphonesimulator CODE_SIGNING_ALLOWED=NO build",
-    "db:reset": "echo 'Rode lib/db/schema.sql e lib/db/seed.sql no SQL editor do Supabase'"
+    "db:reset": "echo 'Ambiente local: aplique lib/db/schema.sql, lib/db/seed.sql e depois supabase/migrations em ordem'"
   },
   "dependencies": {
-    "@capacitor/android": "^8.3.4",
-    "@capacitor/cli": "^8.3.4",
-    "@capacitor/core": "^8.3.4",
-    "@capacitor/ios": "^8.3.4",
-    "@supabase/auth-helpers-nextjs": "^0.15.0",
-    "@supabase/ssr": "^0.10.2",
-    "@supabase/supabase-js": "^2.103.0",
+    "@capacitor/android": "^8.4.2",
+    "@capacitor/cli": "^8.4.2",
+    "@capacitor/core": "^8.4.2",
+    "@capacitor/ios": "^8.4.2",
+    "@supabase/ssr": "^0.10.3",
+    "@supabase/supabase-js": "^2.110.7",
     "exceljs": "^4.4.0",
-    "next": "16.2.3",
-    "react": "19.2.4",
-    "react-dom": "19.2.4",
+    "next": "16.2.10",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
     "recharts": "^2.13.0"
   },
   "devDependencies": {
@@ -38,8 +41,9 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.2.3",
+    "eslint-config-next": "16.2.10",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.10"
   }
 }
