@@ -4,7 +4,7 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient, type Session } from "@supabase/supabase-js";
-import { defaultRouteForRole } from "@/lib/navigation";
+import { defaultRouteForRole, safeReturnPath } from "@/lib/navigation";
 import type { UserRole } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -25,12 +25,17 @@ export async function POST(req: NextRequest) {
   const email = String(form.get("email") ?? "").trim();
   const senha = String(form.get("senha") ?? "");
   const from = String(form.get("from") ?? "");
+  const returnPath = safeReturnPath(from);
+
+  function errorRedirect(code: "campos" | "credenciais" | "perfil") {
+    const url = new URL("/login", req.url);
+    url.searchParams.set("erro", code);
+    if (returnPath) url.searchParams.set("from", returnPath);
+    return NextResponse.redirect(url, { status: 303 });
+  }
 
   if (!email || !senha) {
-    return NextResponse.redirect(
-      new URL(`/login?erro=campos`, req.url),
-      { status: 303 }
-    );
+    return errorRedirect("campos");
   }
 
   const supabase = createClient(
@@ -51,10 +56,7 @@ export async function POST(req: NextRequest) {
   });
 
   if (error || !data.user || !data.session) {
-    return NextResponse.redirect(
-      new URL(`/login?erro=credenciais`, req.url),
-      { status: 303 }
-    );
+    return errorRedirect("credenciais");
   }
 
   const { data: profile } = await supabase
@@ -64,16 +66,11 @@ export async function POST(req: NextRequest) {
     .maybeSingle();
 
   if (!profile?.role) {
-    return NextResponse.redirect(new URL("/login?erro=perfil", req.url), {
-      status: 303,
-    });
+    return errorRedirect("perfil");
   }
 
   const role = profile.role as UserRole;
-  const target =
-    from && from !== "/login" && from !== "/catalogo"
-      ? from
-      : defaultRouteForRole(role);
+  const target = returnPath ?? defaultRouteForRole(role);
   const response = NextResponse.redirect(new URL(target, req.url), {
     status: 303,
   });

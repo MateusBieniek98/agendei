@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createSupabaseServer } from "@/lib/supabase/server";
-import { defaultRouteForRole } from "@/lib/navigation";
+import { defaultRouteForRole, safeReturnPath } from "@/lib/navigation";
 import type { UserRole } from "@/lib/types";
 
 /**
@@ -48,10 +48,7 @@ export async function loginAction(
   }
 
   const role = profile.role as UserRole;
-  const target =
-    from && from !== "/login" && from !== "/catalogo"
-      ? from
-      : defaultRouteForRole(role);
+  const target = safeReturnPath(from) ?? defaultRouteForRole(role);
 
   // redirect() em Server Action emite a resposta com Set-Cookie + Location.
   redirect(target);

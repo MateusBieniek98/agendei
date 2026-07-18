@@ -39,8 +39,8 @@ export default function EntradaSettingsClient() {
 
   const canSave = useMemo(
     () =>
-      settings.title.trim() &&
-      settings.subtitle.trim() &&
+      settings.brandName.trim() &&
+      settings.instruction.trim() &&
       settings.buttonLabel.trim(),
     [settings]
   );
@@ -59,7 +59,7 @@ export default function EntradaSettingsClient() {
   async function save() {
     if (!canSave) {
       setState("error");
-      setMessage("Titulo, subtitulo e texto do botao sao obrigatorios.");
+      setMessage("Nome, instrução e texto do botão são obrigatórios.");
       return;
     }
 
@@ -94,44 +94,31 @@ export default function EntradaSettingsClient() {
           Tela de entrada
         </h1>
         <p className="mt-2 max-w-3xl text-sm font-bold text-[var(--text-secondary)] md:text-base">
-          Edite o texto exibido no login sem precisar fazer novo deploy.
+          Edite os textos essenciais exibidos no login, sem poluir a entrada.
         </p>
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,0.9fr)_minmax(360px,0.7fr)]">
         <section className="gn-card space-y-4 p-4 shadow-sm md:p-5">
           <Input
-            label="Texto pequeno acima do titulo"
-            value={settings.eyebrow}
-            onChange={(event) => update("eyebrow", event.target.value)}
-            placeholder="GN Silvicultura"
+            label="Nome da marca"
+            value={settings.brandName}
+            onChange={(event) => update("brandName", event.target.value)}
+            placeholder="GN Operações"
           />
 
           <Input
-            label="Titulo principal"
-            value={settings.title}
-            onChange={(event) => update("title", event.target.value)}
-            placeholder="Gestao de producao no campo"
+            label="Instrução de acesso"
+            value={settings.instruction}
+            onChange={(event) => update("instruction", event.target.value)}
+            placeholder="Use seu e-mail corporativo para acessar."
           />
-
-          <label className="flex flex-col gap-1.5">
-            <span className="text-sm font-bold text-[var(--text-primary)]">
-              Subtitulo
-            </span>
-            <textarea
-              value={settings.subtitle}
-              onChange={(event) => update("subtitle", event.target.value)}
-              rows={4}
-              className="min-h-28 rounded-xl border-2 border-[var(--border)] bg-[var(--bg-input)] px-3 py-3 text-base font-bold text-[var(--text-primary)] shadow-sm outline-none transition focus:border-[var(--border-focus)]"
-              placeholder="Explique o valor do app em uma frase clara."
-            />
-          </label>
 
           <Input
             label="Rodape"
             value={settings.footer}
             onChange={(event) => update("footer", event.target.value)}
-            placeholder="GN - todos os direitos reservados."
+            placeholder="GN · Uso interno"
           />
 
           <Input
@@ -176,47 +163,41 @@ export default function EntradaSettingsClient() {
           </div>
         </section>
 
-        <aside className="relative min-h-[520px] overflow-hidden rounded-lg border border-white/10 bg-[#08111d] p-5 text-white shadow-2xl">
+        <aside className="relative min-h-[520px] overflow-hidden rounded-[24px] border border-white/20 bg-[#343b8f] p-5 text-[#15182e] shadow-2xl">
           <div
             aria-hidden
-            className="absolute inset-0 bg-cover bg-center opacity-45"
-            style={{ backgroundImage: "url('/gn-login-bg.jpg')" }}
+            className="absolute inset-0 opacity-70"
+            style={{
+              background:
+                "radial-gradient(circle at 18% 12%, rgba(255,255,255,0.12), transparent 30%), radial-gradient(circle at 82% 88%, rgba(18,24,76,0.2), transparent 34%)",
+            }}
           />
-          <div
-            aria-hidden
-            className="absolute inset-0 bg-[#08111d]/80"
-          />
-          <div className="relative flex h-full flex-col justify-between">
-            <div className="flex items-center gap-3">
+          <div className="relative flex h-full items-center justify-center py-5">
+            <div className="w-full max-w-sm rounded-[24px] bg-white p-6 text-center shadow-[0_24px_60px_rgba(12,17,65,0.28)]">
               <Image
-                src="/gn-logo-card.jpeg"
-                alt="GN"
-                width={56}
-                height={56}
-                className="h-14 w-14 rounded-lg object-cover ring-1 ring-white/20"
+                src="/gn-login-logo.jpeg"
+                alt="Logo GN"
+                width={200}
+                height={200}
+                className="mx-auto h-20 w-20 rounded-2xl object-cover ring-1 ring-[#343b8f]/10"
               />
-              <div>
-                <p className="text-xs font-bold uppercase tracking-normal text-blue-100">
-                  {settings.eyebrow}
-                </p>
-                <p className="text-lg font-bold">GN</p>
-              </div>
-            </div>
-
-            <div>
-              <h2 className="text-3xl font-bold leading-tight tracking-normal">
-                {settings.title}
-              </h2>
-              <p className="mt-4 text-base font-semibold leading-7 text-blue-50/85">
-                {settings.subtitle}
+              <p className="mt-4 text-xs font-black uppercase tracking-[0.14em] text-[#343b8f]">
+                {settings.brandName}
               </p>
-              <div className="mt-7 rounded-lg bg-[var(--accent)] px-5 py-3 text-center text-base font-bold shadow-xl">
+              <h2 className="mt-5 text-2xl font-black tracking-tight">
+                Acesse sua conta
+              </h2>
+              <p className="mx-auto mt-2 max-w-xs text-sm font-semibold leading-6 text-[#687086]">
+                {settings.instruction}
+              </p>
+              <div className="mt-6 rounded-xl bg-[#343b8f] px-5 py-3 text-center text-base font-bold text-white">
                 {settings.buttonLabel}
               </div>
             </div>
-
-            <p className="text-xs font-bold text-white/55">{settings.footer}</p>
           </div>
+          <p className="absolute inset-x-4 bottom-4 text-center text-xs font-bold text-white/70">
+            {settings.footer}
+          </p>
         </aside>
       </div>
     </div>

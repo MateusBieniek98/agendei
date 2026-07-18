@@ -1,10 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { maintenanceCapabilities } from "@/lib/maintenance-social";
-import { defaultRouteForRole } from "@/lib/navigation";
+import { defaultRouteForRole, safeReturnPath } from "@/lib/navigation";
 
 describe("maintenance access", () => {
   it("sends the maintenance role to its own workspace", () => {
     expect(defaultRouteForRole("manutencao")).toBe("/manutencao");
+  });
+
+  it("preserva apenas destinos internos seguros após o login", () => {
+    expect(safeReturnPath("/manutencao?tab=fila")).toBe("/manutencao?tab=fila");
+    expect(safeReturnPath("https://example.com")).toBeNull();
+    expect(safeReturnPath("//example.com")).toBeNull();
+    expect(safeReturnPath("/login")).toBeNull();
   });
 
   it("lets a technician claim and prioritize an open request", () => {
