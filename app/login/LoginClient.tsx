@@ -90,7 +90,7 @@ export default function LoginClient({ settings }: { settings: LoginSettings }) {
                   type="email"
                   autoComplete="email"
                   required
-                  disabled={submitting}
+                  readOnly={submitting}
                   placeholder="seu.nome@gn.local"
                   className={inputClassName}
                 />
@@ -107,7 +107,7 @@ export default function LoginClient({ settings }: { settings: LoginSettings }) {
                     type={showPassword ? "text" : "password"}
                     autoComplete="current-password"
                     required
-                    disabled={submitting}
+                    readOnly={submitting}
                     placeholder="••••••••"
                     className={`${inputClassName} pr-24`}
                   />
