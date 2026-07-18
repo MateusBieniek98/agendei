@@ -26,7 +26,7 @@ export default function Select({
       {label && (
         <label
           htmlFor={finalId}
-          className="text-sm font-bold text-[var(--text-primary)]"
+          className="text-sm font-medium text-[var(--text-primary)]"
         >
           {label}
         </label>
@@ -34,8 +34,8 @@ export default function Select({
       <select
         id={finalId}
         className={
-          "h-11 min-h-11 rounded-lg border bg-[var(--bg-input)] px-3 text-sm font-semibold " +
-          "text-[var(--text-primary)] focus:border-[var(--border-focus)] outline-none transition " +
+          "h-11 min-h-11 rounded-md border bg-[var(--bg-input)] px-3 text-sm font-normal " +
+          "text-[var(--text-primary)] outline-none transition-colors focus:border-[var(--border-focus)] " +
           (error ? "border-[var(--danger)] " : "border-[var(--border)] ") +
           (className ?? "")
         }
@@ -49,7 +49,7 @@ export default function Select({
         ))}
       </select>
       {error && (
-        <p className="text-xs font-bold text-[var(--danger)]">{error}</p>
+        <p className="text-xs font-medium text-[var(--danger)]">{error}</p>
       )}
     </div>
   );

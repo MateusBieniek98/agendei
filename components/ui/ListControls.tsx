@@ -55,7 +55,7 @@ export default function ListControls({
   const canToggle = total > limit;
 
   return (
-    <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-3 shadow-sm">
+    <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-3">
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(18rem,1fr)_auto] lg:items-end">
         <Input
           label={label}
@@ -68,7 +68,7 @@ export default function ListControls({
           placeholder={placeholder}
         />
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center lg:justify-end">
-          <p className="text-xs font-bold uppercase text-[var(--text-muted)]">
+          <p className="text-xs font-medium text-[var(--text-muted)]">
             Mostrando {visible} de {total}
           </p>
           {canToggle && (

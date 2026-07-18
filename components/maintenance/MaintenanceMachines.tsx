@@ -122,7 +122,7 @@ export default function MaintenanceMachines() {
   };
 
   return (
-    <section className="space-y-4 pb-16">
+    <section className="space-y-5 pb-8">
       <PageHeader eyebrow="Manutenção" title="Máquinas" subtitle={`${machines.length} máquinas ativas`} right={<Button variant="secondary" size="sm" loading={loading} onClick={() => void load()}>Atualizar</Button>} />
 
       <div className="grid grid-cols-3 gap-2">
@@ -130,16 +130,16 @@ export default function MaintenanceMachines() {
           ["Operando", counts.operando, "var(--success)"],
           ["Paradas", counts.parada, "var(--warn)"],
           ["Urgentes", counts.urgente, "var(--danger)"],
-        ].map(([label, value, color]) => <div key={String(label)} className="rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-3"><p className="text-xl font-bold" style={{ color: String(color) }}>{value}</p><p className="truncate text-[11px] font-bold uppercase text-[var(--text-muted)]">{label}</p></div>)}
+        ].map(([label, value, color]) => <div key={String(label)} className="rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-3"><p className="text-xl font-semibold tabular" style={{ color: String(color) }}>{value}</p><p className="truncate text-[11px] font-medium text-[var(--text-muted)]">{label}</p></div>)}
       </div>
 
-      <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar máquina, tipo ou identificação" className="h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 text-sm font-semibold text-[var(--text-primary)]" />
+      <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar máquina, tipo ou identificação" className="h-11 w-full rounded-md border border-[var(--border)] bg-[var(--bg-input)] px-3 text-sm font-normal text-[var(--text-primary)]" />
 
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {visible.map((machine) => {
           const meta = statusMeta(machine.status);
           const open = threads.filter((item) => item.maquina_id === machine.id && item.status !== "resolvido").length;
-          return <button key={machine.id} type="button" onClick={() => openMachine(machine.id)} className="rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-4 text-left shadow-sm transition hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><Badge tone={meta.tone}>{meta.label}</Badge><h2 className="mt-2 truncate text-base font-bold text-[var(--text-primary)]">{machine.nome}</h2><p className="truncate text-xs font-semibold text-[var(--text-muted)]">{machine.tipo}{machine.identificador ? ` · ${machine.identificador}` : ""}</p>{open > 0 && <p className="mt-2 text-xs font-bold text-[var(--danger)]">{open} solicitação{open === 1 ? "" : "ões"} pendente{open === 1 ? "" : "s"}</p>}</div><span className="text-xl text-[var(--text-muted)]">›</span></div></button>;
+          return <button key={machine.id} type="button" onClick={() => openMachine(machine.id)} className="rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-4 text-left transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><Badge tone={meta.tone}>{meta.label}</Badge><h2 className="mt-2 truncate text-base font-semibold text-[var(--text-primary)]">{machine.nome}</h2><p className="truncate text-xs font-normal text-[var(--text-muted)]">{machine.tipo}{machine.identificador ? ` · ${machine.identificador}` : ""}</p>{open > 0 && <p className="mt-2 text-xs font-medium text-[var(--danger)]">{open} solicitação{open === 1 ? "" : "ões"} pendente{open === 1 ? "" : "s"}</p>}</div><span className="text-xl text-[var(--text-muted)]">›</span></div></button>;
         })}
       </div>
 

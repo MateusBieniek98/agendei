@@ -19,8 +19,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#24699b" },
-    { media: "(prefers-color-scheme: dark)",  color: "#101b2a" },
+    { media: "(prefers-color-scheme: light)", color: "#343b8f" },
+    { media: "(prefers-color-scheme: dark)",  color: "#0f141b" },
   ],
   width: "device-width",
   initialScale: 1,
@@ -45,7 +45,9 @@ export default function RootLayout({
               } catch(e) {}
               if ('serviceWorker' in navigator) {
                 window.addEventListener('load', function() {
-                  navigator.serviceWorker.register('/sw.js').catch(function(){});
+                  navigator.serviceWorker.register('/sw.js').then(function(registration) {
+                    registration.update().catch(function(){});
+                  }).catch(function(){});
                 });
               }
             `,

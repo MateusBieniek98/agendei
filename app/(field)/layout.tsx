@@ -1,7 +1,6 @@
 import { requireRole } from "@/lib/auth";
-import TopBar from "@/components/nav/TopBar";
-import BottomNav from "@/components/nav/BottomNav";
-import LogoutButton from "@/components/nav/LogoutButton";
+import AppShell from "@/components/nav/AppShell";
+import { FIELD_NAVIGATION } from "@/components/nav/navigation";
 import { ToastProvider } from "@/components/ui/Toast";
 
 export default async function FieldLayout({
@@ -13,15 +12,15 @@ export default async function FieldLayout({
 
   return (
     <ToastProvider>
-      <div className="app-shell app-scroll-area with-bottom-nav">
-        <TopBar
-          title="Encarregado"
-          subtitle={profile.nome}
-          right={<LogoutButton />}
-        />
-        <main className="app-shell-main app-content-frame mx-auto max-w-5xl px-3 py-4 sm:px-4 sm:py-6">{children}</main>
-        <BottomNav viewType="encarregado" />
-      </div>
+      <AppShell
+        navigation={FIELD_NAVIGATION}
+        user={{ nome: profile.nome, role: profile.role }}
+        areaLabel="Operação de campo"
+        mobileStrategy="bottom"
+        contentWidth="standard"
+      >
+        {children}
+      </AppShell>
     </ToastProvider>
   );
 }

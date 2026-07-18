@@ -1,8 +1,8 @@
 import AdminDashboard from "@/app/admin/AdminDashboard";
-import type { DashboardDockTab } from "@/components/nav/BottomNav";
+import type { DashboardSection } from "@/components/dashboard/DashboardSectionTabs";
 
 export type GestorDashboardAba =
-  | DashboardDockTab
+  | DashboardSection
   | "faturamento";
 
 type GestorDashboardProps = {
@@ -11,7 +11,7 @@ type GestorDashboardProps = {
   mostrarPlanejamento?: boolean;
 };
 
-function mapInitialTab(aba: GestorDashboardAba | undefined): DashboardDockTab {
+function mapInitialTab(aba: GestorDashboardAba | undefined): DashboardSection {
   if (aba === "faturamento") return "indicadores";
   if (aba === "equipes" || aba === "manutencao" || aba === "planejamento") return aba;
   return "indicadores";

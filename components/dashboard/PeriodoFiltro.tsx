@@ -57,19 +57,19 @@ export default function PeriodoFiltro({
 
   return (
     <div
-      className="flex flex-col gap-3 rounded-lg border p-3 shadow-sm md:flex-row md:items-center md:justify-between"
+      className="flex flex-col gap-3 rounded-lg border p-3 md:flex-row md:items-center md:justify-between"
       style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}
     >
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:flex-wrap">
-        <label className="text-xs font-bold uppercase" style={{ color: "var(--text-muted)" }}>
-          Período:
+        <label className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>
+          Período
         </label>
         <select
           value={value.preset}
           onChange={(e) =>
             onChange({ ...value, preset: e.target.value as PeriodoPreset })
           }
-          className="h-9 w-full rounded-lg border px-3 text-sm font-semibold md:w-auto"
+          className="h-9 w-full rounded-md border px-3 text-sm font-normal md:w-auto"
           style={{
             background: "var(--bg-input)",
             borderColor: "var(--border)",
@@ -94,14 +94,14 @@ export default function PeriodoFiltro({
                   onChange({ preset: "custom", de: customDe, ate: customAte });
                 }
               }}
-              className="h-9 min-w-0 rounded-lg border px-3 text-sm font-semibold"
+              className="h-9 min-w-0 rounded-md border px-3 text-sm font-normal"
               style={{
                 background: "var(--bg-input)",
                 borderColor: "var(--border)",
                 color: "var(--text-primary)",
               }}
             />
-            <span className="font-bold" style={{ color: "var(--text-secondary)" }}>→</span>
+            <span className="font-medium" style={{ color: "var(--text-secondary)" }}>→</span>
             <input
               type="date"
               value={customAte}
@@ -111,7 +111,7 @@ export default function PeriodoFiltro({
                   onChange({ preset: "custom", de: customDe, ate: customAte });
                 }
               }}
-              className="h-9 min-w-0 rounded-lg border px-3 text-sm font-semibold"
+              className="h-9 min-w-0 rounded-md border px-3 text-sm font-normal"
               style={{
                 background: "var(--bg-input)",
                 borderColor: "var(--border)",
@@ -123,7 +123,7 @@ export default function PeriodoFiltro({
       </div>
 
       <div
-        className="flex items-center gap-3 text-xs font-bold tabular"
+        className="flex items-center gap-3 text-xs font-normal tabular"
         style={{ color: "var(--text-secondary)" }}
       >
         {info && (

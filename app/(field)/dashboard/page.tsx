@@ -10,7 +10,7 @@ export default async function FieldDashboardPage() {
     <AdminDashboard
       mode="encarregado"
       showExports={false}
-      hideBottomNav
+      hideSectionTabs
     />
   );
 }

@@ -363,7 +363,7 @@ export default function MaintenanceFeed({
   const showCreate = showComposer && currentRole !== "manutencao";
 
   return (
-    <section className={`space-y-4 ${compact ? "pb-2" : "pb-16"}`}>
+    <section className={`space-y-5 ${compact ? "pb-2" : "pb-8"}`}>
       {!compact && (
         <PageHeader
           eyebrow="Manutenção"
@@ -379,7 +379,7 @@ export default function MaintenanceFeed({
 
       {showCreate && (
         <details className="group rounded-lg border border-[var(--border)] bg-[var(--bg-card)]">
-          <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 text-sm font-bold text-[var(--text-primary)]">
+          <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 text-sm font-semibold text-[var(--text-primary)]">
             <span>Nova solicitação</span>
             <span className="text-xl font-normal text-[var(--accent)] group-open:rotate-45">+</span>
           </summary>
@@ -406,19 +406,19 @@ export default function MaintenanceFeed({
         </details>
       )}
 
-      {!compact && <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="inline-flex rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-1">
+      {!compact && <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="inline-flex overflow-x-auto border-b border-[var(--divider)]">
           {([
             ["fila", "Fila", pending.length],
             ["meus", mode === "manutencao" ? "Meus serviços" : "Meus", threads.filter((item) => item.responsavel_id === currentUserId || item.reportado_por === currentUserId).length],
             ["concluidos", "Concluídos", threads.filter((item) => item.status === "resolvido").length],
           ] as const).map(([key, label, count]) => (
-            <button key={key} type="button" onClick={() => setFilter(key)} className="min-h-9 rounded-md px-3 text-xs font-bold" style={{ background: filter === key ? "var(--accent-subtle)" : "transparent", color: filter === key ? "var(--accent)" : "var(--text-muted)" }}>
+            <button key={key} type="button" onClick={() => setFilter(key)} className="min-h-10 border-b-2 px-3 text-xs font-medium" style={{ borderColor: filter === key ? "var(--accent)" : "transparent", background: "transparent", color: filter === key ? "var(--accent)" : "var(--text-muted)" }}>
               {label} <span className="ml-1 opacity-70">{count}</span>
             </button>
           ))}
         </div>
-        <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar máquina ou chamado" className="h-11 rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 text-sm font-semibold text-[var(--text-primary)] sm:w-72" />
+        <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar máquina ou chamado" className="h-11 rounded-md border border-[var(--border)] bg-[var(--bg-input)] px-3 text-sm font-normal text-[var(--text-primary)] sm:w-72" />
       </div>}
 
       {loading && threads.length === 0 ? (
@@ -426,9 +426,9 @@ export default function MaintenanceFeed({
       ) : filteredThreads.length === 0 ? (
         <div className="rounded-lg border border-dashed border-[var(--border)] p-8 text-center text-sm font-semibold text-[var(--text-muted)]">Nenhuma solicitação neste filtro.</div>
       ) : (
-        <div className="grid gap-2">
+        <div className="grid gap-1.5">
           {filteredThreads.map((thread) => (
-            <button key={thread.id} type="button" onClick={() => void openThread(thread)} className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-4 text-left shadow-sm transition hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]">
+            <button key={thread.id} type="button" onClick={() => void openThread(thread)} className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-3.5 text-left transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)] sm:p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex flex-wrap gap-1.5">
@@ -436,12 +436,12 @@ export default function MaintenanceFeed({
                     <Badge tone={statusTone(thread.status)}>{STATUS_LABEL[thread.status]}</Badge>
                     {thread.unread_mentions_count > 0 && <Badge tone="info">nova menção</Badge>}
                   </div>
-                  <h3 className="mt-2 truncate text-base font-bold text-[var(--text-primary)]">
+                  <h3 className="mt-2 truncate text-sm font-semibold text-[var(--text-primary)] sm:text-base">
                     {thread.maquinas?.nome ?? "Máquina removida"}
                     {thread.maquinas?.identificador ? ` · ${thread.maquinas.identificador}` : ""}
                   </h3>
-                  <p className="mt-1 line-clamp-2 text-sm font-semibold text-[var(--text-secondary)]">{thread.descricao}</p>
-                  <p className="mt-2 truncate text-xs font-semibold text-[var(--text-muted)]">
+                  <p className="mt-1 line-clamp-2 text-sm font-normal text-[var(--text-secondary)]">{thread.descricao}</p>
+                  <p className="mt-2 truncate text-xs font-normal text-[var(--text-muted)]">
                     {thread.responsavel ? `Responsável: ${thread.responsavel.nome}` : "Sem responsável"} · {ddmmyyyy(thread.created_at)}
                   </p>
                 </div>
@@ -453,18 +453,18 @@ export default function MaintenanceFeed({
       )}
 
       {selected && (
-        <div className="fixed inset-0 z-[70] bg-black/35" onClick={() => setSelectedId(null)}>
-          <aside className="ml-auto h-full w-full overflow-y-auto bg-[var(--bg-page)] shadow-2xl sm:max-w-xl" onClick={(event) => event.stopPropagation()}>
+        <div className="fixed inset-0 z-[70] bg-black/45" onClick={() => setSelectedId(null)}>
+          <aside className="ml-auto h-full w-full overflow-y-auto border-l border-[var(--border)] bg-[var(--bg-page)] shadow-2xl sm:max-w-xl" onClick={(event) => event.stopPropagation()}>
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[var(--border)] bg-[var(--bg-card)] px-4 py-3">
-              <div className="min-w-0"><p className="text-xs font-bold uppercase text-[var(--text-muted)]">Solicitação</p><h2 className="truncate text-lg font-bold text-[var(--text-primary)]">{selected.maquinas?.nome ?? "Máquina"}</h2></div>
+              <div className="min-w-0"><p className="text-xs font-medium text-[var(--text-muted)]">Solicitação</p><h2 className="truncate text-lg font-semibold text-[var(--text-primary)]">{selected.maquinas?.nome ?? "Máquina"}</h2></div>
               <Button variant="ghost" size="sm" onClick={() => setSelectedId(null)}>Fechar</Button>
             </div>
             <div className="space-y-4 p-4 sm:p-5">
               <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-4">
                 <div className="flex flex-wrap gap-2"><Badge tone={priorityTone(selected.prioridade)}>{selected.prioridade}</Badge><Badge tone={statusTone(selected.status)}>{STATUS_LABEL[selected.status]}</Badge></div>
-                <p className="mt-3 text-sm font-semibold leading-relaxed text-[var(--text-primary)]">{selected.descricao}</p>
-                <p className="mt-3 text-xs font-semibold text-[var(--text-muted)]">{contextText(selected)}</p>
-                <p className="mt-1 text-xs font-semibold text-[var(--text-muted)]">Aberto por {selected.autor?.nome ?? "Usuário"} em {ddmmyyyy(selected.created_at)}</p>
+                <p className="mt-3 text-sm font-normal leading-relaxed text-[var(--text-primary)]">{selected.descricao}</p>
+                <p className="mt-3 text-xs font-normal text-[var(--text-muted)]">{contextText(selected)}</p>
+                <p className="mt-1 text-xs font-normal text-[var(--text-muted)]">Aberto por {selected.autor?.nome ?? "Usuário"} em {ddmmyyyy(selected.created_at)}</p>
               </div>
 
               {(selected.can_assign || selected.can_prioritize) && (

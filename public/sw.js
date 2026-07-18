@@ -1,10 +1,10 @@
 /**
- * GN — Service Worker v3
+ * GN — Service Worker v4
  * Estratégia: navegação network-first com fallback cacheado, assets cache-first.
  * POSTs continuam sob controle do app para que a fila IndexedDB decida o sync.
  */
 
-const CACHE_NAME = "gn-cache-v3";
+const CACHE_NAME = "gn-cache-v4";
 
 // Páginas essenciais para pré-cache
 const PRE_CACHE = ["/", "/sincronizar", "/meu-dia", "/lancamento", "/resumo", "/maquinas"];

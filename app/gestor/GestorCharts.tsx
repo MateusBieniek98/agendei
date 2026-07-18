@@ -47,16 +47,17 @@ export function LinhaChart({
   }));
 
   return (
-    <div className={className}>
-      <ResponsiveContainer width="100%" height="100%">
-        <ComposedChart data={data} margin={{ top: 10, right: 8, left: -10, bottom: 0 }}>
+    <div className={`flex flex-col ${className}`}>
+      <div className="min-h-0 flex-1">
+        <ResponsiveContainer width="100%" height="100%">
+          <ComposedChart data={data} margin={{ top: 12, right: 12, left: -8, bottom: 0 }}>
           <defs>
             <linearGradient id="gnGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="var(--accent)" stopOpacity={0.5} />
-              <stop offset="100%" stopColor="var(--accent)" stopOpacity={0.04} />
+              <stop offset="0%" stopColor="var(--accent)" stopOpacity={0.26} />
+              <stop offset="100%" stopColor="var(--accent)" stopOpacity={0.015} />
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+          <CartesianGrid vertical={false} stroke="var(--divider)" strokeDasharray="2 4" />
           <XAxis
             dataKey="label"
             tick={{ fontSize: 11, fill: "var(--text-muted)" }}
@@ -76,6 +77,7 @@ export function LinhaChart({
               borderRadius: 8,
               color: "var(--text-primary)",
               fontSize: 12,
+              boxShadow: "0 12px 28px rgba(15, 23, 42, 0.14)",
             }}
             formatter={(v: number, name: string) => [
               brl(v),
@@ -100,7 +102,7 @@ export function LinhaChart({
             type="monotone"
             dataKey="faturamento"
             stroke="var(--accent)"
-            strokeWidth={2.5}
+            strokeWidth={2.25}
             fill="url(#gnGrad)"
             dot={false}
             activeDot={{ r: 5, fill: "var(--accent)" }}
@@ -116,11 +118,12 @@ export function LinhaChart({
             dot={false}
             activeDot={false}
           />
-        </ComposedChart>
-      </ResponsiveContainer>
+          </ComposedChart>
+        </ResponsiveContainer>
+      </div>
 
       {/* Legenda */}
-      <div className="flex items-center gap-4 mt-2 px-1">
+      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 px-1">
         <LegendItem color="var(--accent)" label="Realizado" />
         <LegendItem color="var(--success)" label="Tendência" dashed />
         {mediaDia && mediaDia > 0 && (

@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import BottomNav, { type BottomNavViewType, type DashboardDockTab } from "@/components/nav/BottomNav";
+import { useRouter } from "next/navigation";
+import DashboardSectionTabs, { type DashboardSection } from "@/components/dashboard/DashboardSectionTabs";
 import MaintenanceFeed from "@/components/maintenance/MaintenanceFeed";
 import { brl } from "@/lib/format";
 import { LinhaChart } from "@/app/gestor/GestorCharts";
@@ -45,8 +46,8 @@ const DASHBOARD_LINKS: Record<DashboardMode, DashboardLinks> = {
 type AdminDashboardProps = {
   mode?: DashboardMode;
   showExports?: boolean;
-  initialTab?: DashboardDockTab;
-  hideBottomNav?: boolean;
+  initialTab?: DashboardSection;
+  hideSectionTabs?: boolean;
 };
 
 type Manut = {
@@ -166,9 +167,10 @@ export default function AdminDashboard({
   mode = "admin",
   showExports,
   initialTab = "indicadores",
-  hideBottomNav = false,
+  hideSectionTabs = false,
 }: AdminDashboardProps) {
-  const [activeTab, setActiveTab] = useState<DashboardDockTab>(initialTab);
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState<DashboardSection>(initialTab);
   const [periodo, setPeriodo] = useState<PeriodoState>({ preset: "ciclo_atual" });
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -240,6 +242,13 @@ export default function AdminDashboard({
     updateIndicatorWidgets(DEFAULT_INDICATOR_WIDGETS);
   }
 
+  function changeSection(next: DashboardSection) {
+    setActiveTab(next);
+    if (mode === "gestor") {
+      router.replace(`/gestor?tab=${next}`, { scroll: false });
+    }
+  }
+
   const expSearch = useMemo(() => {
     const sp = new URLSearchParams();
     if (data) {
@@ -253,11 +262,10 @@ export default function AdminDashboard({
   const canManageMetas = mode === "admin";
   const showExportActions = showExports ?? mode === "admin";
   const showPeriodFilter = activeTab === "indicadores" || activeTab === "equipes";
-  const bottomNavViewType: BottomNavViewType =
-    mode === "admin" ? "admin" : mode === "encarregado" ? "encarregado" : "gestor";
-
   return (
-    <div className="space-y-3 pb-2">
+    <div className="space-y-4 pb-2">
+      {!hideSectionTabs && <DashboardSectionTabs value={activeTab} onChange={changeSection} />}
+
       {showPeriodFilter && (
         <PeriodoFiltro value={periodo} onChange={setPeriodo} loading={loading} />
       )}
@@ -306,10 +314,6 @@ export default function AdminDashboard({
           {activeTab === "manutencao" && <ManutencaoPage data={data} links={links} mode={mode} />}
         </>
       )}
-
-      {!hideBottomNav && (
-        <BottomNav viewType={bottomNavViewType} activeTab={activeTab} onTabChange={setActiveTab} />
-      )}
     </div>
   );
 }
@@ -341,8 +345,8 @@ function IndicadoresPage({
     hasWidget("goalProgress");
 
   return (
-    <section className="space-y-3">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+    <section className="space-y-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <DashboardBuilder
           activeWidgets={activeWidgets}
           onToggleWidget={onToggleWidget}
@@ -350,17 +354,17 @@ function IndicadoresPage({
         />
 
         {showExportActions && (
-          <div className="grid grid-cols-2 gap-2 sm:w-56">
+          <div className="grid grid-cols-2 gap-2 sm:w-auto">
             <Link
               href={`/api/export/xlsx?${expSearch}`}
-              className="h-10 rounded-lg border px-3 text-center text-sm font-bold leading-10 transition hover:opacity-80"
+              className="h-10 min-w-24 rounded-md border px-3 text-center text-sm font-medium leading-10 transition-colors hover:bg-[var(--bg-hover)]"
               style={{ borderColor: "var(--border)", background: "var(--bg-card)", color: "var(--text-primary)" }}
             >
               Excel
             </Link>
             <Link
               href={`/api/export/csv?${expSearch}`}
-              className="h-10 rounded-lg border px-3 text-center text-sm font-bold leading-10 transition hover:opacity-80"
+              className="h-10 min-w-24 rounded-md border px-3 text-center text-sm font-medium leading-10 transition-colors hover:bg-[var(--bg-hover)]"
               style={{ borderColor: "var(--border)", background: "var(--bg-card)", color: "var(--text-primary)" }}
             >
               CSV
@@ -428,13 +432,13 @@ function DashboardBuilder({
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="inline-flex h-10 items-center gap-2 rounded-lg border px-3 text-sm font-black transition hover:opacity-80"
+        className="inline-flex h-10 items-center gap-2 rounded-md border px-3 text-sm font-semibold transition-colors hover:bg-[var(--bg-hover)]"
         style={{ background: "var(--bg-card)", borderColor: "var(--border)", color: "var(--text-primary)" }}
         aria-expanded={open}
       >
         <SlidersIcon />
-        Painéis
-        <span className="rounded-full px-2 py-0.5 text-[11px] font-black" style={{ background: "var(--accent-subtle)", color: "var(--accent)" }}>
+        Personalizar painel
+        <span className="rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: "var(--accent-subtle)", color: "var(--accent)" }}>
           {activeWidgets.length}
         </span>
       </button>
@@ -452,7 +456,7 @@ function DashboardBuilder({
                   key={item.id}
                   type="button"
                   onClick={() => onToggleWidget(item.id)}
-                  className="flex h-10 min-w-0 items-center justify-between gap-2 rounded-lg px-3 text-left text-xs font-black transition"
+                  className="flex h-10 min-w-0 items-center justify-between gap-2 rounded-md px-3 text-left text-xs font-medium transition-colors"
                   style={{
                     background: active ? "var(--accent-subtle)" : "var(--bg-card-alt)",
                     color: active ? "var(--accent)" : "var(--text-secondary)",
@@ -468,7 +472,7 @@ function DashboardBuilder({
           <button
             type="button"
             onClick={onResetWidgets}
-            className="mt-2 h-9 rounded-lg px-3 text-xs font-black transition hover:opacity-80"
+            className="mt-2 h-9 rounded-md px-3 text-xs font-medium transition-colors hover:bg-[var(--bg-hover)]"
             style={{ color: "var(--text-muted)" }}
           >
             Restaurar padrão
@@ -479,35 +483,30 @@ function DashboardBuilder({
   );
 }
 
-function ChartFrame({ title, hint, children }: { title: string; hint: string; children: ReactNode }) {
-  return (
-    <div className="rounded-lg border p-3" style={{ background: "var(--bg-card-alt)", borderColor: "var(--border)" }}>
-      <div className="mb-2 flex items-baseline justify-between gap-3">
-        <h3 className="truncate text-sm font-black" style={{ color: "var(--text-primary)" }}>
-          {title}
-        </h3>
-        <span className="truncate text-xs font-bold" style={{ color: "var(--text-muted)" }}>
-          {hint}
-        </span>
-      </div>
-      {children}
-    </div>
-  );
-}
-
 function DailyProductionWidget({ data }: { data: DashboardData }) {
   return (
     <div
-      className="rounded-lg border p-3 sm:p-4"
+      className="rounded-lg border p-4 sm:p-5"
       style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}
     >
-      <ChartFrame title="Produção diária" hint={data.periodo.label}>
-        <LinhaChart
-          serie={data.serie}
-          mediaDia={data.mediaDia}
-          className="h-[218px] max-h-[250px] w-full overflow-hidden"
-        />
-      </ChartFrame>
+      <div className="mb-3 flex items-start justify-between gap-3 border-b pb-3" style={{ borderColor: "var(--divider)" }}>
+        <div>
+          <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+            Produção diária
+          </h2>
+          <p className="mt-0.5 text-xs" style={{ color: "var(--text-muted)" }}>
+            Realizado, tendência e média do período
+          </p>
+        </div>
+        <span className="shrink-0 rounded-md px-2 py-1 text-xs font-medium" style={{ background: "var(--bg-card-alt)", color: "var(--text-secondary)" }}>
+          {data.periodo.label}
+        </span>
+      </div>
+      <LinhaChart
+        serie={data.serie}
+        mediaDia={data.mediaDia}
+        className="h-[250px] w-full overflow-hidden sm:h-[310px]"
+      />
     </div>
   );
 }
@@ -515,10 +514,10 @@ function DailyProductionWidget({ data }: { data: DashboardData }) {
 function DailyRevenueCard({ hoje, ontem }: { hoje: number; ontem: number }) {
   return (
     <div
-      className="rounded-lg border p-3 sm:p-4"
+      className="min-h-[116px] rounded-lg border p-3 sm:p-4"
       style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}
     >
-      <p className="text-xs font-bold uppercase" style={{ color: "var(--text-muted)" }}>
+      <p className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
         Faturamento diário
       </p>
       <div className="mt-2 grid grid-cols-2 gap-2">
@@ -540,13 +539,13 @@ function DailyRevenueSlice({
 }) {
   return (
     <div
-      className="min-w-0 rounded-lg p-2"
-      style={{ background: "var(--bg-card-alt)" }}
+      className="min-w-0 rounded-md border-l-2 p-2"
+      style={{ background: "var(--bg-card-alt)", borderColor: color }}
     >
-      <p className="text-[11px] font-bold uppercase" style={{ color: "var(--text-muted)" }}>
+      <p className="text-[11px] font-medium" style={{ color: "var(--text-muted)" }}>
         {label}
       </p>
-      <p className="mt-1 truncate text-xl font-black tabular sm:text-2xl" style={{ color }}>
+      <p className="mt-1 truncate text-xl font-semibold tabular sm:text-2xl" style={{ color }}>
         {value}
       </p>
     </div>
@@ -571,15 +570,15 @@ function KpiCard({
 
   const inner = (
     <div
-      className="h-full rounded-lg border p-3 transition hover:shadow-sm sm:p-4"
+      className="min-h-[116px] rounded-lg border p-3 transition-colors hover:border-[var(--accent)] sm:p-4"
       style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}
     >
-      <p className="text-xs font-bold uppercase" style={{ color: "var(--text-muted)" }}>
+      <p className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
         {label}
       </p>
       <p
         className={
-          "mt-1 min-w-0 whitespace-nowrap font-black leading-tight tabular tracking-normal " +
+          "mt-1 min-w-0 whitespace-nowrap font-semibold leading-tight tabular tracking-normal " +
           (value.length > 13 ? "text-base sm:text-lg 2xl:text-xl" : "text-xl sm:text-2xl")
         }
         style={{ color }}
@@ -588,7 +587,7 @@ function KpiCard({
         {value}
       </p>
       {hint && (
-        <p className="mt-1 truncate text-xs font-semibold" style={{ color: "var(--text-secondary)" }}>
+        <p className="mt-1 truncate text-xs font-normal" style={{ color: "var(--text-secondary)" }}>
           {hint}
         </p>
       )}
@@ -779,10 +778,10 @@ function FleetMetric({ label, value, color }: { label: string; value: number; co
       className="rounded-lg border p-3"
       style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}
     >
-      <p className="text-xl font-black tabular sm:text-2xl" style={{ color }}>
+      <p className="text-xl font-semibold tabular sm:text-2xl" style={{ color }}>
         {value}
       </p>
-      <p className="truncate text-[11px] font-bold uppercase" style={{ color: "var(--text-muted)" }}>
+      <p className="truncate text-[11px] font-medium" style={{ color: "var(--text-muted)" }}>
         {label}
       </p>
     </div>
