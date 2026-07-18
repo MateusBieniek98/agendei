@@ -8,6 +8,7 @@ import {
   uploadMaintenancePhotos,
   validateMaintenancePhotos,
 } from "@/lib/maintenance-social";
+import { resolveActivePlot } from "@/lib/project-context";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -74,6 +75,7 @@ async function createMaintenance({
   const maquina_id = text(form?.get("maquina_id") ?? body?.maquina_id);
   const equipe_id = text(form?.get("equipe_id") ?? body?.equipe_id);
   const projeto_id = text(form?.get("projeto_id") ?? body?.projeto_id);
+  const talhao_id = text(form?.get("talhao_id") ?? body?.talhao_id);
   const talhao = text(form?.get("talhao") ?? body?.talhao);
   const descricao = text(form?.get("descricao") ?? body?.descricao);
   const status_maquina = form?.get("status_maquina") ?? body?.status_maquina;
@@ -84,7 +86,7 @@ async function createMaintenance({
   );
   const photos = form ? collectFormPhotos(form) : [];
 
-  if (!maquina_id || !equipe_id || !projeto_id || !talhao || !descricao) {
+  if (!maquina_id || !equipe_id || !projeto_id || (!talhao_id && !talhao) || !descricao) {
     return NextResponse.json({ error: "campos obrigatórios" }, { status: 400 });
   }
 
@@ -97,6 +99,12 @@ async function createMaintenance({
 
   const novoStatusMaquina = (status_maquina ?? "manutencao_urgente") as MachineStatusInput;
   const supabase = await createSupabaseServer();
+  let plot;
+  try {
+    plot = await resolveActivePlot(supabase, { projeto_id, talhao_id, talhao });
+  } catch (error) {
+    return NextResponse.json({ error: (error as Error).message }, { status: 400 });
+  }
   const { data: existing } = await supabase
     .from("manutencoes")
     .select("id")
@@ -116,8 +124,9 @@ async function createMaintenance({
     .insert({
       maquina_id,
       equipe_id,
-      projeto_id,
-      talhao,
+      projeto_id: plot.projeto_id,
+      talhao_id: plot.id,
+      talhao: plot.codigo,
       descricao,
       reportado_por: profile.id,
     })
@@ -202,6 +211,8 @@ export async function GET(req: NextRequest) {
   if (status) q = q.eq("status", status);
   if (pendentes === "1" || pendentes === "true") q = q.neq("status", "resolvido");
   if (mine === "1" || mine === "true") q = q.eq("reportado_por", profile.id);
+  if (sp.get("projeto_id")) q = q.eq("projeto_id", sp.get("projeto_id")!);
+  if (sp.get("talhao_id")) q = q.eq("talhao_id", sp.get("talhao_id")!);
   if (mentionedIds) q = q.in("id", mentionedIds);
 
   const { data, error } = await q;

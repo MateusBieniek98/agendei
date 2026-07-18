@@ -11,6 +11,7 @@ type PlanejamentoRow = {
   ano: number;
   mes: number;
   projeto_id: string;
+  talhao_id: string | null;
   talhao: string;
   atividade_id: string;
   equipe_id: string | null;
@@ -261,6 +262,7 @@ export default function PlanejamentoField({
     const params = new URLSearchParams();
     if (item.atividade_id) params.set("atividade_id", item.atividade_id);
     if (item.projeto_id)   params.set("projeto_id",   item.projeto_id);
+    if (item.talhao_id)    params.set("talhao_id",    item.talhao_id);
     if (item.talhao)       params.set("talhao",        item.talhao);
     router.push(`/lancamento?${params.toString()}`);
   }

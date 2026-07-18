@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
 import { enrichPlanningProgress, syncPlanningProgressForProduction } from "@/lib/planning-progress";
+import { resolveActivePlot } from "@/lib/project-context";
 
 const STATUSES = ["planejado", "em_execucao", "concluido", "cancelado"] as const;
 
@@ -27,11 +28,15 @@ export async function GET(req: NextRequest) {
   const mes      = sp.get("mes");
   const status   = sp.get("status");
   const equipeId = sp.get("equipe_id");
+  const projetoId = sp.get("projeto_id");
+  const talhaoId = sp.get("talhao_id");
 
   if (ano)      q = q.eq("ano",      Number(ano));
   if (mes)      q = q.eq("mes",      Number(mes));
   if (status && isPlanningStatus(status)) q = q.eq("status", status);
   if (equipeId) q = q.eq("equipe_id", equipeId);
+  if (projetoId) q = q.eq("projeto_id", projetoId);
+  if (talhaoId) q = q.eq("talhao_id", talhaoId);
 
   const { data, error } = await q.limit(800);
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
@@ -49,7 +54,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const required = ["ano", "mes", "projeto_id", "talhao", "atividade_id", "data_limite"];
+  const required = ["ano", "mes", "projeto_id", "atividade_id", "data_limite"];
   if (required.some((k) => body[k] === undefined || body[k] === null || body[k] === "")) {
     return NextResponse.json({ error: "campos obrigatórios faltando" }, { status: 400 });
   }
@@ -58,13 +63,20 @@ export async function POST(req: NextRequest) {
   }
 
   const supabase = await createSupabaseServer();
+  let plot;
+  try {
+    plot = await resolveActivePlot(supabase, body);
+  } catch (error) {
+    return NextResponse.json({ error: (error as Error).message }, { status: 400 });
+  }
   const { data, error } = await supabase
     .from("planejamento")
     .insert({
       ano: Number(body.ano),
       mes: Number(body.mes),
-      projeto_id: body.projeto_id,
-      talhao: String(body.talhao).trim(),
+      projeto_id: plot.projeto_id,
+      talhao_id: plot.id,
+      talhao: plot.codigo,
       atividade_id: body.atividade_id,
       equipe_id: body.equipe_id || null,
       quantidade_prevista:

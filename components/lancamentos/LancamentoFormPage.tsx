@@ -2,12 +2,13 @@ import { createSupabaseServer } from "@/lib/supabase/server";
 import { resolvePreset } from "@/lib/period";
 import LancamentoForm from "@/app/(field)/lancamento/LancamentoForm";
 import PageHeader from "@/components/ui/PageHeader";
-import type { Atividade, Equipe, Producao, Profile, Projeto } from "@/lib/types";
+import type { Atividade, Equipe, Producao, Profile, ProjetoComTalhoes } from "@/lib/types";
 
 export type LancamentoFormSearchParams = {
   atividade_id?: string;
   projeto_id?: string;
   talhao?: string;
+  talhao_id?: string;
   edit_id?: string;
 };
 
@@ -69,7 +70,7 @@ export default async function LancamentoFormPage({
     ? supabase
         .from("producao")
         .select(
-          "id, data, equipe_id, atividade_id, projeto_id, talhao, quantidade, insumos, descarte, estoque_controlado, observacoes, " +
+          "id, data, equipe_id, atividade_id, projeto_id, talhao_id, talhao, quantidade, insumos, descarte, estoque_controlado, observacoes, " +
             "valor_unitario_snapshot, registrado_por, editado_por, created_at, updated_at"
         )
         .eq("id", searchParams.edit_id)
@@ -79,7 +80,7 @@ export default async function LancamentoFormPage({
   const [{ data: equipes }, { data: atividades }, { data: projetos }, { data: editingRaw }] = await Promise.all([
     supabase.from("equipes").select("*").eq("ativo", true).order("nome"),
     supabase.from("atividades").select("*").eq("ativo", true).order("nome"),
-    supabase.from("projetos").select("*").eq("ativo", true).order("nome"),
+    supabase.from("projetos").select("*, talhoes(*)").eq("ativo", true).eq("talhoes.ativo", true).order("nome"),
     editPromise,
   ]);
 
@@ -115,10 +116,11 @@ export default async function LancamentoFormPage({
       <LancamentoForm
         equipes={(equipes ?? []) as Equipe[]}
         atividades={dedupeAtividadesPorNome((atividades ?? []) as Atividade[], editing?.atividade_id)}
-        projetos={(projetos ?? []) as Projeto[]}
+        projetos={(projetos ?? []) as ProjetoComTalhoes[]}
         initialAtividadeId={searchParams.atividade_id}
         initialProjetoId={searchParams.projeto_id}
         initialTalhao={searchParams.talhao}
+        initialTalhaoId={searchParams.talhao_id}
         editingItem={editing ?? undefined}
         afterCreateHref={afterCreateHref}
         afterEditHref={afterEditHref}

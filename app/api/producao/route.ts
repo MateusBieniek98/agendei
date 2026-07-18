@@ -10,6 +10,7 @@ import {
   sanitizeControlledInsumos,
 } from "@/lib/insumos";
 import { syncPlanningProgressForProduction } from "@/lib/planning-progress";
+import { resolveActivePlot } from "@/lib/project-context";
 
 function normalizeClientId(value: unknown) {
   if (typeof value !== "string") return null;
@@ -32,7 +33,7 @@ export async function GET(req: NextRequest) {
     .from("producao")
     .select(
       "id, data, equipe_id, atividade_id, quantidade, observacoes, " +
-        "projeto_id, talhao, insumos, descarte, estoque_controlado, valor_unitario_snapshot, registrado_por, created_at, " +
+        "projeto_id, talhao_id, talhao, insumos, descarte, estoque_controlado, valor_unitario_snapshot, registrado_por, created_at, " +
         "equipes(nome), atividades(nome, unidade), projetos(nome)"
     )
     .order("data", { ascending: false })
@@ -44,12 +45,14 @@ export async function GET(req: NextRequest) {
   const atividade = sp.get("atividade_id");
   const projeto = sp.get("projeto_id");
   const talhao = sp.get("talhao");
+  const talhaoId = sp.get("talhao_id");
 
   if (de) q = q.gte("data", de);
   if (ate) q = q.lte("data", ate);
   if (equipe) q = q.eq("equipe_id", equipe);
   if (atividade) q = q.eq("atividade_id", atividade);
   if (projeto) q = q.eq("projeto_id", projeto);
+  if (talhaoId) q = q.eq("talhao_id", talhaoId);
   if (talhao) q = q.ilike("talhao", `%${talhao}%`);
 
   const { data, error } = await q.limit(500);
@@ -67,6 +70,7 @@ export async function POST(req: NextRequest) {
     equipe_id,
     atividade_id,
     projeto_id,
+    talhao_id,
     talhao,
     quantidade,
     insumos,
@@ -75,7 +79,7 @@ export async function POST(req: NextRequest) {
     client_id,
   } = body;
 
-  if (!equipe_id || !atividade_id || !projeto_id || !talhao || !quantidade) {
+  if (!equipe_id || !atividade_id || !projeto_id || (!talhao_id && !talhao) || !quantidade) {
     return NextResponse.json({ error: "campos obrigatórios faltando" }, { status: 400 });
   }
 
@@ -87,6 +91,12 @@ export async function POST(req: NextRequest) {
   }
 
   const supabase = await createSupabaseServer();
+  let plot;
+  try {
+    plot = await resolveActivePlot(supabase, { projeto_id, talhao_id, talhao });
+  } catch (error) {
+    return NextResponse.json({ error: (error as Error).message }, { status: 400 });
+  }
   const origemChave = clientId ? `gn-app:${profile.id}:${clientId}` : null;
 
   if (origemChave) {
@@ -115,8 +125,8 @@ export async function POST(req: NextRequest) {
     p_data: dataLanc ?? null,
     p_equipe_id: equipe_id,
     p_atividade_id: atividade_id,
-    p_projeto_id: projeto_id,
-    p_talhao: String(talhao).trim(),
+    p_projeto_id: plot.projeto_id,
+    p_talhao: plot.codigo,
     p_quantidade: Number(quantidade),
     p_descarte: optionalNumber(descarte),
     p_observacoes: observacoes ?? null,

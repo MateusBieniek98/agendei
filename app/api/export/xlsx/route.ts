@@ -36,6 +36,8 @@ export async function GET(req: NextRequest) {
     .order("data", { ascending: true });
   if (de) q = q.gte("data", de);
   if (ate) q = q.lte("data", ate);
+  if (sp.get("projeto_id")) q = q.eq("projeto_id", sp.get("projeto_id")!);
+  if (sp.get("talhao_id")) q = q.eq("talhao_id", sp.get("talhao_id")!);
   const { data, error } = await q;
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 

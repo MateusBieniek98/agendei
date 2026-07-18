@@ -18,7 +18,7 @@ import {
   enqueueOfflineProduction,
   type OfflineProductionPayload,
 } from "@/lib/offline-production-queue";
-import type { Atividade, Equipe, Producao, Projeto } from "@/lib/types";
+import type { Atividade, Equipe, Producao, ProjetoComTalhoes } from "@/lib/types";
 
 type FormInsumo = {
   insumo_id: string;
@@ -452,6 +452,7 @@ type EditingItem = Pick<
   | "equipe_id"
   | "atividade_id"
   | "projeto_id"
+  | "talhao_id"
   | "talhao"
   | "quantidade"
   | "insumos"
@@ -459,12 +460,6 @@ type EditingItem = Pick<
   | "estoque_controlado"
   | "observacoes"
 >;
-
-function maskTalhao(value: string | null | undefined) {
-  if (!value) return "";
-  const raw = value.replace(/\D/g, "").slice(0, 5);
-  return raw.length > 3 ? `${raw.slice(0, 3)}-${raw.slice(3)}` : raw;
-}
 
 function initialInsumos(editingItem?: EditingItem) {
   if (!editingItem?.insumos?.length) return emptyInsumos();
@@ -483,6 +478,7 @@ export default function LancamentoForm({
   initialAtividadeId,
   initialProjetoId,
   initialTalhao,
+  initialTalhaoId,
   editingItem,
   afterCreateHref,
   afterEditHref = "/resumo",
@@ -490,10 +486,11 @@ export default function LancamentoForm({
 }: {
   equipes: Equipe[];
   atividades: Atividade[];
-  projetos: Projeto[];
+  projetos: ProjetoComTalhoes[];
   initialAtividadeId?: string;
   initialProjetoId?: string;
   initialTalhao?: string;
+  initialTalhaoId?: string;
   editingItem?: EditingItem;
   afterCreateHref?: string;
   afterEditHref?: string;
@@ -512,7 +509,16 @@ export default function LancamentoForm({
   const [data,      setData]      = useState(editingItem?.data ?? todayISO());
   const [equipeId,  setEquipeId]  = useState(editingItem?.equipe_id ?? equipes[0]?.id ?? "");
   const [projetoId, setProjetoId] = useState(editingItem?.projeto_id ?? initialProjetoId ?? projetos[0]?.id ?? "");
-  const [talhao,    setTalhao]    = useState(() => maskTalhao(editingItem?.talhao ?? initialTalhao));
+  const initialProjectId = editingItem?.projeto_id ?? initialProjetoId ?? projetos[0]?.id ?? "";
+  const [talhaoId, setTalhaoId] = useState(() => {
+    if (editingItem?.talhao_id) return editingItem.talhao_id;
+    if (initialTalhaoId) return initialTalhaoId;
+    const codigo = editingItem?.talhao ?? initialTalhao;
+    const found = projetos.find((p) => p.id === initialProjectId)?.talhoes.find(
+      (t) => t.ativo && t.codigo.trim().toLowerCase() === String(codigo ?? "").trim().toLowerCase()
+    )?.id;
+    return found ?? (editingItem && codigo ? "__legacy__" : "");
+  });
   const [atividadeId,    setAtividadeId]    = useState(editingItem?.atividade_id ?? initialAtividadeId ?? atividades[0]?.id ?? "");
   const [atividadeBusca, setAtividadeBusca] = useState("");
   const [projetoBusca,   setProjetoBusca]   = useState("");
@@ -574,6 +580,26 @@ export default function LancamentoForm({
       ? [sel, ...projetosFiltrados]
       : projetosFiltrados;
   }, [projetoId, projetos, projetosFiltrados]);
+  const talhoesProjeto = useMemo(
+    () => projetos.find((p) => p.id === projetoId)?.talhoes.filter((t) => t.ativo) ?? [],
+    [projetoId, projetos]
+  );
+  const talhao = talhoesProjeto.find((item) => item.id === talhaoId)?.codigo ?? editingItem?.talhao ?? initialTalhao ?? "";
+
+  useEffect(() => {
+    if (modoEdicao || temPrefill || !equipeId) return;
+    let active = true;
+    fetch(`/api/alocacoes?equipe_id=${encodeURIComponent(equipeId)}`, { cache: "no-store" })
+      .then((response) => response.ok ? response.json() : null)
+      .then((json) => {
+        const allocation = json?.items?.[0];
+        if (!active || !allocation?.projeto_id || !allocation?.talhao_id) return;
+        setProjetoId(allocation.projeto_id);
+        setTalhaoId(allocation.talhao_id);
+      })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, [equipeId, modoEdicao, temPrefill]);
 
   const quantidadesOriginais = useMemo(() => {
     const map = new Map<string, number>();
@@ -641,7 +667,9 @@ export default function LancamentoForm({
   const insumosHint =
     insumosValidos.length > 0 ? `${insumosValidos.length} adicionado${insumosValidos.length > 1 ? "s" : ""}` : undefined;
 
-  const talhaoValido = /^\d{3}-\d{2}$/.test(talhao.trim());
+  const talhaoValido = talhaoId === "__legacy__" && modoEdicao
+    ? true
+    : !!talhaoId && !!talhoesProjeto.find((item) => item.id === talhaoId);
   const canAdvance: Record<StepId, boolean> = {
     1: !!equipeId && !!projetoId && talhaoValido,
     2: !!atividadeId && !!qtd && Number(qtd) > 0,
@@ -653,7 +681,7 @@ export default function LancamentoForm({
   }
 
   function limpar() {
-    setQtd(""); setTalhao(""); setDescarte(""); setInsumos(emptyInsumos()); setObs("");
+    setQtd(""); setTalhaoId(""); setDescarte(""); setInsumos(emptyInsumos()); setObs("");
     setTemPrefill(false);
   }
 
@@ -703,7 +731,7 @@ export default function LancamentoForm({
       return;
     }
     if (!talhaoValido) {
-      toast("Talhão inválido. Use o formato 000-00 (ex.: 018-01).", "error");
+      toast("Selecione um talhão ativo do projeto.", "error");
       return;
     }
     if (erroEstoque) {
@@ -712,7 +740,7 @@ export default function LancamentoForm({
     }
     const formData = {
       data, equipe_id: equipeId, atividade_id: atividadeId,
-      projeto_id: projetoId, talhao: talhao.trim(),
+      projeto_id: projetoId, talhao_id: talhaoId === "__legacy__" ? null : talhaoId, talhao: talhao.trim(),
       quantidade: Number(qtd),
       descarte: descarte === "" ? null : Number(descarte),
       insumos: insumosValidos, observacoes: obs || null,
@@ -785,23 +813,24 @@ export default function LancamentoForm({
             onSearchChange={setProjetoBusca}
             items={projetoOptions}
             selectedId={projetoId}
-            onSelect={(projeto) => setProjetoId(projeto.id)}
+            onSelect={(projeto) => { setProjetoId(projeto.id); setTalhaoId(""); }}
             getId={(projeto) => projeto.id}
             renderTitle={(projeto) => projeto.nome}
             placeholder="Buscar projeto ou fazenda"
             emptyLabel="Nenhum projeto encontrado."
           />
-          <Input
+          <Select
             label="Talhão *"
-            value={talhao}
-            onChange={(e) => {
-              const raw = e.target.value.replace(/\D/g, "").slice(0, 5);
-              const masked = raw.length > 3 ? `${raw.slice(0, 3)}-${raw.slice(3)}` : raw;
-              setTalhao(masked);
-            }}
-            placeholder="Ex.: 018-01"
-            hint={talhao && !talhaoValido ? "Formato: 000-00 (ex.: 018-01)" : undefined}
-            inputMode="numeric"
+            value={talhaoId}
+            onChange={(e) => setTalhaoId(e.target.value)}
+            options={[
+              ...(talhaoId === "__legacy__" && talhao ? [{ value: "__legacy__", label: `${talhao} · histórico sem vínculo` }] : []),
+              ...talhoesProjeto.map((item) => ({
+                value: item.id,
+                label: item.area_ha == null ? item.codigo : `${item.codigo} · ${Number(item.area_ha).toLocaleString("pt-BR")} ha`,
+              })),
+            ]}
+            placeholder={projetoId ? "Selecione o talhão" : "Selecione o projeto primeiro"}
           />
           <button
             type="button"

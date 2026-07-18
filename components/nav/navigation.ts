@@ -64,7 +64,10 @@ export const ADMIN_NAVIGATION: NavigationGroup[] = [
 export const GESTOR_NAVIGATION: NavigationGroup[] = [
   {
     label: "Gestão",
-    items: [{ href: "/gestor", label: "Painel executivo", icon: "chart", exact: true }],
+    items: [
+      { href: "/gestor", label: "Painel executivo", icon: "chart", exact: true },
+      { href: "/gestor/projetos", label: "Projetos", icon: "map" },
+    ],
   },
 ];
 
@@ -88,6 +91,7 @@ export const FIELD_NAVIGATION: NavigationGroup[] = [
       { href: "/lancamento", label: "Novo lançamento", icon: "plus" },
       { href: "/maquinas", label: "Manutenção", icon: "wrench" },
       { href: "/planejamento", label: "Planejamento", icon: "calendar" },
+      { href: "/projeto-atual", label: "Projeto atual", icon: "map" },
     ],
   },
 ];

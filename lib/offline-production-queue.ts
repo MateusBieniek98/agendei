@@ -14,6 +14,7 @@ export type OfflineProductionPayload = {
   equipe_id?: string;
   atividade_id?: string;
   projeto_id?: string | null;
+  talhao_id?: string | null;
   talhao?: string | null;
   quantidade?: number;
   descarte?: number | null;

@@ -30,6 +30,8 @@ export async function GET(req: NextRequest) {
   const presetParam = (sp.get("preset") as PeriodoPreset | null) ?? "ciclo_atual";
   const deCustom = sp.get("de");
   const ateCustom = sp.get("ate");
+  const projetoId = sp.get("projeto_id");
+  const talhaoId = sp.get("talhao_id");
 
   const periodo = resolvePreset(
     presetParam,
@@ -44,12 +46,23 @@ export async function GET(req: NextRequest) {
   const ontem = dataOperacionalISO(yesterday);
 
   // Faturamento por dia no período
-  const { data: serie } = await supabase
-    .from("v_faturamento_dia")
-    .select("*")
-    .gte("data", periodo.de)
-    .lte("data", periodo.ate)
-    .order("data");
+  let serie: Array<{ data: string; faturamento: number }> = [];
+  if (projetoId || talhaoId) {
+    let serieQuery = supabase
+      .from("producao")
+      .select("data, quantidade, valor_unitario_snapshot")
+      .gte("data", periodo.de)
+      .lte("data", periodo.ate);
+    if (projetoId) serieQuery = serieQuery.eq("projeto_id", projetoId);
+    if (talhaoId) serieQuery = serieQuery.eq("talhao_id", talhaoId);
+    const { data } = await serieQuery;
+    const totals = new Map<string, number>();
+    for (const row of data ?? []) totals.set(row.data, (totals.get(row.data) ?? 0) + Number(row.quantidade) * Number(row.valor_unitario_snapshot));
+    serie = Array.from(totals, ([data, faturamento]) => ({ data, faturamento })).sort((a, b) => a.data.localeCompare(b.data));
+  } else {
+    const { data } = await supabase.from("v_faturamento_dia").select("*").gte("data", periodo.de).lte("data", periodo.ate).order("data");
+    serie = (data ?? []) as Array<{ data: string; faturamento: number }>;
+  }
 
   // Meta vigente: usa o mês do FIM do período
   const fimMesAno = Number(periodo.ate.slice(0, 4));
@@ -62,18 +75,24 @@ export async function GET(req: NextRequest) {
     .maybeSingle();
 
   // Produção por atividade (no período)
-  const { data: porAtividade } = await supabase
+  let activityQuery = supabase
     .from("producao")
     .select("atividade_id, quantidade, valor_unitario_snapshot, atividades(nome, unidade)")
     .gte("data", periodo.de)
     .lte("data", periodo.ate);
+  if (projetoId) activityQuery = activityQuery.eq("projeto_id", projetoId);
+  if (talhaoId) activityQuery = activityQuery.eq("talhao_id", talhaoId);
+  const { data: porAtividade } = await activityQuery;
 
   // Ranking equipes (no período)
-  const { data: porEquipe } = await supabase
+  let teamQuery = supabase
     .from("producao")
     .select("equipe_id, quantidade, valor_unitario_snapshot, equipes(nome)")
     .gte("data", periodo.de)
     .lte("data", periodo.ate);
+  if (projetoId) teamQuery = teamQuery.eq("projeto_id", projetoId);
+  if (talhaoId) teamQuery = teamQuery.eq("talhao_id", talhaoId);
+  const { data: porEquipe } = await teamQuery;
 
   const { data: equipesBase } = await supabase
     .from("equipes")
@@ -93,7 +112,7 @@ export async function GET(req: NextRequest) {
     .select("id, nome, tipo, identificador, status")
     .eq("ativo", true);
 
-  const { data: manutAbertas } = await supabase
+  let maintenanceQuery = supabase
     .from("manutencoes")
     .select(
       "id, maquina_id, descricao, status, created_at, resolvido_em, " +
@@ -102,6 +121,9 @@ export async function GET(req: NextRequest) {
     )
     .neq("status", "resolvido")
     .order("created_at", { ascending: false });
+  if (projetoId) maintenanceQuery = maintenanceQuery.eq("projeto_id", projetoId);
+  if (talhaoId) maintenanceQuery = maintenanceQuery.eq("talhao_id", talhaoId);
+  const { data: manutAbertas } = await maintenanceQuery;
 
   const manutencao = await getMaintenanceIndicators(supabase).catch(() => ({
     maquinas_paradas: 0,
@@ -115,7 +137,7 @@ export async function GET(req: NextRequest) {
   }));
 
   type SerieRow = { data: string; faturamento: number };
-  const rows = (serie ?? []) as SerieRow[];
+  const rows = serie as SerieRow[];
   const totalPeriodo = rows.reduce((s, r) => s + Number(r.faturamento ?? 0), 0);
   const totalHoje = rows
     .filter((r) => r.data === hoje)

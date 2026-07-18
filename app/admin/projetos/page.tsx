@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import PageHeader from "@/components/ui/PageHeader";
@@ -319,6 +320,9 @@ export default function ProjetosAdminPage() {
                   </button>
 
                   <div className="flex flex-wrap gap-2">
+                    <Link href={`/admin/projetos/${projeto.id}`} className="inline-flex min-h-9 items-center rounded-md border border-[var(--border)] px-3 text-sm font-medium text-[var(--accent)]">
+                      Abrir painel
+                    </Link>
                     <Button
                       variant="secondary"
                       size="sm"

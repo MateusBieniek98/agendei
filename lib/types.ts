@@ -64,6 +64,7 @@ export type Producao = {
   equipe_id: string;
   atividade_id: string;
   projeto_id: string | null;
+  talhao_id: string | null;
   talhao: string | null;
   quantidade: number;
   insumos: InsumoLancamento[];
@@ -131,6 +132,7 @@ export type Planejamento = {
   ano: number;
   mes: number;
   projeto_id: string;
+  talhao_id: string | null;
   talhao: string;
   atividade_id: string;
   equipe_id: string | null;
@@ -158,6 +160,7 @@ export type Manutencao = {
   maquina_id: string;
   equipe_id: string | null;
   projeto_id: string | null;
+  talhao_id: string | null;
   talhao: string | null;
   descricao: string;
   status: MaintenanceStatus;
@@ -173,6 +176,58 @@ export type Manutencao = {
   parada_desde: string;
   parada_ate: string | null;
   created_at: string;
+};
+
+export type OperationalAllocationResource = "equipe" | "maquina";
+
+export type OperationalAllocation = {
+  id: string;
+  projeto_id: string;
+  talhao_id: string;
+  equipe_id: string | null;
+  maquina_id: string | null;
+  iniciado_em: string;
+  encerrado_em: string | null;
+  observacoes: string | null;
+  alocado_por: string;
+  created_at: string;
+  projetos?: { nome: string } | null;
+  talhoes?: Pick<Talhao, "id" | "codigo" | "area_ha" | "ativo"> | null;
+  equipes?: { nome: string } | null;
+  maquinas?: { nome: string; identificador: string | null; status: MachineStatus } | null;
+  autor?: { nome: string } | null;
+};
+
+export type ProjectSummary = {
+  projeto: Projeto;
+  periodo: { de: string; ate: string; label: string };
+  talhoes: Array<Talhao & {
+    producao_valor: number;
+    lancamentos: number;
+    planejamentos: number;
+    manutencoes_abertas: number;
+  }>;
+  kpis: {
+    area_total_ha: number;
+    talhoes_ativos: number;
+    producao_valor: number;
+    lancamentos: number;
+    planejamentos: number;
+    planejamentos_concluidos: number;
+    planejamentos_atrasados: number;
+    equipes_alocadas: number;
+    maquinas_alocadas: number;
+    manutencoes_abertas: number;
+  };
+  serie: Array<{ data: string; valor: number }>;
+  por_atividade: Array<{
+    atividade_id: string;
+    nome: string;
+    unidade: string;
+    previsto: number;
+    realizado: number;
+  }>;
+  alocacoes: OperationalAllocation[];
 };
 
 export type ManutencaoEvento = {

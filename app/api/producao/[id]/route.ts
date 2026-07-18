@@ -13,12 +13,14 @@ import {
 } from "@/lib/insumos";
 import { syncPlanningProgressForProduction } from "@/lib/planning-progress";
 import { resolvePreset } from "@/lib/period";
+import { resolveActivePlot } from "@/lib/project-context";
 
 type Ctx = { params: Promise<{ id: string }> };
 
 type ProducaoRouteRow = {
   registrado_por: string;
   projeto_id: string | null;
+  talhao_id: string | null;
   talhao: string | null;
   atividade_id: string;
   data: string;
@@ -48,7 +50,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   const { data: anteriorRaw } = await supabase
     .from("producao")
     .select(
-      "registrado_por, projeto_id, talhao, atividade_id, data, equipe_id, " +
+      "registrado_por, projeto_id, talhao_id, talhao, atividade_id, data, equipe_id, " +
         "quantidade, descarte, observacoes, insumos, estoque_controlado"
     )
     .eq("id", id)
@@ -81,6 +83,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     "data",
     "atividade_id",
     "projeto_id",
+    "talhao_id",
     "talhao",
     "quantidade",
     "observacoes",
@@ -118,6 +121,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     const finalEquipeId = String(allowed.equipe_id ?? anterior.equipe_id);
     const finalAtividadeId = String(allowed.atividade_id ?? anterior.atividade_id);
     const finalProjetoId = String(allowed.projeto_id ?? anterior.projeto_id);
+    const finalTalhaoId = String(allowed.talhao_id ?? anterior.talhao_id ?? "").trim();
     const finalTalhao = String(allowed.talhao ?? anterior.talhao ?? "").trim();
     const finalQuantidade = Number(allowed.quantidade ?? anterior.quantidade);
     const finalDescarte =
@@ -137,13 +141,33 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
       return NextResponse.json({ error: "campos obrigatórios faltando" }, { status: 400 });
     }
 
+    let canonicalProjetoId = finalProjetoId;
+    let canonicalTalhao = finalTalhao;
+    const locationChanged =
+      finalProjetoId !== anterior.projeto_id ||
+      finalTalhao !== String(anterior.talhao ?? "").trim() ||
+      (!!finalTalhaoId && finalTalhaoId !== anterior.talhao_id);
+    if (locationChanged || anterior.talhao_id) {
+      try {
+        const plot = await resolveActivePlot(supabase, {
+          projeto_id: finalProjetoId,
+          talhao_id: finalTalhaoId,
+          talhao: finalTalhao,
+        });
+        canonicalProjetoId = plot.projeto_id;
+        canonicalTalhao = plot.codigo;
+      } catch (error) {
+        return NextResponse.json({ error: (error as Error).message }, { status: 400 });
+      }
+    }
+
     const { data: rpcData, error } = await supabase.rpc("update_producao_with_stock", {
       p_id: id,
       p_data: finalData,
       p_equipe_id: finalEquipeId,
       p_atividade_id: finalAtividadeId,
-      p_projeto_id: finalProjetoId,
-      p_talhao: finalTalhao,
+      p_projeto_id: canonicalProjetoId,
+      p_talhao: canonicalTalhao,
       p_quantidade: finalQuantidade,
       p_descarte: finalDescarte,
       p_observacoes: finalObservacoes,
@@ -185,6 +209,27 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     }
 
     allowed.valor_unitario_snapshot = atividade.valor_unitario;
+  }
+  const requestedProjetoId = String(allowed.projeto_id ?? anterior.projeto_id ?? "");
+  const requestedTalhaoId = allowed.talhao_id == null ? null : String(allowed.talhao_id);
+  const requestedTalhao = String(allowed.talhao ?? anterior.talhao ?? "").trim();
+  const legacyLocationChanged =
+    requestedProjetoId !== String(anterior.projeto_id ?? "") ||
+    requestedTalhaoId !== anterior.talhao_id ||
+    requestedTalhao !== String(anterior.talhao ?? "").trim();
+  if (legacyLocationChanged) {
+    try {
+      const plot = await resolveActivePlot(supabase, {
+        projeto_id: requestedProjetoId,
+        talhao_id: requestedTalhaoId,
+        talhao: requestedTalhao,
+      });
+      allowed.projeto_id = plot.projeto_id;
+      allowed.talhao_id = plot.id;
+      allowed.talhao = plot.codigo;
+    } catch (error) {
+      return NextResponse.json({ error: (error as Error).message }, { status: 400 });
+    }
   }
   allowed.editado_por = profile.id;
 

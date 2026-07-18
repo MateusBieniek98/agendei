@@ -346,7 +346,7 @@ export default function MaquinasAdminPage() {
         fetch("/api/maquinas").then((r) => r.json()),
         fetch("/api/manutencoes").then((r) => r.json()),
         fetch("/api/equipes").then((r) => r.json()),
-        fetch("/api/projetos").then((r) => r.json()),
+        fetch("/api/projetos?include_talhoes=1").then((r) => r.json()),
       ]);
       setMaquinas(Array.isArray(mr.items) ? (mr.items as Maquina[]) : []);
       setManuts(Array.isArray(mn.items) ? (mn.items as ManutComMaquina[]) : []);

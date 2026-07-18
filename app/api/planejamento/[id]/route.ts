@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
 import { syncPlanningProgressForProduction } from "@/lib/planning-progress";
+import { resolveActivePlot } from "@/lib/project-context";
 
 type Ctx = { params: Promise<{ id: string }> };
 const STATUSES = ["planejado", "em_execucao", "concluido", "cancelado"] as const;
@@ -18,11 +19,21 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
 
   const { id } = await ctx.params;
   const body = await req.json();
-  const update = {
+  const supabase = await createSupabaseServer();
+  const { data: current, error: currentError } = await supabase
+    .from("planejamento")
+    .select("projeto_id, talhao_id, talhao")
+    .eq("id", id)
+    .maybeSingle();
+  if (currentError) return NextResponse.json({ error: currentError.message }, { status: 400 });
+  if (!current) return NextResponse.json({ error: "planejamento não encontrado" }, { status: 404 });
+
+  const update: Record<string, unknown> = {
     ...(body.ano !== undefined ? { ano: Number(body.ano) } : {}),
     ...(body.mes !== undefined ? { mes: Number(body.mes) } : {}),
     ...(typeof body.projeto_id === "string" ? { projeto_id: body.projeto_id } : {}),
     ...(typeof body.talhao === "string" ? { talhao: body.talhao.trim() } : {}),
+    ...(typeof body.talhao_id === "string" ? { talhao_id: body.talhao_id } : {}),
     ...(typeof body.atividade_id === "string" ? { atividade_id: body.atividade_id } : {}),
     ...("equipe_id" in body ? { equipe_id: body.equipe_id || null } : {}),
     ...("quantidade_prevista" in body
@@ -39,7 +50,21 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     ...("observacoes" in body ? { observacoes: body.observacoes || null } : {}),
   };
 
-  const supabase = await createSupabaseServer();
+  if (body.projeto_id !== undefined || body.talhao_id !== undefined || body.talhao !== undefined) {
+    try {
+      const plot = await resolveActivePlot(supabase, {
+        projeto_id: update.projeto_id ?? current.projeto_id,
+        talhao_id: update.talhao_id ?? current.talhao_id,
+        talhao: update.talhao ?? current.talhao,
+      });
+      update.projeto_id = plot.projeto_id;
+      update.talhao_id = plot.id;
+      update.talhao = plot.codigo;
+    } catch (error) {
+      return NextResponse.json({ error: (error as Error).message }, { status: 400 });
+    }
+  }
+
   const { data, error } = await supabase
     .from("planejamento")
     .update(update)

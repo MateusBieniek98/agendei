@@ -19,6 +19,7 @@ import type {
   MentionableProfile,
   Maquina,
   Projeto,
+  Talhao,
   UserRole,
 } from "@/lib/types";
 
@@ -29,7 +30,7 @@ type MaintenanceFeedProps = {
   mode?: MaintenanceFeedMode;
   maquinas?: Maquina[];
   equipes?: Equipe[];
-  projetos?: Projeto[];
+  projetos?: Array<Projeto & { talhoes?: Talhao[] }>;
   showComposer?: boolean;
   compact?: boolean;
   onChanged?: () => void;
@@ -37,7 +38,7 @@ type MaintenanceFeedProps = {
 
 const EMPTY_MACHINES: Maquina[] = [];
 const EMPTY_TEAMS: Equipe[] = [];
-const EMPTY_PROJECTS: Projeto[] = [];
+const EMPTY_PROJECTS: Array<Projeto & { talhoes?: Talhao[] }> = [];
 
 const MACHINE_STATUS_OPTIONS: { value: MachineStatus; label: string }[] = [
   { value: "operando", label: "Operando" },
@@ -178,7 +179,7 @@ export default function MaintenanceFeed({
   const [threads, setThreads] = useState<ManutencaoThread[]>([]);
   const [maquinas, setMaquinas] = useState<Maquina[]>(initialMaquinas);
   const [equipes, setEquipes] = useState<Equipe[]>(initialEquipes);
-  const [projetos, setProjetos] = useState<Projeto[]>(initialProjetos);
+  const [projetos, setProjetos] = useState<Array<Projeto & { talhoes?: Talhao[] }>>(initialProjetos);
   const [mentionables, setMentionables] = useState<MentionableProfile[]>([]);
   const [technicians, setTechnicians] = useState<MentionableProfile[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -197,6 +198,7 @@ export default function MaintenanceFeed({
     maquina_id: initialMaquinas[0]?.id ?? "",
     equipe_id: initialEquipes[0]?.id ?? "",
     projeto_id: initialProjetos[0]?.id ?? "",
+    talhao_id: "",
     talhao: "",
     descricao: "",
     status_maquina: "manutencao_urgente" as MachineStatus,
@@ -230,9 +232,9 @@ export default function MaintenanceFeed({
         initialEquipes.length || !showComposer
           ? Promise.resolve({ items: initialEquipes })
           : readJson<{ items: Equipe[] }>("/api/equipes"),
-        initialProjetos.length || !showComposer
+        !showComposer
           ? Promise.resolve({ items: initialProjetos })
-          : readJson<{ items: Projeto[] }>("/api/projetos"),
+          : readJson<{ items: Array<Projeto & { talhoes?: Talhao[] }> }>("/api/projetos?include_talhoes=1"),
         readJson<{ items: MentionableProfile[] }>("/api/manutencoes/mentionables"),
       ]);
       setMaquinas(machineData.items ?? []);
@@ -267,7 +269,12 @@ export default function MaintenanceFeed({
   }, [equipes, maquinas, projetos]);
 
   const selected = threads.find((thread) => thread.id === selectedId) ?? null;
+  const availablePlots = useMemo(
+    () => projetos.find((item) => item.id === form.projeto_id)?.talhoes?.filter((item) => item.ativo) ?? [],
+    [form.projeto_id, projetos]
+  );
   const pending = threads.filter((thread) => thread.status !== "resolvido");
+  const showCreate = showComposer && currentRole !== "manutencao";
   const filteredThreads = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     return threads.filter((thread) => {
@@ -287,6 +294,25 @@ export default function MaintenanceFeed({
       ].some((value) => value?.toLowerCase().includes(normalized));
     });
   }, [currentUserId, filter, query, threads]);
+
+  useEffect(() => {
+    if (!showCreate || !form.maquina_id) return;
+    let active = true;
+    fetch(`/api/alocacoes?maquina_id=${encodeURIComponent(form.maquina_id)}`, { cache: "no-store" })
+      .then((response) => response.ok ? response.json() : null)
+      .then((json) => {
+        const allocation = json?.items?.[0];
+        if (!active || !allocation?.projeto_id || !allocation?.talhao_id) return;
+        setForm((current) => ({
+          ...current,
+          projeto_id: allocation.projeto_id,
+          talhao_id: allocation.talhao_id,
+          talhao: allocation.talhoes?.codigo ?? current.talhao,
+        }));
+      })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, [form.maquina_id, showCreate]);
 
   async function runAction(
     thread: ManutencaoThread,
@@ -338,7 +364,7 @@ export default function MaintenanceFeed({
 
   async function submitRequest(event: FormEvent) {
     event.preventDefault();
-    if (!form.maquina_id || !form.equipe_id || !form.projeto_id || !form.talhao.trim() || !form.descricao.trim()) {
+    if (!form.maquina_id || !form.equipe_id || !form.projeto_id || !form.talhao_id || !form.descricao.trim()) {
       return toast("Preencha máquina, equipe, projeto, talhão e descrição.", "error");
     }
     if (photos.length > 3 || photos.some((file) => file.size > 6 * 1024 * 1024)) {
@@ -353,7 +379,7 @@ export default function MaintenanceFeed({
       const response = await fetch("/api/manutencoes", { method: "POST", body: data });
       const json = (await response.json().catch(() => ({}))) as { error?: string };
       if (!response.ok || json.error) throw new Error(json.error ?? response.statusText);
-      setForm((current) => ({ ...current, talhao: "", descricao: "" }));
+      setForm((current) => ({ ...current, talhao_id: "", talhao: "", descricao: "" }));
       setMentionIds([]);
       setPhotos([]);
       toast("Solicitação criada.", "success");
@@ -378,7 +404,6 @@ export default function MaintenanceFeed({
   }
 
   const title = mode === "manutencao" ? "Solicitações" : "Manutenção";
-  const showCreate = showComposer && currentRole !== "manutencao";
 
   return (
     <section className={`space-y-5 ${compact ? "pb-2" : "pb-8"}`}>
@@ -406,10 +431,10 @@ export default function MaintenanceFeed({
               <Select label="Máquina" value={form.maquina_id} onChange={(e) => setForm({ ...form, maquina_id: e.target.value })} options={maquinas.map((item) => ({ value: item.id, label: `${item.nome}${item.identificador ? ` · ${item.identificador}` : ""}` }))} placeholder="Selecione" />
               <Select label="Situação da máquina" value={form.status_maquina} onChange={(e) => setForm({ ...form, status_maquina: e.target.value as MachineStatus })} options={MACHINE_STATUS_OPTIONS} />
               <Select label="Equipe" value={form.equipe_id} onChange={(e) => setForm({ ...form, equipe_id: e.target.value })} options={equipes.map((item) => ({ value: item.id, label: item.nome }))} placeholder="Selecione" />
-              <Select label="Projeto" value={form.projeto_id} onChange={(e) => setForm({ ...form, projeto_id: e.target.value })} options={projetos.map((item) => ({ value: item.id, label: item.nome }))} placeholder="Selecione" />
+              <Select label="Projeto" value={form.projeto_id} onChange={(e) => setForm({ ...form, projeto_id: e.target.value, talhao_id: "", talhao: "" })} options={projetos.map((item) => ({ value: item.id, label: item.nome }))} placeholder="Selecione" />
             </div>
             <div className="grid gap-3 sm:grid-cols-[180px_1fr]">
-              <label className="text-xs font-bold uppercase text-[var(--text-muted)]">Talhão<input value={form.talhao} onChange={(e) => setForm({ ...form, talhao: e.target.value })} className="mt-1 h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 text-sm font-semibold normal-case text-[var(--text-primary)]" /></label>
+              <Select label="Talhão" value={form.talhao_id} onChange={(e) => { const plot = availablePlots.find((item) => item.id === e.target.value); setForm({ ...form, talhao_id: plot?.id ?? "", talhao: plot?.codigo ?? "" }); }} options={availablePlots.map((item) => ({ value: item.id, label: item.area_ha == null ? item.codigo : `${item.codigo} · ${Number(item.area_ha).toLocaleString("pt-BR")} ha` }))} placeholder={form.projeto_id ? "Selecione" : "Projeto primeiro"} />
               <label className="text-xs font-bold uppercase text-[var(--text-muted)]">Problema<textarea value={form.descricao} onChange={(e) => setForm({ ...form, descricao: e.target.value })} className="mt-1 min-h-24 w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 py-2 text-sm font-semibold normal-case text-[var(--text-primary)]" placeholder="Descreva o defeito ou sintoma." /></label>
             </div>
             <details>

@@ -156,7 +156,6 @@ function FormModal({
   const atividadeSelecionada = atividades.find((a) => a.id === editing.atividade_id);
   const projetoSelecionado = projetos.find((p) => p.id === editing.projeto_id);
   const talhoesDoProjeto = (projetoSelecionado?.talhoes ?? []).filter((talhao) => talhao.ativo);
-  const talhoesListId = `talhoes-planejamento-${editing.projeto_id ?? "todos"}`;
   const faturamentoEditing = faturamentoPlanejado(editing.quantidade_prevista, atividadeSelecionada);
 
   return (
@@ -207,26 +206,23 @@ function FormModal({
             <Select
               label="Projeto"
               value={editing.projeto_id ?? ""}
-              onChange={(e) => setEditing({ ...editing, projeto_id: e.target.value, talhao: "" })}
+              onChange={(e) => setEditing({ ...editing, projeto_id: e.target.value, talhao_id: null, talhao: "" })}
               options={projetos.map((p) => ({ value: p.id, label: p.nome }))}
               placeholder="Selecione…"
             />
-            <div>
-              <Input
-                label="Talhão"
-                value={editing.talhao ?? ""}
-                onChange={(e) => setEditing({ ...editing, talhao: e.target.value })}
-                placeholder={talhoesDoProjeto.length > 0 ? "Selecione ou digite" : "Ex.: 017-01"}
-                list={talhoesListId}
-              />
-              <datalist id={talhoesListId}>
-                {talhoesDoProjeto.map((talhao) => (
-                  <option key={talhao.id} value={talhao.codigo}>
-                    {talhao.area_ha != null ? `${num(talhao.area_ha, 3)} ha` : talhao.codigo}
-                  </option>
-                ))}
-              </datalist>
-            </div>
+            <Select
+              label="Talhão"
+              value={editing.talhao_id ?? ""}
+              onChange={(e) => {
+                const selected = talhoesDoProjeto.find((item) => item.id === e.target.value);
+                setEditing({ ...editing, talhao_id: selected?.id ?? null, talhao: selected?.codigo ?? "" });
+              }}
+              options={talhoesDoProjeto.map((talhao) => ({
+                value: talhao.id,
+                label: talhao.area_ha == null ? talhao.codigo : `${talhao.codigo} · ${num(talhao.area_ha, 3)} ha`,
+              }))}
+              placeholder={editing.projeto_id ? "Selecione o talhão" : "Selecione o projeto primeiro"}
+            />
           </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -633,7 +629,7 @@ export default function PlanejamentoAdminPage() {
   }
 
   async function salvar() {
-    if (!editing.ano || !editing.mes || !editing.projeto_id || !editing.talhao ||
+    if (!editing.ano || !editing.mes || !editing.projeto_id || !editing.talhao_id ||
         !editing.atividade_id || !editing.data_limite) {
       toast("Preencha mês, projeto, talhão, atividade e prazo.", "error");
       return;
@@ -664,6 +660,10 @@ export default function PlanejamentoAdminPage() {
 
   async function importar(values: Record<string, string>) {
     const projeto = findByName(projetos, values.projeto, "Projeto");
+    const talhao = projeto.talhoes.find(
+      (item) => item.ativo && normalizeBulkValue(item.codigo) === normalizeBulkValue(values.talhao)
+    );
+    if (!talhao) throw new Error(`Talhão não encontrado no projeto ${projeto.nome}: ${values.talhao}`);
     const atividade = findByName(atividades, values.atividade, "Atividade");
     const equipe = values.equipe.trim() ? findByName(equipes, values.equipe, "Equipe") : null;
     const mes = parsePlanningMonth(values.mes);
@@ -677,7 +677,8 @@ export default function PlanejamentoAdminPage() {
         ano: Number(values.ano),
         mes,
         projeto_id: projeto.id,
-        talhao: values.talhao.trim(),
+        talhao_id: talhao.id,
+        talhao: talhao.codigo,
         atividade_id: atividade.id,
         equipe_id: equipe?.id ?? null,
         quantidade_prevista: parseNumberPtBr(values.quantidade_prevista),

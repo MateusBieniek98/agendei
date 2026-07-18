@@ -3,6 +3,7 @@ import { cicloProducao } from "./period";
 
 type ProducaoResumo = {
   projeto_id: string | null;
+  talhao_id: string | null;
   atividade_id: string | null;
   talhao: string | null;
   data: string | null;
@@ -16,6 +17,7 @@ type ProducaoResumo = {
 
 type PlanejamentoBase = {
   projeto_id: string;
+  talhao_id?: string | null;
   atividade_id: string;
   talhao: string;
   quantidade_prevista: number | string | null;
@@ -75,10 +77,11 @@ export function normalizeProjectName(value: string | null | undefined) {
 
 function exactKey(
   projetoId: string | null | undefined,
+  talhaoId: string | null | undefined,
   talhao: string | null | undefined,
   atividadeId: string | null | undefined
 ) {
-  return `${projetoId ?? ""}|${normalizeTalhao(talhao)}|${atividadeId ?? ""}`;
+  return `${projetoId ?? ""}|${talhaoId ? `id:${talhaoId}` : `texto:${normalizeTalhao(talhao)}`}|${atividadeId ?? ""}`;
 }
 
 function namedKey(
@@ -266,7 +269,7 @@ export async function enrichPlanningProgress<T extends PlanejamentoBase>(
 
   const { data, error } = await supabase
     .from("producao")
-    .select("projeto_id, atividade_id, talhao, data, created_at, quantidade, valor_unitario_snapshot, insumos, projetos(nome), atividades(nome)")
+    .select("projeto_id, talhao_id, atividade_id, talhao, data, created_at, quantidade, valor_unitario_snapshot, insumos, projetos(nome), atividades(nome)")
     .limit(10000);
 
   if (error) throw new Error(error.message);
@@ -286,7 +289,7 @@ export async function enrichPlanningProgress<T extends PlanejamentoBase>(
       insumos: normalizeInsumos(row.insumos),
       valorUnitarioSnapshot: toNumber(row.valor_unitario_snapshot),
     };
-    const byId = exactKey(row.projeto_id, row.talhao, row.atividade_id);
+    const byId = exactKey(row.projeto_id, row.talhao_id, row.talhao, row.atividade_id);
     const byName = namedKey(row.projetos?.nome, row.talhao, row.atividades?.nome);
     exactTotals.set(byId, (exactTotals.get(byId) ?? 0) + quantidade);
     namedTotals.set(byName, (namedTotals.get(byName) ?? 0) + quantidade);
@@ -301,7 +304,7 @@ export async function enrichPlanningProgress<T extends PlanejamentoBase>(
   return items.map((item) => {
     const prevista = Number(item.quantidade_prevista ?? 0);
     const realizadaPorId = exactTotals.get(
-      exactKey(item.projeto_id, item.talhao, item.atividade_id)
+      exactKey(item.projeto_id, item.talhao_id, item.talhao, item.atividade_id)
     );
     const realizadaPorNome = namedTotals.get(
       namedKey(item.projetos?.nome, item.talhao, item.atividades?.nome)
@@ -310,7 +313,7 @@ export async function enrichPlanningProgress<T extends PlanejamentoBase>(
       serviceTotals,
       serviceKey(item.projetos?.nome, item.talhao, item.atividades?.nome)
     );
-    const bucketPorId = exactBuckets.get(exactKey(item.projeto_id, item.talhao, item.atividade_id));
+    const bucketPorId = exactBuckets.get(exactKey(item.projeto_id, item.talhao_id, item.talhao, item.atividade_id));
     const bucketPorNome = namedBuckets.get(
       namedKey(item.projetos?.nome, item.talhao, item.atividades?.nome)
     );
