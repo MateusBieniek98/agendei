@@ -113,7 +113,7 @@ export default function AppShell({
 
   const sidebarContent = (
     <>
-      <div className="flex h-[72px] items-center gap-3 border-b border-white/10 px-5">
+      <div className="flex h-[calc(72px+max(var(--app-top-safe-area),20px))] items-center gap-3 border-b border-white/10 px-5 pt-[max(var(--app-top-safe-area),20px)] lg:h-[72px] lg:pt-0">
         <Image src="/gn-login-logo.jpeg" alt="Logo GN" width={38} height={38} className="h-9 w-9 rounded-md object-cover ring-1 ring-white/15" priority />
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-white">GN Operações</p>
@@ -126,7 +126,7 @@ export default function AppShell({
       <div className="flex-1 overflow-y-auto px-3 py-5">
         <NavigationList groups={navigation} pathname={pathname} onNavigate={() => setDrawerOpen(false)} />
       </div>
-      <div className="border-t border-white/10 p-4">
+      <div className="border-t border-white/10 p-4 pb-[max(1rem,var(--app-bottom-safe-area))]">
         <div className="flex items-center gap-3">
           <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/10 text-xs font-semibold text-white">
             {user.nome.trim().slice(0, 2).toUpperCase()}
@@ -155,7 +155,7 @@ export default function AppShell({
         </aside>
 
         <div className="min-w-0 flex-1">
-          <header className="sticky top-0 z-40 border-b border-[var(--border)] bg-[color-mix(in_srgb,var(--bg-elevated)_96%,transparent)] backdrop-blur-xl">
+          <header className="sticky top-0 z-50 border-b border-[var(--border)] bg-[color-mix(in_srgb,var(--bg-elevated)_96%,transparent)] pt-[max(var(--app-top-safe-area),20px)] backdrop-blur-xl lg:pt-0">
             <div className="flex min-h-[64px] items-center gap-3 px-3 sm:px-5 lg:px-7">
               {mobileStrategy === "drawer" ? (
                 <button type="button" onClick={() => setDrawerOpen(true)} className="grid h-10 w-10 shrink-0 place-items-center rounded-md text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] lg:hidden" aria-label="Abrir menu" aria-expanded={drawerOpen}>
@@ -169,13 +169,11 @@ export default function AppShell({
                 <h1 className="truncate text-base font-semibold tracking-[-0.01em] text-[var(--text-primary)]">{pageTitle}</h1>
               </div>
               <div className="flex items-center gap-1 lg:hidden">
-                <SyncStatus />
+                {mobileStrategy === "bottom" && <SyncStatus />}
                 <ThemeToggle />
-                {mobileStrategy === "bottom" && (
-                  <LogoutButton className="min-h-9 rounded-md px-2 text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]">
-                    Sair
-                  </LogoutButton>
-                )}
+                <LogoutButton className="inline-flex min-h-9 items-center rounded-md px-2.5 text-xs font-semibold text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]">
+                  Sair
+                </LogoutButton>
               </div>
               <div className="hidden items-center gap-3 text-right lg:flex">
                 <div>

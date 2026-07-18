@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import DashboardSectionTabs, { type DashboardSection } from "@/components/dashboard/DashboardSectionTabs";
+import BottomNav from "@/components/nav/BottomNav";
 import MaintenanceFeed from "@/components/maintenance/MaintenanceFeed";
 import { brl } from "@/lib/format";
 import { LinhaChart } from "@/app/gestor/GestorCharts";
@@ -264,9 +265,14 @@ export default function AdminDashboard({
   const canManageMetas = mode === "admin";
   const showExportActions = showExports ?? mode === "admin";
   const showPeriodFilter = activeTab === "indicadores" || activeTab === "equipes";
+  const showMobileDock = !hideSectionTabs && (mode === "admin" || mode === "gestor");
   return (
-    <div className="space-y-4 pb-2">
-      {!hideSectionTabs && <DashboardSectionTabs value={activeTab} onChange={changeSection} />}
+    <div className={`space-y-4 ${showMobileDock ? "pb-20 sm:pb-2" : "pb-2"}`}>
+      {!hideSectionTabs && (
+        <div className="hidden sm:block">
+          <DashboardSectionTabs value={activeTab} onChange={changeSection} />
+        </div>
+      )}
 
       {showPeriodFilter && (
         <PeriodoFiltro value={periodo} onChange={setPeriodo} loading={loading} />
@@ -316,6 +322,16 @@ export default function AdminDashboard({
 
           {activeTab === "manutencao" && <ManutencaoPage data={data} links={links} mode={mode} />}
         </>
+      )}
+
+      {showMobileDock && (
+        <div className="sm:hidden">
+          <BottomNav
+            viewType={mode === "admin" ? "admin" : "gestor"}
+            activeTab={activeTab}
+            onTabChange={changeSection}
+          />
+        </div>
       )}
     </div>
   );
@@ -381,7 +397,7 @@ function IndicadoresPage({
       </div>
 
       {hasKpis && (
-        <div className={`grid grid-cols-1 gap-3 sm:grid-cols-2 ${showMaintenanceKpi ? "xl:grid-cols-5" : "xl:grid-cols-4"}`}>
+        <div className={`grid grid-cols-1 gap-3 sm:grid-cols-2 ${showMaintenanceKpi ? "xl:grid-cols-6" : "xl:grid-cols-5"}`}>
           {hasWidget("dailyRevenue") && <DailyRevenueCard hoje={data.hoje} ontem={data.ontem} />}
           {hasWidget("periodTotal") && (
             <KpiCard label="Total no período" value={brl(data.total)} hint={data.periodo.label} />
@@ -528,13 +544,13 @@ function DailyProductionWidget({ data }: { data: DashboardData }) {
 function DailyRevenueCard({ hoje, ontem }: { hoje: number; ontem: number }) {
   return (
     <div
-      className="min-h-[116px] rounded-lg border p-3 sm:p-4"
+      className="min-h-[116px] rounded-lg border p-3 sm:col-span-2 sm:p-4 xl:col-span-2"
       style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}
     >
       <p className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
         Faturamento diário
       </p>
-      <div className="mt-2 grid grid-cols-2 gap-2">
+      <div className="mt-2 grid grid-cols-1 gap-2 min-[360px]:grid-cols-2">
         <DailyRevenueSlice label="Hoje" value={brl(hoje)} color="var(--success)" />
         <DailyRevenueSlice label="Ontem" value={brl(ontem)} color="var(--accent)" />
       </div>
@@ -559,7 +575,7 @@ function DailyRevenueSlice({
       <p className="text-[11px] font-medium" style={{ color: "var(--text-muted)" }}>
         {label}
       </p>
-      <p className="mt-1 truncate text-xl font-semibold tabular sm:text-2xl" style={{ color }}>
+      <p className="mt-1 whitespace-nowrap text-[clamp(1.05rem,4.8vw,1.5rem)] font-semibold leading-tight tabular" style={{ color }} title={value}>
         {value}
       </p>
     </div>
