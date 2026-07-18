@@ -9,12 +9,40 @@ function isMachineStatus(value: unknown): value is (typeof MACHINE_STATUSES)[num
   return typeof value === "string" && MACHINE_STATUSES.includes(value as never);
 }
 
+export async function GET(_req: NextRequest, ctx: Ctx) {
+  const profile = await getCurrentProfile();
+  if (!profile) {
+    return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
+  }
+
+  const { id } = await ctx.params;
+  const supabase = await createSupabaseServer();
+  const [{ data: machine, error: machineError }, { data: events, error: eventsError }] =
+    await Promise.all([
+      supabase.from("maquinas").select("*").eq("id", id).maybeSingle(),
+      supabase
+        .from("manutencao_eventos")
+        .select("*, ator:profiles!manutencao_eventos_ator_id_fkey(id,nome,role)")
+        .eq("maquina_id", id)
+        .order("created_at", { ascending: false }),
+    ]);
+
+  if (machineError || eventsError) {
+    return NextResponse.json(
+      { error: machineError?.message ?? eventsError?.message },
+      { status: 400 }
+    );
+  }
+  if (!machine) return NextResponse.json({ error: "machine_not_found" }, { status: 404 });
+  return NextResponse.json({ item: machine, events: events ?? [] });
+}
+
 export async function PATCH(req: NextRequest, ctx: Ctx) {
   const profile = await getCurrentProfile();
   if (!profile)
     return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
 
-  if (!["admin", "encarregado", "gestor"].includes(profile.role))
+  if (!["admin", "encarregado", "gestor", "manutencao"].includes(profile.role))
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
   const { id } = await ctx.params;

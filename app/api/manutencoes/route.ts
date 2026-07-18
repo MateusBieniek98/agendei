@@ -64,6 +64,9 @@ async function createMaintenance({
 }) {
   const profile = await getCurrentProfile();
   if (!profile) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
+  if (profile.role === "manutencao") {
+    return NextResponse.json({ error: "a manutenção recebe solicitações, mas não abre chamados" }, { status: 403 });
+  }
 
   const form = isMultipart ? await req.formData() : null;
   const body = form ? null : await req.json().catch(() => ({}));
@@ -172,9 +175,10 @@ export async function GET(req: NextRequest) {
   let q = supabase
     .from("manutencoes")
     .select(
-      "*, maquinas(nome, tipo, identificador, status), equipes(nome), projetos(nome), autor:profiles!manutencoes_reportado_por_fkey(id,nome,role,equipe_id)"
+      "*, maquinas(nome, tipo, identificador, status), equipes(nome), projetos(nome), autor:profiles!manutencoes_reportado_por_fkey(id,nome,role,equipe_id), responsavel:profiles!manutencoes_responsavel_id_fkey(id,nome,role,equipe_id), concluido_por_profile:profiles!manutencoes_concluido_por_fkey(id,nome,role,equipe_id)"
     )
-    .order("created_at", { ascending: false });
+    .order("prioridade", { ascending: false })
+    .order("created_at", { ascending: true });
 
   if (status) q = q.eq("status", status);
   if (pendentes === "1" || pendentes === "true") q = q.neq("status", "resolvido");

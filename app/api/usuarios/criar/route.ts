@@ -10,7 +10,7 @@ import type { UserRole } from "@/lib/types";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-const ROLES: UserRole[] = ["encarregado", "admin", "gestor"];
+const ROLES: UserRole[] = ["encarregado", "admin", "gestor", "manutencao"];
 
 export async function POST(req: NextRequest) {
   const me = await getCurrentProfile();

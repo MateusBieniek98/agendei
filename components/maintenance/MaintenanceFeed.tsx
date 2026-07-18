@@ -1,17 +1,19 @@
 "use client";
 
-/* eslint-disable @next/next/no-img-element -- fotos vêm de signed URLs privadas do Supabase Storage. */
+/* eslint-disable @next/next/no-img-element -- signed URLs privadas do Supabase Storage. */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import Button from "@/components/ui/Button";
 import Select from "@/components/ui/Select";
-import { useToast } from "@/components/ui/Toast";
 import PageHeader from "@/components/ui/PageHeader";
+import Badge from "@/components/ui/Badge";
+import { useToast } from "@/components/ui/Toast";
 import { ddmmyyyy } from "@/lib/format";
 import type {
   Equipe,
   MachineStatus,
-  MaintenanceStatus,
+  MaintenancePriority,
+  ManutencaoEvento,
   ManutencaoThread,
   MentionableProfile,
   Maquina,
@@ -19,8 +21,8 @@ import type {
   UserRole,
 } from "@/lib/types";
 
-type MaintenanceFeedMode = "field" | "admin" | "gestor";
-type FeedFilter = "todos" | "meus" | "mencionados" | "pendentes";
+type MaintenanceFeedMode = "field" | "admin" | "gestor" | "manutencao";
+type FeedFilter = "fila" | "meus" | "concluidos";
 
 type MaintenanceFeedProps = {
   mode?: MaintenanceFeedMode;
@@ -32,40 +34,54 @@ type MaintenanceFeedProps = {
   onChanged?: () => void;
 };
 
+const EMPTY_MACHINES: Maquina[] = [];
+const EMPTY_TEAMS: Equipe[] = [];
+const EMPTY_PROJECTS: Projeto[] = [];
+
 const MACHINE_STATUS_OPTIONS: { value: MachineStatus; label: string }[] = [
   { value: "operando", label: "Operando" },
   { value: "parada", label: "Parada" },
   { value: "manutencao_urgente", label: "Manutenção urgente" },
 ];
 
-const STATUS_META: Record<MaintenanceStatus, { label: string; color: string; bg: string }> = {
-  aberto: {
-    label: "Aberto",
-    color: "var(--danger)",
-    bg: "var(--danger-bg)",
-  },
-  em_andamento: {
-    label: "Em andamento",
-    color: "var(--warn)",
-    bg: "var(--warn-bg)",
-  },
-  resolvido: {
-    label: "Resolvido",
-    color: "var(--success)",
-    bg: "var(--success-bg)",
-  },
+const PRIORITY_OPTIONS: { value: MaintenancePriority; label: string }[] = [
+  { value: "normal", label: "Normal" },
+  { value: "alta", label: "Alta" },
+  { value: "urgente", label: "Urgente" },
+];
+
+const STATUS_LABEL = {
+  aberto: "Aberto",
+  em_andamento: "Em andamento",
+  resolvido: "Resolvido",
+} as const;
+
+const EVENT_LABEL: Record<ManutencaoEvento["tipo"], string> = {
+  criado: "Solicitação criada",
+  atribuido: "Responsável definido",
+  iniciado: "Serviço iniciado",
+  prioridade_alterada: "Prioridade alterada",
+  concluido: "Serviço concluído",
+  status_maquina_alterado: "Status da máquina alterado",
 };
+
+function statusTone(status: ManutencaoThread["status"]) {
+  if (status === "resolvido") return "success" as const;
+  if (status === "em_andamento") return "warning" as const;
+  return "danger" as const;
+}
+
+function priorityTone(priority: MaintenancePriority) {
+  if (priority === "urgente") return "danger" as const;
+  if (priority === "alta") return "warning" as const;
+  return "neutral" as const;
+}
 
 function roleLabel(role: UserRole) {
   if (role === "admin") return "Admin";
   if (role === "gestor") return "Gestor";
+  if (role === "manutencao") return "Manutenção";
   return "Encarregado";
-}
-
-function compactName(name: string) {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length <= 2) return name;
-  return `${parts[0]} ${parts[parts.length - 1]}`;
 }
 
 async function readJson<T>(url: string) {
@@ -80,132 +96,69 @@ function MentionPicker({
   selectedIds,
   currentUserId,
   onChange,
-  label,
 }: {
   people: MentionableProfile[];
   selectedIds: string[];
   currentUserId: string | null;
   onChange: (ids: string[]) => void;
-  label: string;
 }) {
-  const [query, setQuery] = useState("");
-  const selected = people.filter((person) => selectedIds.includes(person.id));
-  const filtered = people
-    .filter((person) => person.id !== currentUserId)
-    .filter((person) => {
-      const q = query.trim().toLowerCase();
-      if (!q) return true;
-      return (
-        person.nome.toLowerCase().includes(q) ||
-        person.role.toLowerCase().includes(q) ||
-        (person.equipes?.nome ?? "").toLowerCase().includes(q)
-      );
-    })
-    .slice(0, 8);
-
-  function toggle(id: string) {
-    onChange(
-      selectedIds.includes(id)
-        ? selectedIds.filter((selectedId) => selectedId !== id)
-        : [...selectedIds, id]
-    );
-  }
-
+  const available = people.filter((person) => person.id !== currentUserId);
   return (
-    <div className="space-y-2">
-      <label className="text-xs font-bold uppercase" style={{ color: "var(--text-muted)" }}>
-        {label}
-      </label>
-
-      {selected.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {selected.map((person) => (
-            <button
-              key={person.id}
-              type="button"
-              onClick={() => toggle(person.id)}
-              className="rounded-md border px-2 py-1 text-xs font-bold"
-              style={{
-                background: "var(--accent-subtle)",
-                borderColor: "var(--accent)",
-                color: "var(--accent)",
-              }}
-            >
-              @{compactName(person.nome)} ×
-            </button>
-          ))}
-        </div>
-      )}
-
-      <input
-        type="search"
-        value={query}
-        onChange={(event) => setQuery(event.target.value)}
-        placeholder="Buscar pessoa para marcar"
-        className="h-11 w-full rounded-lg border px-3 text-sm font-bold outline-none"
-        style={{
-          background: "var(--bg-input, var(--bg-card))",
-          borderColor: "var(--border)",
-          color: "var(--text-primary)",
-        }}
-      />
-
-      <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-        {filtered.length === 0 ? (
-          <p className="rounded-lg border border-dashed p-3 text-xs font-semibold" style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}>
-            Nenhuma pessoa disponível.
-          </p>
-        ) : (
-          filtered.map((person) => {
-            const active = selectedIds.includes(person.id);
-            return (
-              <button
-                key={person.id}
-                type="button"
-                onClick={() => toggle(person.id)}
-                className="min-h-11 rounded-lg border px-3 text-left transition active:scale-[0.99]"
-                style={{
-                  background: active ? "var(--accent-subtle)" : "var(--bg-card-alt)",
-                  borderColor: active ? "var(--accent)" : "var(--border)",
-                }}
-              >
-                <span className="block truncate text-sm font-bold" style={{ color: "var(--text-primary)" }}>
-                  {person.nome}
-                </span>
-                <span className="block truncate text-[11px] font-semibold" style={{ color: "var(--text-muted)" }}>
-                  {roleLabel(person.role)}
-                  {person.equipes?.nome ? ` · ${person.equipes.nome}` : ""}
-                </span>
-              </button>
-            );
-          })
-        )}
-      </div>
+    <div className="grid max-h-48 grid-cols-1 gap-1.5 overflow-y-auto sm:grid-cols-2">
+      {available.map((person) => {
+        const active = selectedIds.includes(person.id);
+        return (
+          <button
+            key={person.id}
+            type="button"
+            onClick={() =>
+              onChange(
+                active
+                  ? selectedIds.filter((id) => id !== person.id)
+                  : [...selectedIds, person.id]
+              )
+            }
+            className="min-h-10 rounded-lg border px-3 text-left text-xs font-bold"
+            style={{
+              background: active ? "var(--accent-subtle)" : "var(--bg-card-alt)",
+              borderColor: active ? "var(--accent)" : "var(--border)",
+              color: "var(--text-primary)",
+            }}
+          >
+            <span className="block truncate">{person.nome}</span>
+            <span className="block truncate font-semibold text-[var(--text-muted)]">
+              {roleLabel(person.role)}
+            </span>
+          </button>
+        );
+      })}
     </div>
   );
 }
 
-function ThreadContext({ thread }: { thread: ManutencaoThread }) {
-  const items = [
-    thread.maquinas?.nome,
-    thread.maquinas?.identificador,
+function contextText(thread: ManutencaoThread) {
+  return [
+    thread.maquinas?.tipo,
     thread.equipes?.nome,
     thread.projetos?.nome,
     thread.talhao ? `Talhão ${thread.talhao}` : null,
-  ].filter(Boolean);
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
 
-  return (
-    <p className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
-      {items.join(" · ") || "Sem contexto operacional"}
-    </p>
-  );
+function eventDetail(event: ManutencaoEvento) {
+  if (event.tipo === "atribuido") return String(event.dados.responsavel_nome ?? "");
+  if (event.tipo === "prioridade_alterada") return String(event.dados.prioridade ?? "");
+  if (event.tipo === "status_maquina_alterado") return String(event.dados.novo ?? "");
+  return "";
 }
 
 export default function MaintenanceFeed({
   mode = "field",
-  maquinas: initialMaquinas = [],
-  equipes: initialEquipes = [],
-  projetos: initialProjetos = [],
+  maquinas: initialMaquinas = EMPTY_MACHINES,
+  equipes: initialEquipes = EMPTY_TEAMS,
+  projetos: initialProjetos = EMPTY_PROJECTS,
   showComposer = true,
   compact = false,
   onChanged,
@@ -216,12 +169,18 @@ export default function MaintenanceFeed({
   const [equipes, setEquipes] = useState<Equipe[]>(initialEquipes);
   const [projetos, setProjetos] = useState<Projeto[]>(initialProjetos);
   const [mentionables, setMentionables] = useState<MentionableProfile[]>([]);
+  const [technicians, setTechnicians] = useState<MentionableProfile[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [filter, setFilter] = useState<FeedFilter>("pendentes");
+  const [currentRole, setCurrentRole] = useState<UserRole | null>(null);
+  const [filter, setFilter] = useState<FeedFilter>("fila");
+  const [query, setQuery] = useState("");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [commentingId, setCommentingId] = useState<string | null>(null);
-  const [managingId, setManagingId] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
+  const [commentMentions, setCommentMentions] = useState<Record<string, string[]>>({});
+  const [completion, setCompletion] = useState({ relato: "", status: "operando" as MachineStatus });
   const [form, setForm] = useState({
     maquina_id: initialMaquinas[0]?.id ?? "",
     equipe_id: initialEquipes[0]?.id ?? "",
@@ -232,9 +191,6 @@ export default function MaintenanceFeed({
   });
   const [mentionIds, setMentionIds] = useState<string[]>([]);
   const [photos, setPhotos] = useState<File[]>([]);
-  const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
-  const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
-  const [commentMentions, setCommentMentions] = useState<Record<string, string[]>>({});
 
   const loadThreads = useCallback(async () => {
     setLoading(true);
@@ -245,8 +201,9 @@ export default function MaintenanceFeed({
       }>("/api/manutencoes");
       setThreads(Array.isArray(json.items) ? json.items : []);
       setCurrentUserId(json.current_user?.id ?? null);
-    } catch (err) {
-      toast(`Erro ao carregar manutenção: ${(err as Error).message}`, "error");
+      setCurrentRole(json.current_user?.role ?? null);
+    } catch (error) {
+      toast(`Erro ao carregar manutenção: ${(error as Error).message}`, "error");
     } finally {
       setLoading(false);
     }
@@ -254,33 +211,32 @@ export default function MaintenanceFeed({
 
   const loadOptions = useCallback(async () => {
     try {
-      const [maquinasJson, equipesJson, projetosJson, mentionablesJson] = await Promise.all([
-        initialMaquinas.length > 0
+      const [machineData, teamData, projectData, peopleData] = await Promise.all([
+        initialMaquinas.length
           ? Promise.resolve({ items: initialMaquinas })
           : readJson<{ items: Maquina[] }>("/api/maquinas"),
-        initialEquipes.length > 0
+        initialEquipes.length || !showComposer
           ? Promise.resolve({ items: initialEquipes })
           : readJson<{ items: Equipe[] }>("/api/equipes"),
-        initialProjetos.length > 0
+        initialProjetos.length || !showComposer
           ? Promise.resolve({ items: initialProjetos })
           : readJson<{ items: Projeto[] }>("/api/projetos"),
         readJson<{ items: MentionableProfile[] }>("/api/manutencoes/mentionables"),
       ]);
-      setMaquinas(maquinasJson.items ?? []);
-      setEquipes(equipesJson.items ?? []);
-      setProjetos(projetosJson.items ?? []);
-      setMentionables(mentionablesJson.items ?? []);
-    } catch (err) {
-      toast(`Erro ao carregar opções: ${(err as Error).message}`, "error");
+      setMaquinas(machineData.items ?? []);
+      setEquipes(teamData.items ?? []);
+      setProjetos(projectData.items ?? []);
+      setMentionables(peopleData.items ?? []);
+      setTechnicians((peopleData.items ?? []).filter((person) => person.role === "manutencao"));
+    } catch (error) {
+      toast(`Erro ao carregar opções: ${(error as Error).message}`, "error");
     }
-  }, [initialEquipes, initialMaquinas, initialProjetos, toast]);
+  }, [initialEquipes, initialMaquinas, initialProjetos, showComposer, toast]);
 
   useEffect(() => {
     void loadThreads();
     void loadOptions();
-    const timer = window.setInterval(() => {
-      void loadThreads();
-    }, 30000);
+    const timer = window.setInterval(() => void loadThreads(), 30000);
     return () => window.clearInterval(timer);
   }, [loadOptions, loadThreads]);
 
@@ -293,588 +249,256 @@ export default function MaintenanceFeed({
     }));
   }, [equipes, maquinas, projetos]);
 
-  useEffect(() => {
-    const urls = photos.map((file) => URL.createObjectURL(file));
-    setPhotoPreviews(urls);
-    return () => {
-      urls.forEach((url) => URL.revokeObjectURL(url));
-    };
-  }, [photos]);
-
+  const selected = threads.find((thread) => thread.id === selectedId) ?? null;
+  const pending = threads.filter((thread) => thread.status !== "resolvido");
   const filteredThreads = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
     return threads.filter((thread) => {
-      if (filter === "pendentes") return thread.status !== "resolvido";
-      if (filter === "meus") return thread.reportado_por === currentUserId;
-      if (filter === "mencionados") {
-        return currentUserId ? thread.mentioned_profile_ids.includes(currentUserId) : false;
-      }
-      return true;
+      if (filter === "fila" && thread.status === "resolvido") return false;
+      if (filter === "concluidos" && thread.status !== "resolvido") return false;
+      if (
+        filter === "meus" &&
+        thread.responsavel_id !== currentUserId &&
+        thread.reportado_por !== currentUserId
+      ) return false;
+      if (!normalized) return true;
+      return [
+        thread.descricao,
+        thread.maquinas?.nome,
+        thread.maquinas?.identificador,
+        thread.responsavel?.nome,
+      ].some((value) => value?.toLowerCase().includes(normalized));
     });
-  }, [currentUserId, filter, threads]);
+  }, [currentUserId, filter, query, threads]);
 
-  const unreadMentions = useMemo(
-    () => threads.reduce((total, thread) => total + thread.unread_mentions_count, 0),
-    [threads]
-  );
-
-  function selectPhotos(files: FileList | null) {
-    const next = Array.from(files ?? []);
-    if (next.length > 3) {
-      toast("Envie no máximo 3 fotos por pedido.", "error");
-      return;
+  async function runAction(
+    thread: ManutencaoThread,
+    action: "assumir" | "atribuir" | "iniciar" | "priorizar" | "concluir",
+    extra: Record<string, unknown> = {}
+  ) {
+    setBusyId(thread.id);
+    try {
+      const response = await fetch(`/api/manutencoes/${thread.id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action, ...extra }),
+      });
+      const json = (await response.json().catch(() => ({}))) as { error?: string };
+      if (!response.ok || json.error) throw new Error(json.error ?? response.statusText);
+      toast(action === "concluir" ? "Serviço concluído." : "Solicitação atualizada.", "success");
+      if (action === "concluir") setCompletion({ relato: "", status: "operando" });
+      await loadThreads();
+      onChanged?.();
+    } catch (error) {
+      toast(`Erro: ${(error as Error).message}`, "error");
+    } finally {
+      setBusyId(null);
     }
-    const invalid = next.find(
-      (file) =>
-        !["image/jpeg", "image/png", "image/webp"].includes(file.type) ||
-        file.size > 6 * 1024 * 1024
-    );
-    if (invalid) {
-      toast("Use JPG, PNG ou WebP com até 6MB por foto.", "error");
-      return;
-    }
-    setPhotos(next);
   }
 
-  async function submitRequest(event: React.FormEvent) {
+  async function submitComment(thread: ManutencaoThread) {
+    const texto = (commentDrafts[thread.id] ?? "").trim();
+    if (!texto) return toast("Escreva um comentário.", "error");
+    setBusyId(thread.id);
+    try {
+      const response = await fetch(`/api/manutencoes/${thread.id}/comentarios`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ texto, mention_ids: commentMentions[thread.id] ?? [] }),
+      });
+      const json = (await response.json().catch(() => ({}))) as { error?: string };
+      if (!response.ok || json.error) throw new Error(json.error ?? response.statusText);
+      setCommentDrafts((current) => ({ ...current, [thread.id]: "" }));
+      setCommentMentions((current) => ({ ...current, [thread.id]: [] }));
+      await loadThreads();
+    } catch (error) {
+      toast(`Erro: ${(error as Error).message}`, "error");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function submitRequest(event: FormEvent) {
     event.preventDefault();
     if (!form.maquina_id || !form.equipe_id || !form.projeto_id || !form.talhao.trim() || !form.descricao.trim()) {
-      toast("Selecione máquina, frente, projeto, talhão e descreva o problema.", "error");
-      return;
+      return toast("Preencha máquina, equipe, projeto, talhão e descrição.", "error");
     }
-
+    if (photos.length > 3 || photos.some((file) => file.size > 6 * 1024 * 1024)) {
+      return toast("Envie até 3 fotos com no máximo 6MB cada.", "error");
+    }
     setSubmitting(true);
     try {
       const data = new FormData();
-      data.set("maquina_id", form.maquina_id);
-      data.set("equipe_id", form.equipe_id);
-      data.set("projeto_id", form.projeto_id);
-      data.set("talhao", form.talhao.trim());
-      data.set("descricao", form.descricao.trim());
-      data.set("status_maquina", form.status_maquina);
+      Object.entries(form).forEach(([key, value]) => data.set(key, value));
       data.set("mention_ids", JSON.stringify(mentionIds));
       photos.forEach((photo) => data.append("photos", photo));
-
       const response = await fetch("/api/manutencoes", { method: "POST", body: data });
-      const json = (await response.json().catch(() => ({}))) as {
-        error?: string;
-        photo_errors?: string[];
-      };
+      const json = (await response.json().catch(() => ({}))) as { error?: string };
       if (!response.ok || json.error) throw new Error(json.error ?? response.statusText);
-
-      if (json.photo_errors?.length) {
-        toast(`Pedido criado, mas algumas fotos falharam: ${json.photo_errors.join("; ")}`, "error");
-      } else {
-        toast("Pedido de manutenção publicado.", "success");
-      }
-
       setForm((current) => ({ ...current, talhao: "", descricao: "" }));
       setMentionIds([]);
       setPhotos([]);
+      toast("Solicitação criada.", "success");
       await loadThreads();
       onChanged?.();
-    } catch (err) {
-      toast(`Erro: ${(err as Error).message}`, "error");
+    } catch (error) {
+      toast(`Erro: ${(error as Error).message}`, "error");
     } finally {
       setSubmitting(false);
     }
   }
 
-  async function submitComment(threadId: string) {
-    const texto = (commentDrafts[threadId] ?? "").trim();
-    if (!texto) {
-      toast("Escreva um comentário.", "error");
-      return;
-    }
-
-    setCommentingId(threadId);
-    try {
-      const response = await fetch(`/api/manutencoes/${threadId}/comentarios`, {
+  async function openThread(thread: ManutencaoThread) {
+    setSelectedId(thread.id);
+    if (thread.unread_mentions_count > 0) {
+      await fetch("/api/manutencoes/mencoes/read", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          texto,
-          mention_ids: commentMentions[threadId] ?? [],
-        }),
-      });
-      const json = (await response.json().catch(() => ({}))) as { error?: string };
-      if (!response.ok || json.error) throw new Error(json.error ?? response.statusText);
-      setCommentDrafts((current) => ({ ...current, [threadId]: "" }));
-      setCommentMentions((current) => ({ ...current, [threadId]: [] }));
-      toast("Comentário publicado.", "success");
-      await loadThreads();
-      onChanged?.();
-    } catch (err) {
-      toast(`Erro: ${(err as Error).message}`, "error");
-    } finally {
-      setCommentingId(null);
+        body: JSON.stringify({ manutencao_id: thread.id }),
+      }).catch(() => null);
     }
   }
 
-  async function patchThreadStatus(thread: ManutencaoThread, status: MaintenanceStatus) {
-    setManagingId(thread.id);
-    try {
-      const response = await fetch(`/api/manutencoes/${thread.id}`, {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          status,
-          status_maquina: status === "resolvido" ? "operando" : undefined,
-          resolvido_em: status === "resolvido" ? undefined : null,
-        }),
-      });
-      const json = (await response.json().catch(() => ({}))) as { error?: string };
-      if (!response.ok || json.error) throw new Error(json.error ?? response.statusText);
-      toast(status === "resolvido" ? "Manutenção concluída." : "Status atualizado.", "success");
-      await loadThreads();
-      onChanged?.();
-    } catch (err) {
-      toast(`Erro: ${(err as Error).message}`, "error");
-    } finally {
-      setManagingId(null);
-    }
-  }
-
-  async function markRead(threadId: string) {
-    try {
-      const response = await fetch("/api/manutencoes/mencoes/read", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ manutencao_id: threadId }),
-      });
-      const json = (await response.json().catch(() => ({}))) as { error?: string };
-      if (!response.ok || json.error) throw new Error(json.error ?? response.statusText);
-      await loadThreads();
-    } catch (err) {
-      toast(`Erro ao marcar menções: ${(err as Error).message}`, "error");
-    }
-  }
-
-  const title =
-    mode === "admin"
-      ? "Feed de manutenção"
-      : mode === "gestor"
-        ? "Manutenção em campo"
-        : "Pedidos de manutenção";
+  const title = mode === "manutencao" ? "Solicitações" : "Manutenção";
+  const showCreate = showComposer && currentRole !== "manutencao";
 
   return (
-    <section className={`space-y-4 ${compact ? "pb-16" : ""}`}>
-      <PageHeader
-        eyebrow="Manutenção"
-        title={title}
-        subtitle={`${threads.filter((thread) => thread.status !== "resolvido").length} pendente(s)${
-          unreadMentions > 0 ? ` · ${unreadMentions} menção(ões) nova(s)` : ""
-        }`}
-        right={
-          <Button type="button" variant="secondary" size="sm" onClick={() => void loadThreads()} loading={loading}>
-            Atualizar
-          </Button>
-        }
-      />
-
-      {showComposer && (
-        <form
-          onSubmit={submitRequest}
-          className="space-y-4 rounded-lg border p-3 sm:p-4"
-          style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}
-        >
-          <div>
-            <h3 className="text-sm font-bold uppercase" style={{ color: "var(--text-primary)" }}>
-              Abrir manutenção
-            </h3>
-          </div>
-
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <Select
-              label="Máquina"
-              value={form.maquina_id}
-              onChange={(event) => setForm({ ...form, maquina_id: event.target.value })}
-              options={maquinas.map((maquina) => ({
-                value: maquina.id,
-                label: `${maquina.nome}${maquina.identificador ? ` · ${maquina.identificador}` : ""}`,
-              }))}
-              placeholder="Selecione"
-            />
-            <Select
-              label="Status da máquina"
-              value={form.status_maquina}
-              onChange={(event) =>
-                setForm({ ...form, status_maquina: event.target.value as MachineStatus })
-              }
-              options={MACHINE_STATUS_OPTIONS}
-            />
-            <Select
-              label="Frente / equipe"
-              value={form.equipe_id}
-              onChange={(event) => setForm({ ...form, equipe_id: event.target.value })}
-              options={equipes.map((equipe) => ({ value: equipe.id, label: equipe.nome }))}
-              placeholder="Selecione"
-            />
-            <Select
-              label="Projeto"
-              value={form.projeto_id}
-              onChange={(event) => setForm({ ...form, projeto_id: event.target.value })}
-              options={projetos.map((projeto) => ({ value: projeto.id, label: projeto.nome }))}
-              placeholder="Selecione"
-            />
-          </div>
-
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,0.45fr)_minmax(0,1fr)]">
-            <label className="flex flex-col gap-1.5">
-              <span className="text-xs font-bold uppercase" style={{ color: "var(--text-muted)" }}>
-                Talhão
-              </span>
-              <input
-                value={form.talhao}
-                onChange={(event) => setForm({ ...form, talhao: event.target.value })}
-                className="h-11 rounded-lg border px-3 text-sm font-semibold outline-none"
-                style={{
-                  background: "var(--bg-input, var(--bg-card))",
-                  borderColor: "var(--border)",
-                  color: "var(--text-primary)",
-                }}
-                placeholder="Ex.: 012-01"
-              />
-            </label>
-            <label className="flex flex-col gap-1.5">
-              <span className="text-xs font-bold uppercase" style={{ color: "var(--text-muted)" }}>
-                Descrição
-              </span>
-              <textarea
-                value={form.descricao}
-                onChange={(event) => setForm({ ...form, descricao: event.target.value })}
-                className="min-h-24 rounded-lg border px-3 py-2 text-sm font-semibold outline-none"
-                style={{
-                  background: "var(--bg-input, var(--bg-card))",
-                  borderColor: "var(--border)",
-                  color: "var(--text-primary)",
-                }}
-                placeholder="Descreva o defeito, sintoma e urgência."
-              />
-            </label>
-          </div>
-
-          <MentionPicker
-            people={mentionables}
-            selectedIds={mentionIds}
-            currentUserId={currentUserId}
-            onChange={setMentionIds}
-            label="Marcar pessoas"
-          />
-
-          <div className="space-y-2">
-            <label className="text-xs font-bold uppercase" style={{ color: "var(--text-muted)" }}>
-              Fotos do problema
-            </label>
-            <input
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              multiple
-              onChange={(event) => selectPhotos(event.target.files)}
-              className="block w-full rounded-lg border p-3 text-sm font-semibold"
-              style={{
-                background: "var(--bg-card-alt)",
-                borderColor: "var(--border)",
-                color: "var(--text-secondary)",
-              }}
-            />
-            {photoPreviews.length > 0 && (
-              <div className="grid grid-cols-3 gap-2">
-                {photoPreviews.map((url) => (
-                  <img
-                    key={url}
-                    src={url}
-                    alt="Preview da foto"
-                    className="h-28 w-full rounded-lg object-cover"
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-            {(photos.length > 0 || mentionIds.length > 0 || form.descricao || form.talhao) && (
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => {
-                  setPhotos([]);
-                  setMentionIds([]);
-                  setForm((current) => ({ ...current, talhao: "", descricao: "" }));
-                }}
-              >
-                Limpar
-              </Button>
-            )}
-            <Button type="submit" loading={submitting}>
-              Publicar pedido
+    <section className={`space-y-4 ${compact ? "pb-2" : "pb-16"}`}>
+      {!compact && (
+        <PageHeader
+          eyebrow="Manutenção"
+          title={title}
+          subtitle={`${pending.length} pendente${pending.length === 1 ? "" : "s"}`}
+          right={
+            <Button variant="secondary" size="sm" onClick={() => void loadThreads()} loading={loading}>
+              Atualizar
             </Button>
-          </div>
-        </form>
+          }
+        />
       )}
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {[
-          { key: "todos", label: "Todos", count: threads.length },
-          {
-            key: "meus",
-            label: "Meus pedidos",
-            count: threads.filter((thread) => thread.reportado_por === currentUserId).length,
-          },
-          {
-            key: "mencionados",
-            label: "Mencionaram você",
-            count: threads.filter((thread) =>
-              currentUserId ? thread.mentioned_profile_ids.includes(currentUserId) : false
-            ).length,
-          },
-          {
-            key: "pendentes",
-            label: "Pendentes",
-            count: threads.filter((thread) => thread.status !== "resolvido").length,
-          },
-        ].map((item) => {
-          const active = filter === item.key;
-          return (
-            <button
-              key={item.key}
-              type="button"
-              onClick={() => setFilter(item.key as FeedFilter)}
-              className="min-h-10 rounded-lg border px-3 text-xs font-bold"
-              style={{
-                background: active ? "var(--accent)" : "var(--bg-card)",
-                borderColor: active ? "var(--accent)" : "var(--border)",
-                color: active ? "#fff" : "var(--text-secondary)",
-              }}
-            >
-              {item.label} ({item.count})
+      {showCreate && (
+        <details className="group rounded-lg border border-[var(--border)] bg-[var(--bg-card)]">
+          <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 text-sm font-bold text-[var(--text-primary)]">
+            <span>Nova solicitação</span>
+            <span className="text-xl font-normal text-[var(--accent)] group-open:rotate-45">+</span>
+          </summary>
+          <form onSubmit={submitRequest} className="space-y-4 border-t border-[var(--border)] p-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Select label="Máquina" value={form.maquina_id} onChange={(e) => setForm({ ...form, maquina_id: e.target.value })} options={maquinas.map((item) => ({ value: item.id, label: `${item.nome}${item.identificador ? ` · ${item.identificador}` : ""}` }))} placeholder="Selecione" />
+              <Select label="Situação da máquina" value={form.status_maquina} onChange={(e) => setForm({ ...form, status_maquina: e.target.value as MachineStatus })} options={MACHINE_STATUS_OPTIONS} />
+              <Select label="Equipe" value={form.equipe_id} onChange={(e) => setForm({ ...form, equipe_id: e.target.value })} options={equipes.map((item) => ({ value: item.id, label: item.nome }))} placeholder="Selecione" />
+              <Select label="Projeto" value={form.projeto_id} onChange={(e) => setForm({ ...form, projeto_id: e.target.value })} options={projetos.map((item) => ({ value: item.id, label: item.nome }))} placeholder="Selecione" />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-[180px_1fr]">
+              <label className="text-xs font-bold uppercase text-[var(--text-muted)]">Talhão<input value={form.talhao} onChange={(e) => setForm({ ...form, talhao: e.target.value })} className="mt-1 h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 text-sm font-semibold normal-case text-[var(--text-primary)]" /></label>
+              <label className="text-xs font-bold uppercase text-[var(--text-muted)]">Problema<textarea value={form.descricao} onChange={(e) => setForm({ ...form, descricao: e.target.value })} className="mt-1 min-h-24 w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 py-2 text-sm font-semibold normal-case text-[var(--text-primary)]" placeholder="Descreva o defeito ou sintoma." /></label>
+            </div>
+            <details>
+              <summary className="cursor-pointer text-xs font-bold text-[var(--accent)]">Fotos e pessoas marcadas</summary>
+              <div className="mt-3 space-y-3">
+                <input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={(e) => setPhotos(Array.from(e.target.files ?? []).slice(0, 3))} className="w-full rounded-lg border border-[var(--border)] p-3 text-sm" />
+                <MentionPicker people={mentionables} selectedIds={mentionIds} currentUserId={currentUserId} onChange={setMentionIds} />
+              </div>
+            </details>
+            <div className="flex justify-end"><Button type="submit" loading={submitting}>Criar solicitação</Button></div>
+          </form>
+        </details>
+      )}
+
+      {!compact && <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="inline-flex rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-1">
+          {([
+            ["fila", "Fila", pending.length],
+            ["meus", mode === "manutencao" ? "Meus serviços" : "Meus", threads.filter((item) => item.responsavel_id === currentUserId || item.reportado_por === currentUserId).length],
+            ["concluidos", "Concluídos", threads.filter((item) => item.status === "resolvido").length],
+          ] as const).map(([key, label, count]) => (
+            <button key={key} type="button" onClick={() => setFilter(key)} className="min-h-9 rounded-md px-3 text-xs font-bold" style={{ background: filter === key ? "var(--accent-subtle)" : "transparent", color: filter === key ? "var(--accent)" : "var(--text-muted)" }}>
+              {label} <span className="ml-1 opacity-70">{count}</span>
             </button>
-          );
-        })}
-      </div>
+          ))}
+        </div>
+        <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar máquina ou chamado" className="h-11 rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 text-sm font-semibold text-[var(--text-primary)] sm:w-72" />
+      </div>}
 
       {loading && threads.length === 0 ? (
-        <div className="rounded-lg border p-6 text-center text-sm font-semibold" style={{ background: "var(--bg-card)", borderColor: "var(--border)", color: "var(--text-muted)" }}>
-          Carregando pedidos...
-        </div>
+        <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-8 text-center text-sm font-semibold text-[var(--text-muted)]">Carregando solicitações...</div>
       ) : filteredThreads.length === 0 ? (
-        <div className="rounded-lg border border-dashed p-8 text-center text-sm font-semibold" style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}>
-          Nenhum pedido neste filtro.
-        </div>
+        <div className="rounded-lg border border-dashed border-[var(--border)] p-8 text-center text-sm font-semibold text-[var(--text-muted)]">Nenhuma solicitação neste filtro.</div>
       ) : (
-        <div className="space-y-3">
-          {filteredThreads.map((thread) => {
-            const meta = STATUS_META[thread.status];
-            const draft = commentDrafts[thread.id] ?? "";
-            const selectedCommentMentions = commentMentions[thread.id] ?? [];
-
-            return (
-              <article
-                key={thread.id}
-                className="rounded-lg border p-3 sm:p-4"
-                style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}
-              >
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span
-                        className="rounded-md px-2 py-0.5 text-[11px] font-bold"
-                        style={{ background: meta.bg, color: meta.color }}
-                      >
-                        {meta.label}
-                      </span>
-                      {thread.unread_mentions_count > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => void markRead(thread.id)}
-                          className="rounded-md px-2 py-0.5 text-[11px] font-bold"
-                          style={{ background: "var(--accent-subtle)", color: "var(--accent)" }}
-                        >
-                          {thread.unread_mentions_count} menção nova
-                        </button>
-                      )}
-                    </div>
-                    <h3 className="mt-2 text-base font-bold" style={{ color: "var(--text-primary)" }}>
-                      {thread.maquinas?.nome ?? "Máquina removida"}
-                    </h3>
-                    <ThreadContext thread={thread} />
-                    <p className="mt-2 text-sm font-semibold leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-                      {thread.descricao}
-                    </p>
-                    <p className="mt-2 text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
-                      Aberto por {thread.autor?.nome ?? "Usuário"} em {ddmmyyyy(thread.created_at)}
-                    </p>
+        <div className="grid gap-2">
+          {filteredThreads.map((thread) => (
+            <button key={thread.id} type="button" onClick={() => void openThread(thread)} className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-4 text-left shadow-sm transition hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap gap-1.5">
+                    <Badge tone={priorityTone(thread.prioridade)}>{thread.prioridade}</Badge>
+                    <Badge tone={statusTone(thread.status)}>{STATUS_LABEL[thread.status]}</Badge>
+                    {thread.unread_mentions_count > 0 && <Badge tone="info">nova menção</Badge>}
                   </div>
-
-                  <div className="flex shrink-0 flex-col gap-2 sm:w-44">
-                    {thread.can_manage_status && (
-                      <select
-                        value={thread.status}
-                        disabled={managingId === thread.id}
-                        onChange={(event) =>
-                          void patchThreadStatus(thread, event.target.value as MaintenanceStatus)
-                        }
-                        className="h-9 rounded-lg border px-2 text-xs font-bold"
-                        style={{
-                          background: "var(--bg-card-alt)",
-                          borderColor: "var(--border)",
-                          color: "var(--text-primary)",
-                        }}
-                      >
-                        {Object.entries(STATUS_META).map(([value, statusMeta]) => (
-                          <option key={value} value={value}>
-                            {statusMeta.label}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                    {thread.can_resolve && (
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        loading={managingId === thread.id}
-                        onClick={() => void patchThreadStatus(thread, "resolvido")}
-                      >
-                        Concluir
-                      </Button>
-                    )}
-                  </div>
+                  <h3 className="mt-2 truncate text-base font-bold text-[var(--text-primary)]">
+                    {thread.maquinas?.nome ?? "Máquina removida"}
+                    {thread.maquinas?.identificador ? ` · ${thread.maquinas.identificador}` : ""}
+                  </h3>
+                  <p className="mt-1 line-clamp-2 text-sm font-semibold text-[var(--text-secondary)]">{thread.descricao}</p>
+                  <p className="mt-2 truncate text-xs font-semibold text-[var(--text-muted)]">
+                    {thread.responsavel ? `Responsável: ${thread.responsavel.nome}` : "Sem responsável"} · {ddmmyyyy(thread.created_at)}
+                  </p>
                 </div>
+                <span className="mt-1 text-xl text-[var(--text-muted)]">›</span>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
 
-                {thread.anexos.length > 0 && (
-                  <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
-                    {thread.anexos.map((anexo) => (
-                      <a
-                        key={anexo.id}
-                        href={anexo.url ?? "#"}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="block overflow-hidden rounded-lg border"
-                        style={{ borderColor: "var(--border)" }}
-                      >
-                        {anexo.url ? (
-                          <img
-                            src={anexo.url}
-                            alt={anexo.file_name}
-                            className="h-40 w-full object-cover"
-                          />
-                        ) : (
-                          <span className="grid h-40 place-items-center text-xs font-bold" style={{ color: "var(--text-muted)" }}>
-                            Foto indisponível
-                          </span>
-                        )}
-                      </a>
-                    ))}
+      {selected && (
+        <div className="fixed inset-0 z-[70] bg-black/35" onClick={() => setSelectedId(null)}>
+          <aside className="ml-auto h-full w-full overflow-y-auto bg-[var(--bg-page)] shadow-2xl sm:max-w-xl" onClick={(event) => event.stopPropagation()}>
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[var(--border)] bg-[var(--bg-card)] px-4 py-3">
+              <div className="min-w-0"><p className="text-xs font-bold uppercase text-[var(--text-muted)]">Solicitação</p><h2 className="truncate text-lg font-bold text-[var(--text-primary)]">{selected.maquinas?.nome ?? "Máquina"}</h2></div>
+              <Button variant="ghost" size="sm" onClick={() => setSelectedId(null)}>Fechar</Button>
+            </div>
+            <div className="space-y-4 p-4 sm:p-5">
+              <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-4">
+                <div className="flex flex-wrap gap-2"><Badge tone={priorityTone(selected.prioridade)}>{selected.prioridade}</Badge><Badge tone={statusTone(selected.status)}>{STATUS_LABEL[selected.status]}</Badge></div>
+                <p className="mt-3 text-sm font-semibold leading-relaxed text-[var(--text-primary)]">{selected.descricao}</p>
+                <p className="mt-3 text-xs font-semibold text-[var(--text-muted)]">{contextText(selected)}</p>
+                <p className="mt-1 text-xs font-semibold text-[var(--text-muted)]">Aberto por {selected.autor?.nome ?? "Usuário"} em {ddmmyyyy(selected.created_at)}</p>
+              </div>
+
+              {(selected.can_assign || selected.can_prioritize) && (
+                <div className="grid gap-3 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-4 sm:grid-cols-2">
+                  {selected.can_prioritize && <Select label="Prioridade" value={selected.prioridade} onChange={(e) => void runAction(selected, "priorizar", { prioridade: e.target.value })} options={PRIORITY_OPTIONS} />}
+                  {selected.can_assign && <Select label="Responsável" value={selected.responsavel_id ?? ""} onChange={(e) => e.target.value && void runAction(selected, "atribuir", { responsavel_id: e.target.value })} options={technicians.map((item) => ({ value: item.id, label: item.nome }))} placeholder="Sem responsável" />}
+                </div>
+              )}
+
+              {selected.status !== "resolvido" && (selected.can_claim || selected.can_start || selected.can_resolve) && (
+                <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-4">
+                  <div className="flex flex-wrap gap-2">
+                    {selected.can_claim && selected.status === "aberto" && <Button loading={busyId === selected.id} onClick={() => void runAction(selected, "assumir")}>Assumir e iniciar</Button>}
+                    {selected.can_start && <Button loading={busyId === selected.id} onClick={() => void runAction(selected, "iniciar")}>Iniciar serviço</Button>}
                   </div>
-                )}
-
-                {thread.mentioned_profile_ids.length > 0 && (
-                  <div className="mt-3 flex flex-wrap gap-1.5">
-                    {mentionables
-                      .filter((person) => thread.mentioned_profile_ids.includes(person.id))
-                      .map((person) => (
-                        <span
-                          key={person.id}
-                          className="rounded-md px-2 py-0.5 text-[11px] font-bold"
-                          style={{ background: "var(--bg-page)", color: "var(--text-secondary)" }}
-                        >
-                          @{compactName(person.nome)}
-                        </span>
-                      ))}
-                  </div>
-                )}
-
-                <div className="mt-4 border-t pt-3" style={{ borderColor: "var(--border)" }}>
-                  <div className="flex items-center justify-between gap-3">
-                    <h4 className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
-                      Comentários ({thread.comentarios_count})
-                    </h4>
-                  </div>
-
-                  {thread.comentarios.length > 0 && (
-                    <div className="mt-3 space-y-2">
-                      {thread.comentarios.map((comment) => (
-                        <div
-                          key={comment.id}
-                          className="border-l-2 py-2 pl-3"
-                          style={{ borderColor: "var(--border)", background: "transparent" }}
-                        >
-                          <div className="flex flex-wrap items-center gap-2">
-                            <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
-                              {comment.autor?.nome ?? "Usuário"}
-                            </p>
-                            <span className="text-[11px] font-semibold" style={{ color: "var(--text-muted)" }}>
-                              {ddmmyyyy(comment.created_at)}
-                            </span>
-                          </div>
-                          <p className="mt-1 whitespace-pre-wrap text-sm font-semibold" style={{ color: "var(--text-secondary)" }}>
-                            {comment.texto}
-                          </p>
-                          {comment.mencoes && comment.mencoes.length > 0 && (
-                            <div className="mt-2 flex flex-wrap gap-1">
-                              {comment.mencoes.map((mention) => (
-                                <span
-                                  key={mention.id}
-                                  className="rounded-md px-2 py-0.5 text-[11px] font-bold"
-                                  style={{ background: "var(--accent-subtle)", color: "var(--accent)" }}
-                                >
-                                  @{compactName(mention.mentioned?.nome ?? "Usuário")}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      ))}
+                  {selected.can_resolve && (
+                    <div className="mt-4 space-y-3 border-t border-[var(--border)] pt-4">
+                      <label className="block text-xs font-bold uppercase text-[var(--text-muted)]">Serviço realizado<textarea value={completion.relato} onChange={(e) => setCompletion({ ...completion, relato: e.target.value })} className="mt-1 min-h-24 w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 py-2 text-sm font-semibold normal-case text-[var(--text-primary)]" /></label>
+                      <Select label="Status final da máquina" value={completion.status} onChange={(e) => setCompletion({ ...completion, status: e.target.value as MachineStatus })} options={MACHINE_STATUS_OPTIONS} />
+                      <Button className="w-full" loading={busyId === selected.id} disabled={completion.relato.trim().length < 3} onClick={() => void runAction(selected, "concluir", { relato_conclusao: completion.relato, status_maquina: completion.status })}>Concluir serviço</Button>
                     </div>
                   )}
-
-                  {thread.can_comment ? (
-                    <div className="mt-3 space-y-3">
-                      <textarea
-                        value={draft}
-                        onChange={(event) =>
-                          setCommentDrafts((current) => ({
-                            ...current,
-                            [thread.id]: event.target.value,
-                          }))
-                        }
-                        className="min-h-20 w-full rounded-lg border px-3 py-2 text-sm font-semibold outline-none"
-                        style={{
-                          background: "var(--bg-input, var(--bg-card))",
-                          borderColor: "var(--border)",
-                          color: "var(--text-primary)",
-                        }}
-                        placeholder="Comente ou direcione a manutenção..."
-                      />
-                      <MentionPicker
-                        people={mentionables}
-                        selectedIds={selectedCommentMentions}
-                        currentUserId={currentUserId}
-                        onChange={(ids) =>
-                          setCommentMentions((current) => ({ ...current, [thread.id]: ids }))
-                        }
-                        label="Marcar no comentário"
-                      />
-                      <div className="flex justify-end">
-                        <Button
-                          type="button"
-                          size="sm"
-                          loading={commentingId === thread.id}
-                          onClick={() => void submitComment(thread.id)}
-                        >
-                          Comentar
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="mt-3 rounded-lg border border-dashed p-3 text-xs font-semibold" style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}>
-                      Você pode acompanhar este pedido. Para comentar, precisa ser autor, estar marcado, já ter comentado, ou ser gestor/admin.
-                    </p>
-                  )}
                 </div>
-              </article>
-            );
-          })}
+              )}
+
+              {selected.relato_conclusao && <div className="rounded-lg border border-[var(--success)] bg-[var(--success-bg)] p-4"><p className="text-xs font-bold uppercase text-[var(--success)]">Serviço realizado</p><p className="mt-2 whitespace-pre-wrap text-sm font-semibold text-[var(--text-primary)]">{selected.relato_conclusao}</p></div>}
+
+              {selected.anexos.length > 0 && <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">{selected.anexos.map((anexo) => <a key={anexo.id} href={anexo.url ?? "#"} target="_blank" rel="noreferrer" className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--bg-card)]">{anexo.url ? <img src={anexo.url} alt={anexo.file_name} className="h-32 w-full object-cover" /> : <span className="grid h-32 place-items-center text-xs text-[var(--text-muted)]">Foto indisponível</span>}</a>)}</div>}
+
+              {(selected.eventos.length > 0 || selected.comentarios.length > 0) && <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-4"><h3 className="text-sm font-bold text-[var(--text-primary)]">Histórico</h3><div className="mt-3 space-y-3">{selected.eventos.map((event) => <div key={event.id} className="border-l-2 border-[var(--border)] pl-3"><p className="text-xs font-bold text-[var(--text-primary)]">{EVENT_LABEL[event.tipo]}{eventDetail(event) ? ` · ${eventDetail(event)}` : ""}</p><p className="text-[11px] font-semibold text-[var(--text-muted)]">{event.ator?.nome ?? "Sistema"} · {ddmmyyyy(event.created_at)}</p></div>)}{selected.comentarios.map((comment) => <div key={comment.id} className="border-l-2 border-[var(--accent)] pl-3"><p className="text-xs font-bold text-[var(--text-primary)]">{comment.autor?.nome ?? "Usuário"}</p><p className="mt-1 whitespace-pre-wrap text-sm font-semibold text-[var(--text-secondary)]">{comment.texto}</p><p className="mt-1 text-[11px] text-[var(--text-muted)]">{ddmmyyyy(comment.created_at)}</p></div>)}</div></div>}
+
+              {selected.can_comment && <div className="space-y-3 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-4"><textarea value={commentDrafts[selected.id] ?? ""} onChange={(e) => setCommentDrafts((current) => ({ ...current, [selected.id]: e.target.value }))} className="min-h-20 w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]" placeholder="Adicionar comentário" /><details><summary className="cursor-pointer text-xs font-bold text-[var(--accent)]">Marcar alguém</summary><div className="mt-2"><MentionPicker people={mentionables} selectedIds={commentMentions[selected.id] ?? []} currentUserId={currentUserId} onChange={(ids) => setCommentMentions((current) => ({ ...current, [selected.id]: ids }))} /></div></details><div className="flex justify-end"><Button size="sm" loading={busyId === selected.id} onClick={() => void submitComment(selected)}>Comentar</Button></div></div>}
+            </div>
+          </aside>
         </div>
       )}
     </section>

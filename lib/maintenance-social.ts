@@ -6,6 +6,7 @@ import type {
   Manutencao,
   ManutencaoAnexo,
   ManutencaoComentario,
+  ManutencaoEvento,
   ManutencaoMencao,
   ManutencaoThread,
   MentionableProfile,
@@ -33,6 +34,8 @@ type MaintenanceRow = Manutencao & {
   equipes: { nome: string } | null;
   projetos: { nome: string } | null;
   autor: MentionableProfile | null;
+  responsavel: MentionableProfile | null;
+  concluido_por_profile: MentionableProfile | null;
 };
 
 type CommentRow = ManutencaoComentario & {
@@ -42,6 +45,27 @@ type CommentRow = ManutencaoComentario & {
 type MentionRow = ManutencaoMencao & {
   mentioned: MentionableProfile | null;
 };
+
+export function maintenanceCapabilities(
+  profile: Pick<Profile, "id" | "role">,
+  row: Pick<Manutencao, "status" | "responsavel_id">
+) {
+  const isOperator = profile.role === "admin" || profile.role === "manutencao";
+  const isAssigned = row.responsavel_id === profile.id;
+  return {
+    can_resolve:
+      row.status === "em_andamento" &&
+      (profile.role === "admin" || (profile.role === "manutencao" && isAssigned)),
+    can_manage_status: isOperator,
+    can_assign: isOperator && row.status !== "resolvido",
+    can_prioritize: isOperator && row.status !== "resolvido",
+    can_claim: profile.role === "manutencao" && row.status !== "resolvido",
+    can_start:
+      row.status === "aberto" &&
+      Boolean(row.responsavel_id) &&
+      (profile.role === "admin" || (profile.role === "manutencao" && isAssigned)),
+  };
+}
 
 function isMissingSocialTable(error: unknown) {
   const maybeError = error as { code?: string; message?: string } | null;
@@ -179,7 +203,11 @@ export async function canCommentOnMaintenance(
   manutencaoId: string,
   profile: Profile
 ) {
-  if (profile.role === "admin" || profile.role === "gestor") return true;
+  if (
+    profile.role === "admin" ||
+    profile.role === "gestor" ||
+    profile.role === "manutencao"
+  ) return true;
 
   const { data: manut } = await supabase
     .from("manutencoes")
@@ -233,6 +261,7 @@ export async function buildMaintenanceThreads(
     { data: anexosRaw, error: anexosError },
     { data: commentsRaw, error: commentsError },
     { data: mentionsRaw, error: mentionsError },
+    { data: eventsRaw, error: eventsError },
   ] = await Promise.all([
     supabase
       .from("manutencao_anexos")
@@ -254,15 +283,22 @@ export async function buildMaintenanceThreads(
       )
       .in("manutencao_id", ids)
       .order("created_at", { ascending: true }),
+    supabase
+      .from("manutencao_eventos")
+      .select("*, ator:profiles!manutencao_eventos_ator_id_fkey(id,nome,role)")
+      .in("manutencao_id", ids)
+      .order("created_at", { ascending: true }),
   ]);
 
   if (anexosError && !isMissingSocialTable(anexosError)) throw anexosError;
   if (commentsError && !isMissingSocialTable(commentsError)) throw commentsError;
   if (mentionsError && !isMissingSocialTable(mentionsError)) throw mentionsError;
+  if (eventsError && !isMissingSocialTable(eventsError)) throw eventsError;
 
   const anexos = (anexosError ? [] : anexosRaw ?? []) as ManutencaoAnexo[];
   const comments = (commentsError ? [] : commentsRaw ?? []) as CommentRow[];
   const mentions = (mentionsError ? [] : mentionsRaw ?? []) as MentionRow[];
+  const events = (eventsError ? [] : eventsRaw ?? []) as ManutencaoEvento[];
 
   const anexosByManut = new Map<string, ManutencaoAnexo[]>();
   for (const anexo of anexos) {
@@ -279,6 +315,7 @@ export async function buildMaintenanceThreads(
   }
 
   const mentionsByManut = new Map<string, MentionRow[]>();
+  const eventsByManut = new Map<string, ManutencaoEvento[]>();
   const mentionsByComment = new Map<string, MentionRow[]>();
   for (const mention of mentions) {
     const byManut = mentionsByManut.get(mention.manutencao_id) ?? [];
@@ -290,6 +327,13 @@ export async function buildMaintenanceThreads(
       byComment.push(mention);
       mentionsByComment.set(mention.comentario_id, byComment);
     }
+  }
+
+  for (const event of events) {
+    if (!event.manutencao_id) continue;
+    const current = eventsByManut.get(event.manutencao_id) ?? [];
+    current.push(event);
+    eventsByManut.set(event.manutencao_id, current);
   }
 
   return Promise.all(
@@ -307,6 +351,7 @@ export async function buildMaintenanceThreads(
       const isMentioned = mentionedProfileIds.includes(profile.id);
       const isAuthor = row.reportado_por === profile.id;
       const isManager = profile.role === "admin" || profile.role === "gestor";
+      const capabilities = maintenanceCapabilities(profile, row);
 
       return {
         ...row,
@@ -315,16 +360,19 @@ export async function buildMaintenanceThreads(
           ...comment,
           mencoes: mentionsByComment.get(comment.id) ?? [],
         })),
+        eventos: eventsByManut.get(row.id) ?? [],
         comentarios_count: rowComments.length,
         unread_mentions_count: rowMentions.filter(
           (mention) => mention.mentioned_profile_id === profile.id && !mention.read_at
         ).length,
         mentioned_profile_ids: mentionedProfileIds,
-        can_comment: isManager || isAuthor || isMentioned || hasCommented,
-        can_resolve:
-          row.status !== "resolvido" &&
-          (profile.role === "admin" || profile.role === "encarregado"),
-        can_manage_status: profile.role === "admin",
+        can_comment:
+          isManager ||
+          capabilities.can_manage_status ||
+          isAuthor ||
+          isMentioned ||
+          hasCommented,
+        ...capabilities,
       };
     })
   );

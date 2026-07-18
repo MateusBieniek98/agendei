@@ -13,7 +13,7 @@ import type { UserRole } from "@/lib/types";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-const ROLES: UserRole[] = ["encarregado", "admin", "gestor"];
+const ROLES: UserRole[] = ["encarregado", "admin", "gestor", "manutencao"];
 const PROFILE_WITH_EQUIPE_SELECT = "*, equipes:equipes!profiles_equipe_fk(nome)";
 
 type ListUsersClient = {

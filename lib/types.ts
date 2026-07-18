@@ -1,9 +1,10 @@
 // Tipos compartilhados entre client e server.
 // Espelham as tabelas de lib/db/schema.sql.
 
-export type UserRole = "encarregado" | "admin" | "gestor";
+export type UserRole = "encarregado" | "admin" | "gestor" | "manutencao";
 export type MachineStatus = "operando" | "parada" | "manutencao_urgente";
 export type MaintenanceStatus = "aberto" | "em_andamento" | "resolvido";
+export type MaintenancePriority = "normal" | "alta" | "urgente";
 export type PlanningStatus = "planejado" | "em_execucao" | "concluido" | "cancelado";
 
 export type Profile = {
@@ -160,9 +161,31 @@ export type Manutencao = {
   talhao: string | null;
   descricao: string;
   status: MaintenanceStatus;
+  prioridade: MaintenancePriority;
   reportado_por: string;
+  responsavel_id: string | null;
+  iniciado_em: string | null;
+  concluido_por: string | null;
+  relato_conclusao: string | null;
   resolvido_em: string | null;
   created_at: string;
+};
+
+export type ManutencaoEvento = {
+  id: string;
+  manutencao_id: string | null;
+  maquina_id: string;
+  tipo:
+    | "criado"
+    | "atribuido"
+    | "iniciado"
+    | "prioridade_alterada"
+    | "concluido"
+    | "status_maquina_alterado";
+  ator_id: string | null;
+  dados: Record<string, unknown>;
+  created_at: string;
+  ator?: Pick<MentionableProfile, "id" | "nome" | "role"> | null;
 };
 
 export type MentionableProfile = {
@@ -218,14 +241,21 @@ export type ManutencaoThread = Manutencao & {
   equipes: { nome: string } | null;
   projetos: { nome: string } | null;
   autor: MentionableProfile | null;
+  responsavel: MentionableProfile | null;
+  concluido_por_profile: MentionableProfile | null;
   anexos: ManutencaoAnexo[];
   comentarios: ManutencaoComentario[];
+  eventos: ManutencaoEvento[];
   comentarios_count: number;
   unread_mentions_count: number;
   mentioned_profile_ids: string[];
   can_comment: boolean;
   can_resolve: boolean;
   can_manage_status: boolean;
+  can_assign: boolean;
+  can_prioritize: boolean;
+  can_claim: boolean;
+  can_start: boolean;
 };
 
 export type Meta = {
@@ -266,4 +296,5 @@ export const ROLE_HOME: Record<UserRole, string> = {
   encarregado: "/sincronizar",
   admin: "/admin",
   gestor: "/gestor",
+  manutencao: "/manutencao",
 };

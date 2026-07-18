@@ -23,6 +23,7 @@ const ROLES: { value: UserRole; label: string }[] = [
   { value: "encarregado", label: "Encarregado" },
   { value: "admin", label: "Admin" },
   { value: "gestor", label: "Gestor" },
+  { value: "manutencao", label: "Manutenção" },
 ];
 
 function roleLabel(role: UserRole) {
@@ -32,6 +33,7 @@ function roleLabel(role: UserRole) {
 function roleTone(role: UserRole) {
   if (role === "admin") return "danger" as const;
   if (role === "gestor") return "info" as const;
+  if (role === "manutencao") return "warning" as const;
   return "success" as const;
 }
 
@@ -229,6 +231,7 @@ export default function UsuariosPage() {
       admin: items.filter((u) => u.role === "admin").length,
       gestor: items.filter((u) => u.role === "gestor").length,
       encarregado: items.filter((u) => u.role === "encarregado").length,
+      manutencao: items.filter((u) => u.role === "manutencao").length,
     }),
     [items]
   );
@@ -246,7 +249,7 @@ export default function UsuariosPage() {
         }
       />
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <Card className="p-4">
           <p className="text-xs font-bold uppercase text-[var(--text-muted)]">
             Total
@@ -270,6 +273,12 @@ export default function UsuariosPage() {
             Encarregado
           </p>
           <p className="mt-1 text-2xl font-bold tabular">{contadores.encarregado}</p>
+        </Card>
+        <Card className="p-4">
+          <p className="text-xs font-bold uppercase text-[var(--text-muted)]">
+            Manutenção
+          </p>
+          <p className="mt-1 text-2xl font-bold tabular">{contadores.manutencao}</p>
         </Card>
       </div>
 

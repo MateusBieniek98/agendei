@@ -609,10 +609,10 @@ export default function MaquinasAdminPage() {
               Manutenções
             </h3>
             <p className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
-              Feed social e Kanban por etapa da manutenção
+              Fila simples com detalhes e ações sob demanda
             </p>
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row">
+          <div className="hidden">
             <div className="grid grid-cols-2 rounded-lg p-1 sm:w-fit" style={{ background: "var(--bg-page)", border: "1px solid var(--border)" }}>
               {(["feed", "kanban"] as const).map((view) => (
                 <button

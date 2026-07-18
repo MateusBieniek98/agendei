@@ -766,7 +766,7 @@ function ManutencaoPage({
 
       <MaintenanceFeed
         mode={feedMode}
-        showComposer={mode !== "gestor"}
+        showComposer={false}
         compact
       />
     </section>
