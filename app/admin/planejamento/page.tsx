@@ -6,6 +6,9 @@ import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import PageHeader from "@/components/ui/PageHeader";
 import { useToast } from "@/components/ui/Toast";
+import BulkImportDialog, { type BulkImportColumn } from "@/components/bulk/BulkImportDialog";
+import BulkSelectionBar from "@/components/bulk/BulkSelectionBar";
+import { normalizeBulkValue, parseDatePtBr, parseNumberPtBr, responseError } from "@/lib/bulk-import";
 import { brl, ddmmyyyy, num, todayISO } from "@/lib/format";
 import type { Atividade, Equipe, Planejamento, PlanningStatus, ProjetoComTalhoes } from "@/lib/types";
 
@@ -32,6 +35,37 @@ const STATUS_OPTS: { value: PlanningStatus; label: string }[] = [
 ];
 
 const MESES = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+
+const PLANNING_COLUMNS: BulkImportColumn[] = [
+  { key: "ano", label: "Ano", example: "2026", required: true, validate: (value) => /^\d{4}$/.test(value.trim()) ? null : "Ano inválido." },
+  { key: "mes", label: "Mês", example: "7", required: true, validate: (value) => parsePlanningMonth(value) ? null : "Mês inválido." },
+  { key: "projeto", label: "Projeto", example: "Mãe Santa", required: true },
+  { key: "talhao", label: "Talhão", example: "017-01", required: true },
+  { key: "atividade", label: "Atividade", example: "Roçada manual", required: true },
+  { key: "equipe", label: "Equipe", example: "Equipe Norte" },
+  { key: "quantidade_prevista", label: "Produção prevista", example: "120,5", validate: (value) => !value.trim() || (parseNumberPtBr(value) ?? -1) >= 0 ? null : "Produção prevista inválida." },
+  { key: "data_inicio", label: "Início previsto", example: "18/07/2026", validate: (value) => !value.trim() || parseDatePtBr(value) ? null : "Início previsto inválido." },
+  { key: "data_limite", label: "Prazo final", example: "31/07/2026", required: true, validate: (value) => parseDatePtBr(value) ? null : "Prazo final inválido." },
+  { key: "status", label: "Status", example: "Planejado", validate: (value) => !value.trim() || parsePlanningStatus(value) ? null : "Status inválido." },
+  { key: "observacoes", label: "Observações", example: "Prioridade operacional" },
+];
+
+function parsePlanningMonth(value: string) {
+  const normalized = normalizeBulkValue(value).replace("marco", "mar");
+  const numeric = Number(normalized);
+  if (Number.isInteger(numeric) && numeric >= 1 && numeric <= 12) return numeric;
+  const monthIndex = MESES.findIndex((month) => normalizeBulkValue(month) === normalized.slice(0, 3));
+  return monthIndex >= 0 ? monthIndex + 1 : null;
+}
+
+function parsePlanningStatus(value: string): PlanningStatus | null {
+  const normalized = normalizeBulkValue(value).replace(/[ _-]+/g, " ");
+  if (!normalized || normalized === "planejado") return "planejado";
+  if (normalized === "em execucao") return "em_execucao";
+  if (normalized === "concluido") return "concluido";
+  if (normalized === "cancelado") return "cancelado";
+  return null;
+}
 
 function hoje() { return todayISO(); }
 
@@ -277,11 +311,15 @@ function FormModal({
 
 function TalhaoSettlementPanel({
   groups,
+  selected,
+  onToggleSelected,
   onEditar,
   onExcluir,
   onConcluir,
 }: {
   groups: TalhaoGroup[];
+  selected: Set<string>;
+  onToggleSelected: (id: string) => void;
   onEditar: (item: PlanejamentoRow) => void;
   onExcluir: (id: string) => void;
   onConcluir: (id: string) => void;
@@ -427,7 +465,15 @@ function TalhaoSettlementPanel({
                           }}
                         >
                           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                            <div className="min-w-0">
+                            <div className="flex min-w-0 items-start gap-3">
+                              <input
+                                type="checkbox"
+                                aria-label={`Selecionar ${item.atividades?.nome ?? "atividade"} do talhão ${group.talhao}`}
+                                checked={selected.has(String(item.id))}
+                                onChange={() => onToggleSelected(String(item.id))}
+                                className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--accent)]"
+                              />
+                              <div className="min-w-0">
                               <p className="font-bold" style={{ color: "var(--text-primary)" }}>
                                 {item.atividades?.nome ?? "Atividade"}
                               </p>
@@ -437,6 +483,7 @@ function TalhaoSettlementPanel({
                                 {" "}· real. {num(Number(item.quantidade_realizada ?? 0), 2)}
                                 {item.data_fechamento ? ` · fechado em ${ddmmyyyy(item.data_fechamento)}` : ""}
                               </p>
+                              </div>
                             </div>
 
                             <div className="flex flex-wrap gap-2 sm:justify-end">
@@ -531,6 +578,9 @@ export default function PlanejamentoAdminPage() {
   const [atividades, setAtividades] = useState<Atividade[]>([]);
   const [equipes,    setEquipes]    = useState<Equipe[]>([]);
   const [loading,    setLoading]    = useState(true);
+  const [bulkOpen,   setBulkOpen]   = useState(false);
+  const [selected,   setSelected]   = useState<Set<string>>(new Set());
+  const [deleting,   setDeleting]   = useState(false);
 
   // Filters
   const [anoFiltro,     setAnoFiltro]     = useState(String(now.getFullYear()));
@@ -605,12 +655,64 @@ export default function PlanejamentoAdminPage() {
     carregar();
   }
 
+  function findByName<T extends { nome: string }>(list: T[], value: string, label: string) {
+    const normalized = normalizeBulkValue(value);
+    const item = list.find((candidate) => normalizeBulkValue(candidate.nome) === normalized);
+    if (!item) throw new Error(`${label} não encontrado: ${value}`);
+    return item;
+  }
+
+  async function importar(values: Record<string, string>) {
+    const projeto = findByName(projetos, values.projeto, "Projeto");
+    const atividade = findByName(atividades, values.atividade, "Atividade");
+    const equipe = values.equipe.trim() ? findByName(equipes, values.equipe, "Equipe") : null;
+    const mes = parsePlanningMonth(values.mes);
+    const status = parsePlanningStatus(values.status);
+    if (!mes || !status) throw new Error("Mês ou status inválido.");
+
+    await responseError(await fetch("/api/planejamento", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        ano: Number(values.ano),
+        mes,
+        projeto_id: projeto.id,
+        talhao: values.talhao.trim(),
+        atividade_id: atividade.id,
+        equipe_id: equipe?.id ?? null,
+        quantidade_prevista: parseNumberPtBr(values.quantidade_prevista),
+        data_inicio: parseDatePtBr(values.data_inicio),
+        data_limite: parseDatePtBr(values.data_limite),
+        status,
+        observacoes: values.observacoes.trim() || null,
+      }),
+    }));
+  }
+
   async function excluir(id: string) {
     if (!confirm("Excluir este item de planejamento?")) return;
     const r = await fetch(`/api/planejamento/${id}`, { method: "DELETE" });
     if (!r.ok) { toast("Erro ao excluir.", "error"); return; }
     toast("Excluído.", "success");
+    setSelected((current) => {
+      const next = new Set(current);
+      next.delete(id);
+      return next;
+    });
     carregar();
+  }
+
+  async function excluirSelecionados() {
+    if (!selected.size || !confirm(`Excluir ${selected.size} item${selected.size === 1 ? "" : "s"} de planejamento?`)) return;
+    setDeleting(true);
+    let errors = 0;
+    for (const id of selected) {
+      if (!(await fetch(`/api/planejamento/${id}`, { method: "DELETE" })).ok) errors += 1;
+    }
+    setDeleting(false);
+    setSelected(new Set());
+    toast(errors ? `${errors} item(ns) não puderam ser excluídos.` : "Planejamentos excluídos.", errors ? "error" : "success");
+    await carregar();
   }
 
   async function concluir(id: string) {
@@ -717,9 +819,14 @@ export default function PlanejamentoAdminPage() {
         title="Planejamento"
         subtitle={`Visão por equipe · ${MESES[(Number(mesFiltro) || now.getMonth() + 1) - 1]}/${anoFiltro}`}
         right={
-          <Button className="w-full sm:w-auto" onClick={novoForm}>
-            + Novo planejamento
-          </Button>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+            <Button variant="secondary" className="w-full sm:w-auto" onClick={() => setBulkOpen(true)}>
+              Importar em lote
+            </Button>
+            <Button className="w-full sm:w-auto" onClick={novoForm}>
+              + Novo planejamento
+            </Button>
+          </div>
         }
       />
 
@@ -779,8 +886,27 @@ export default function PlanejamentoAdminPage() {
         </select>
       </div>
 
+      <BulkSelectionBar
+        selectedCount={selected.size}
+        visibleCount={itensFiltrados.length}
+        allVisibleSelected={itensFiltrados.length > 0 && itensFiltrados.every((item) => selected.has(String(item.id)))}
+        deleting={deleting}
+        onToggleAll={() => setSelected((current) => itensFiltrados.every((item) => current.has(String(item.id)))
+          ? new Set()
+          : new Set([...current, ...itensFiltrados.map((item) => String(item.id))]))}
+        onClear={() => setSelected(new Set())}
+        onDelete={excluirSelecionados}
+      />
+
       <TalhaoSettlementPanel
         groups={talhaoGroups}
+        selected={selected}
+        onToggleSelected={(id) => setSelected((current) => {
+          const next = new Set(current);
+          if (next.has(id)) next.delete(id);
+          else next.add(id);
+          return next;
+        })}
         onEditar={handleEditar}
         onExcluir={excluir}
         onConcluir={concluir}
@@ -819,6 +945,16 @@ export default function PlanejamentoAdminPage() {
           onCancelar={() => setShowForm(false)}
         />
       )}
+
+      <BulkImportDialog
+        open={bulkOpen}
+        title="Importar planejamentos em lote"
+        description="Cole várias linhas do Excel ou Google Sheets. Projeto, atividade e equipe são localizados pelo nome cadastrado."
+        columns={PLANNING_COLUMNS}
+        onClose={() => setBulkOpen(false)}
+        onImportRow={importar}
+        onComplete={carregar}
+      />
     </div>
   );
 }
