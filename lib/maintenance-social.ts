@@ -60,6 +60,7 @@ export function maintenanceCapabilities(
     can_assign: isOperator && row.status !== "resolvido",
     can_prioritize: isOperator && row.status !== "resolvido",
     can_claim: profile.role === "manutencao" && row.status !== "resolvido",
+    can_update_situation: isOperator && row.status !== "resolvido",
     can_start:
       row.status === "aberto" &&
       Boolean(row.responsavel_id) &&

@@ -5,6 +5,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
+import { getMaintenanceIndicators } from "@/lib/maintenance-metrics";
 import {
   dataOperacionalISO,
   resolvePreset,
@@ -101,6 +102,17 @@ export async function GET(req: NextRequest) {
     )
     .neq("status", "resolvido")
     .order("created_at", { ascending: false });
+
+  const manutencao = await getMaintenanceIndicators(supabase).catch(() => ({
+    maquinas_paradas: 0,
+    aguardando: 0,
+    em_atendimento: 0,
+    resolvidos_30d: 0,
+    tempo_medio_parado_dias: 0,
+    maior_tempo_aberto_dias: 0,
+    faixas: { ate_2_dias: 0, de_3_a_7_dias: 0, acima_7_dias: 0 },
+    paradas: [],
+  }));
 
   type SerieRow = { data: string; faturamento: number };
   const rows = (serie ?? []) as SerieRow[];
@@ -302,6 +314,7 @@ export async function GET(req: NextRequest) {
       diferenca: valorMeta - metaEquipesTotal,
     },
     maquinas: { operando, paradas, urgentes, total: maqArr.length },
+    manutencao,
     manutencoesAbertas: manutAbertas ?? [],
   });
 }

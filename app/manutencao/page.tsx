@@ -1,7 +1,7 @@
-import MaintenanceFeed from "@/components/maintenance/MaintenanceFeed";
+import MaintenanceDashboard from "@/components/maintenance/MaintenanceDashboard";
 
 export const dynamic = "force-dynamic";
 
 export default function MaintenancePage() {
-  return <MaintenanceFeed mode="manutencao" showComposer={false} />;
+  return <MaintenanceDashboard />;
 }

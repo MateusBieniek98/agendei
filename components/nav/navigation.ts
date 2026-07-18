@@ -72,7 +72,8 @@ export const MAINTENANCE_NAVIGATION: NavigationGroup[] = [
   {
     label: "Manutenção",
     items: [
-      { href: "/manutencao", label: "Solicitações", icon: "wrench", exact: true },
+      { href: "/manutencao", label: "Dashboard", icon: "dashboard", exact: true },
+      { href: "/manutencao/solicitacoes", label: "Solicitações", icon: "wrench" },
       { href: "/manutencao/maquinas", label: "Máquinas", icon: "machine" },
     ],
   },

@@ -45,13 +45,13 @@ const STATUS_META: Record<MachineStatus, { dot: string; bg: string; border: stri
 
 const MANUT_STATUS_META: Record<MaintenanceStatus, { label: string; color: string; bg: string; border: string }> = {
   aberto: {
-    label: "Aberto",
+    label: "Aguardando manutenção",
     color: "var(--danger)",
     bg: "var(--danger-bg)",
     border: "var(--danger)",
   },
   em_andamento: {
-    label: "Em andamento",
+    label: "Em atendimento",
     color: "var(--warn)",
     bg: "var(--warn-bg)",
     border: "var(--warn)",
@@ -66,6 +66,13 @@ const MANUT_STATUS_META: Record<MaintenanceStatus, { label: string; color: strin
 
 const KANBAN_ACTIVE_STATUSES: MaintenanceStatus[] = ["aberto", "em_andamento"];
 const KANBAN_ALL_STATUSES: MaintenanceStatus[] = ["aberto", "em_andamento", "resolvido"];
+
+function maintenanceDays(start: string, end?: string | null) {
+  const startTime = new Date(start).getTime();
+  const endTime = end ? new Date(end).getTime() : Date.now();
+  if (!Number.isFinite(startTime) || !Number.isFinite(endTime)) return 0;
+  return Math.max(0, Math.floor((endTime - startTime) / 86_400_000));
+}
 
 function StatusDot({ status, pulse = false }: { status: MachineStatus; pulse?: boolean }) {
   const color = STATUS_META[status]?.dot ?? "var(--text-muted)";
@@ -97,10 +104,8 @@ function StatusDot({ status, pulse = false }: { status: MachineStatus; pulse?: b
 
 function ManutencaoCard({
   manut,
-  onStatusChange,
 }: {
   manut: ManutComMaquina;
-  onStatusChange: (manut: ManutComMaquina, status: MaintenanceStatus) => void;
 }) {
   const meta = MANUT_STATUS_META[manut.status];
   const contexto = [
@@ -141,64 +146,18 @@ function ManutencaoCard({
       <p className="mt-2 text-xs font-semibold leading-relaxed" style={{ color: "var(--text-secondary)" }}>
         {manut.descricao}
       </p>
+      <p className="mt-2 text-xs font-bold leading-relaxed" style={{ color: "var(--text-primary)" }}>
+        Status atual: {manut.situacao_atual}
+      </p>
       <p className="mt-2 text-[11px] font-semibold" style={{ color: "var(--text-muted)" }}>
         Aberto em {ddmmyyyy(manut.created_at)}
         {manut.resolvido_em ? ` · Resolvido em ${ddmmyyyy(manut.resolvido_em)}` : ""}
       </p>
 
-      <div className="mt-3 grid grid-cols-2 gap-2">
-        {manut.status === "aberto" && (
-          <>
-            <button
-              type="button"
-              onClick={() => onStatusChange(manut, "em_andamento")}
-              className="min-h-10 rounded-lg border px-3 text-xs font-bold"
-              style={{ background: "var(--warn-bg)", borderColor: "var(--warn)", color: "var(--warn)" }}
-            >
-              Iniciar
-            </button>
-            <button
-              type="button"
-              onClick={() => onStatusChange(manut, "resolvido")}
-              className="min-h-10 rounded-lg border px-3 text-xs font-bold"
-              style={{ background: "var(--success-bg)", borderColor: "var(--success)", color: "var(--success)" }}
-            >
-              Resolver
-            </button>
-          </>
-        )}
-
-        {manut.status === "em_andamento" && (
-          <>
-            <button
-              type="button"
-              onClick={() => onStatusChange(manut, "aberto")}
-              className="min-h-10 rounded-lg border px-3 text-xs font-bold"
-              style={{ background: "var(--bg-page)", borderColor: "var(--border)", color: "var(--text-secondary)" }}
-            >
-              Voltar
-            </button>
-            <button
-              type="button"
-              onClick={() => onStatusChange(manut, "resolvido")}
-              className="min-h-10 rounded-lg border px-3 text-xs font-bold"
-              style={{ background: "var(--success-bg)", borderColor: "var(--success)", color: "var(--success)" }}
-            >
-              Resolver
-            </button>
-          </>
-        )}
-
-        {manut.status === "resolvido" && (
-          <button
-            type="button"
-            onClick={() => onStatusChange(manut, "aberto")}
-            className="col-span-2 min-h-10 rounded-lg border px-3 text-xs font-bold"
-            style={{ background: "var(--danger-bg)", borderColor: "var(--danger)", color: "var(--danger)" }}
-          >
-            Reabrir OS
-          </button>
-        )}
+      <div className="mt-3 rounded-lg bg-[var(--bg-card-alt)] px-3 py-2 text-xs font-bold text-[var(--danger)]">
+        {manut.status === "resolvido"
+          ? `Tempo parada: ${maintenanceDays(manut.parada_desde ?? manut.created_at, manut.parada_ate ?? manut.resolvido_em)} dias`
+          : `Parada há ${maintenanceDays(manut.parada_desde ?? manut.created_at)} dias`}
       </div>
     </article>
   );
@@ -207,11 +166,9 @@ function ManutencaoCard({
 function KanbanColumn({
   status,
   items,
-  onStatusChange,
 }: {
   status: MaintenanceStatus;
   items: ManutComMaquina[];
-  onStatusChange: (manut: ManutComMaquina, status: MaintenanceStatus) => void;
 }) {
   const meta = MANUT_STATUS_META[status];
 
@@ -248,7 +205,7 @@ function KanbanColumn({
           </div>
         ) : (
           items.map((manut) => (
-            <ManutencaoCard key={manut.id} manut={manut} onStatusChange={onStatusChange} />
+            <ManutencaoCard key={manut.id} manut={manut} />
           ))
         )}
       </div>
@@ -259,11 +216,9 @@ function KanbanColumn({
 function ManutencaoKanban({
   items,
   showResolved,
-  onStatusChange,
 }: {
   items: ManutComMaquina[];
   showResolved: boolean;
-  onStatusChange: (manut: ManutComMaquina, status: MaintenanceStatus) => void;
 }) {
   const statuses = showResolved ? KANBAN_ALL_STATUSES : KANBAN_ACTIVE_STATUSES;
 
@@ -274,7 +229,6 @@ function ManutencaoKanban({
           key={status}
           status={status}
           items={items.filter((manut) => manut.status === status)}
-          onStatusChange={onStatusChange}
         />
       ))}
     </div>
@@ -444,36 +398,6 @@ export default function MaquinasAdminPage() {
     });
     if (!r.ok) toast("Erro ao alterar status.", "error");
     else void carregar();
-  }
-
-  async function resolverManut(id: string) {
-    const r = await fetch(`/api/manutencoes/${id}`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ status: "resolvido" }),
-    });
-    if (!r.ok) toast("Erro.", "error");
-    else { toast("Marcada como resolvida.", "success"); void carregar(); }
-  }
-
-  async function alterarStatusManut(manut: ManutComMaquina, status: MaintenanceStatus) {
-    if (status === "resolvido") {
-      await resolverManut(manut.id);
-      return;
-    }
-
-    const r = await fetch(`/api/manutencoes/${manut.id}`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ status, resolvido_em: null }),
-    });
-    if (!r.ok) {
-      const j = await r.json().catch(() => ({}));
-      toast(`Erro: ${j.error ?? r.statusText}`, "error");
-      return;
-    }
-    toast(`OS movida para ${MANUT_STATUS_META[status].label}.`, "success");
-    void carregar();
   }
 
   // Filter + search
@@ -670,7 +594,6 @@ export default function MaquinasAdminPage() {
             <ManutencaoKanban
               items={manutsKanban}
               showResolved={tabManut === "todas"}
-              onStatusChange={alterarStatusManut}
             />
           </div>
         )}

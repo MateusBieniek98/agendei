@@ -97,6 +97,20 @@ async function createMaintenance({
 
   const novoStatusMaquina = (status_maquina ?? "manutencao_urgente") as MachineStatusInput;
   const supabase = await createSupabaseServer();
+  const { data: existing } = await supabase
+    .from("manutencoes")
+    .select("id")
+    .eq("maquina_id", maquina_id)
+    .neq("status", "resolvido")
+    .limit(1)
+    .maybeSingle();
+  if (existing) {
+    return NextResponse.json(
+      { error: "Esta máquina já possui uma solicitação aguardando manutenção." },
+      { status: 409 }
+    );
+  }
+
   const { data, error } = await supabase
     .from("manutencoes")
     .insert({
@@ -110,7 +124,12 @@ async function createMaintenance({
     .select()
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  if (error) {
+    const message = error.code === "23505"
+      ? "Esta máquina já possui uma solicitação aguardando manutenção."
+      : error.message;
+    return NextResponse.json({ error: message }, { status: error.code === "23505" ? 409 : 400 });
+  }
 
   const mentionError = await insertMentions({
     supabase,

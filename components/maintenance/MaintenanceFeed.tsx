@@ -3,6 +3,7 @@
 /* eslint-disable @next/next/no-img-element -- signed URLs privadas do Supabase Storage. */
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useSearchParams } from "next/navigation";
 import Button from "@/components/ui/Button";
 import Select from "@/components/ui/Select";
 import PageHeader from "@/components/ui/PageHeader";
@@ -51,8 +52,8 @@ const PRIORITY_OPTIONS: { value: MaintenancePriority; label: string }[] = [
 ];
 
 const STATUS_LABEL = {
-  aberto: "Aberto",
-  em_andamento: "Em andamento",
+  aberto: "Aguardando manutenção",
+  em_andamento: "Em atendimento",
   resolvido: "Resolvido",
 } as const;
 
@@ -63,7 +64,15 @@ const EVENT_LABEL: Record<ManutencaoEvento["tipo"], string> = {
   prioridade_alterada: "Prioridade alterada",
   concluido: "Serviço concluído",
   status_maquina_alterado: "Status da máquina alterado",
+  situacao_atualizada: "Situação atualizada",
 };
+
+function maintenanceDays(start: string, end?: string | null) {
+  const startTime = new Date(start).getTime();
+  const endTime = end ? new Date(end).getTime() : Date.now();
+  if (!Number.isFinite(startTime) || !Number.isFinite(endTime)) return 0;
+  return Math.max(0, Math.floor((endTime - startTime) / 86_400_000));
+}
 
 function statusTone(status: ManutencaoThread["status"]) {
   if (status === "resolvido") return "success" as const;
@@ -151,6 +160,7 @@ function eventDetail(event: ManutencaoEvento) {
   if (event.tipo === "atribuido") return String(event.dados.responsavel_nome ?? "");
   if (event.tipo === "prioridade_alterada") return String(event.dados.prioridade ?? "");
   if (event.tipo === "status_maquina_alterado") return String(event.dados.novo ?? "");
+  if (event.tipo === "situacao_atualizada") return String(event.dados.novo ?? "");
   return "";
 }
 
@@ -164,6 +174,7 @@ export default function MaintenanceFeed({
   onChanged,
 }: MaintenanceFeedProps) {
   const { toast } = useToast();
+  const searchParams = useSearchParams();
   const [threads, setThreads] = useState<ManutencaoThread[]>([]);
   const [maquinas, setMaquinas] = useState<Maquina[]>(initialMaquinas);
   const [equipes, setEquipes] = useState<Equipe[]>(initialEquipes);
@@ -181,6 +192,7 @@ export default function MaintenanceFeed({
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
   const [commentMentions, setCommentMentions] = useState<Record<string, string[]>>({});
   const [completion, setCompletion] = useState({ relato: "", status: "operando" as MachineStatus });
+  const [situationDraft, setSituationDraft] = useState("");
   const [form, setForm] = useState({
     maquina_id: initialMaquinas[0]?.id ?? "",
     equipe_id: initialEquipes[0]?.id ?? "",
@@ -241,6 +253,11 @@ export default function MaintenanceFeed({
   }, [loadOptions, loadThreads]);
 
   useEffect(() => {
+    const requestedId = searchParams.get("chamado");
+    if (requestedId && threads.some((thread) => thread.id === requestedId)) setSelectedId(requestedId);
+  }, [searchParams, threads]);
+
+  useEffect(() => {
     setForm((current) => ({
       ...current,
       maquina_id: current.maquina_id || maquinas[0]?.id || "",
@@ -273,7 +290,7 @@ export default function MaintenanceFeed({
 
   async function runAction(
     thread: ManutencaoThread,
-    action: "assumir" | "atribuir" | "iniciar" | "priorizar" | "concluir",
+    action: "assumir" | "atribuir" | "iniciar" | "priorizar" | "concluir" | "atualizar_situacao",
     extra: Record<string, unknown> = {}
   ) {
     setBusyId(thread.id);
@@ -285,8 +302,9 @@ export default function MaintenanceFeed({
       });
       const json = (await response.json().catch(() => ({}))) as { error?: string };
       if (!response.ok || json.error) throw new Error(json.error ?? response.statusText);
-      toast(action === "concluir" ? "Serviço concluído." : "Solicitação atualizada.", "success");
+      toast(action === "concluir" ? "Serviço concluído." : action === "atualizar_situacao" ? "Situação atualizada." : "Solicitação atualizada.", "success");
       if (action === "concluir") setCompletion({ relato: "", status: "operando" });
+      if (action === "atualizar_situacao") setSituationDraft("");
       await loadThreads();
       onChanged?.();
     } catch (error) {
@@ -434,6 +452,7 @@ export default function MaintenanceFeed({
                   <div className="flex flex-wrap gap-1.5">
                     <Badge tone={priorityTone(thread.prioridade)}>{thread.prioridade}</Badge>
                     <Badge tone={statusTone(thread.status)}>{STATUS_LABEL[thread.status]}</Badge>
+                    {thread.status !== "resolvido" && <Badge tone="danger">{maintenanceDays(thread.parada_desde ?? thread.created_at)} dias parada</Badge>}
                     {thread.unread_mentions_count > 0 && <Badge tone="info">nova menção</Badge>}
                   </div>
                   <h3 className="mt-2 truncate text-sm font-semibold text-[var(--text-primary)] sm:text-base">
@@ -441,6 +460,7 @@ export default function MaintenanceFeed({
                     {thread.maquinas?.identificador ? ` · ${thread.maquinas.identificador}` : ""}
                   </h3>
                   <p className="mt-1 line-clamp-2 text-sm font-normal text-[var(--text-secondary)]">{thread.descricao}</p>
+                  <p className="mt-2 line-clamp-1 text-xs font-medium text-[var(--text-primary)]">Status atual: {thread.situacao_atual}</p>
                   <p className="mt-2 truncate text-xs font-normal text-[var(--text-muted)]">
                     {thread.responsavel ? `Responsável: ${thread.responsavel.nome}` : "Sem responsável"} · {ddmmyyyy(thread.created_at)}
                   </p>
@@ -465,6 +485,19 @@ export default function MaintenanceFeed({
                 <p className="mt-3 text-sm font-normal leading-relaxed text-[var(--text-primary)]">{selected.descricao}</p>
                 <p className="mt-3 text-xs font-normal text-[var(--text-muted)]">{contextText(selected)}</p>
                 <p className="mt-1 text-xs font-normal text-[var(--text-muted)]">Aberto por {selected.autor?.nome ?? "Usuário"} em {ddmmyyyy(selected.created_at)}</p>
+                <p className="mt-2 text-sm font-semibold text-[var(--danger)]">Máquina parada há {maintenanceDays(selected.parada_desde ?? selected.created_at, selected.parada_ate)} dias</p>
+              </div>
+
+              <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-4">
+                <p className="text-xs font-medium text-[var(--text-muted)]">Status atual da máquina</p>
+                <p className="mt-2 whitespace-pre-wrap text-sm font-semibold text-[var(--text-primary)]">{selected.situacao_atual}</p>
+                <p className="mt-2 text-[11px] text-[var(--text-muted)]">Atualizado em {ddmmyyyy(selected.situacao_atualizada_em)}</p>
+                {selected.can_update_situation && (
+                  <div className="mt-4 space-y-2 border-t border-[var(--border)] pt-4">
+                    <label className="block text-xs font-medium text-[var(--text-muted)]">Nova atualização<textarea value={situationDraft} onChange={(event) => setSituationDraft(event.target.value.slice(0, 500))} maxLength={500} className="mt-1 min-h-20 w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 py-2 text-sm text-[var(--text-primary)]" placeholder="Ex.: Aguardando liberação da compra da peça." /></label>
+                    <div className="flex justify-end"><Button size="sm" loading={busyId === selected.id} disabled={situationDraft.trim().length < 3} onClick={() => void runAction(selected, "atualizar_situacao", { situacao_atual: situationDraft })}>Atualizar status</Button></div>
+                  </div>
+                )}
               </div>
 
               {(selected.can_assign || selected.can_prioritize) && (

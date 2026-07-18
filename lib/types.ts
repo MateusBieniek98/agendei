@@ -168,6 +168,10 @@ export type Manutencao = {
   concluido_por: string | null;
   relato_conclusao: string | null;
   resolvido_em: string | null;
+  situacao_atual: string;
+  situacao_atualizada_em: string;
+  parada_desde: string;
+  parada_ate: string | null;
   created_at: string;
 };
 
@@ -181,7 +185,8 @@ export type ManutencaoEvento = {
     | "iniciado"
     | "prioridade_alterada"
     | "concluido"
-    | "status_maquina_alterado";
+    | "status_maquina_alterado"
+    | "situacao_atualizada";
   ator_id: string | null;
   dados: Record<string, unknown>;
   created_at: string;
@@ -256,6 +261,37 @@ export type ManutencaoThread = Manutencao & {
   can_prioritize: boolean;
   can_claim: boolean;
   can_start: boolean;
+  can_update_situation: boolean;
+};
+
+export type ManutencaoIndicadorItem = {
+  id: string;
+  maquina_id: string;
+  maquina_nome: string;
+  maquina_identificador: string | null;
+  descricao: string;
+  status: MaintenanceStatus;
+  prioridade: MaintenancePriority;
+  situacao_atual: string;
+  situacao_atualizada_em: string;
+  parada_desde: string;
+  dias_parada: number;
+  responsavel_nome: string | null;
+};
+
+export type ManutencaoIndicadores = {
+  maquinas_paradas: number;
+  aguardando: number;
+  em_atendimento: number;
+  resolvidos_30d: number;
+  tempo_medio_parado_dias: number;
+  maior_tempo_aberto_dias: number;
+  faixas: {
+    ate_2_dias: number;
+    de_3_a_7_dias: number;
+    acima_7_dias: number;
+  };
+  paradas: ManutencaoIndicadorItem[];
 };
 
 export type Meta = {

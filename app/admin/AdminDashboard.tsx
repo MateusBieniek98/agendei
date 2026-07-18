@@ -10,6 +10,7 @@ import { LinhaChart } from "@/app/gestor/GestorCharts";
 import PeriodoFiltro, { type PeriodoState } from "@/components/dashboard/PeriodoFiltro";
 import PlanejamentoField from "@/app/(field)/planejamento/PlanejamentoField";
 import PlanejamentoAdminPage from "@/app/admin/planejamento/page";
+import type { ManutencaoIndicadores } from "@/lib/types";
 
 type DashboardMode = "admin" | "gestor" | "encarregado";
 type IndicatorWidgetId =
@@ -106,6 +107,7 @@ type DashboardData = {
   }[];
   metaEquipes: { totalMeta: number; diferenca: number };
   maquinas: { operando: number; paradas: number; urgentes: number; total: number };
+  manutencao: ManutencaoIndicadores;
   manutencoesAbertas: Manut[];
 };
 
@@ -297,6 +299,7 @@ export default function AdminDashboard({
           {activeTab === "indicadores" && (
             <IndicadoresPage
               data={data}
+              mode={mode}
               canManageMetas={canManageMetas}
               links={links}
               showExportActions={showExportActions}
@@ -320,6 +323,7 @@ export default function AdminDashboard({
 
 function IndicadoresPage({
   data,
+  mode,
   canManageMetas,
   links,
   showExportActions,
@@ -329,6 +333,7 @@ function IndicadoresPage({
   onResetWidgets,
 }: {
   data: DashboardData;
+  mode: DashboardMode;
   canManageMetas: boolean;
   links: DashboardLinks;
   showExportActions: boolean;
@@ -342,7 +347,9 @@ function IndicadoresPage({
     hasWidget("dailyRevenue") ||
     hasWidget("periodTotal") ||
     hasWidget("dailyAverage") ||
-    hasWidget("goalProgress");
+    hasWidget("goalProgress") ||
+    mode !== "encarregado";
+  const showMaintenanceKpi = mode === "admin" || mode === "gestor";
 
   return (
     <section className="space-y-4">
@@ -374,7 +381,7 @@ function IndicadoresPage({
       </div>
 
       {hasKpis && (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className={`grid grid-cols-1 gap-3 sm:grid-cols-2 ${showMaintenanceKpi ? "xl:grid-cols-5" : "xl:grid-cols-4"}`}>
           {hasWidget("dailyRevenue") && <DailyRevenueCard hoje={data.hoje} ontem={data.ontem} />}
           {hasWidget("periodTotal") && (
             <KpiCard label="Total no período" value={brl(data.total)} hint={data.periodo.label} />
@@ -389,6 +396,13 @@ function IndicadoresPage({
               hint={data.meta > 0 ? `Meta ${compactBrl(data.meta)}` : "sem meta"}
               tone={data.pctMeta >= 100 ? "success" : data.pctMeta >= 70 ? "neutral" : "warn"}
               href={canManageMetas ? links.metas : undefined}
+            />
+          )}
+          {showMaintenanceKpi && (
+            <KpiCard
+              label="Manutenção"
+              value={`${data.manutencao.maquinas_paradas} parada${data.manutencao.maquinas_paradas === 1 ? "" : "s"}`}
+              hint={`${data.manutencao.aguardando} aguardando · média ${data.manutencao.tempo_medio_parado_dias.toLocaleString("pt-BR")} dias`}
             />
           )}
         </div>
@@ -737,10 +751,12 @@ function ManutencaoPage({
 
   return (
     <section className="space-y-3">
-      <div className="grid grid-cols-3 gap-2 text-center">
+      <div className="grid grid-cols-2 gap-2 text-center sm:grid-cols-3 xl:grid-cols-5">
         <FleetMetric label="Operando" value={data.maquinas.operando} color="var(--success)" />
-        <FleetMetric label="Paradas" value={data.maquinas.paradas} color="var(--warn)" />
+        <FleetMetric label="Paradas" value={data.manutencao.maquinas_paradas} color="var(--warn)" />
         <FleetMetric label="Urgentes" value={data.maquinas.urgentes} color="var(--danger)" />
+        <FleetMetric label="Aguardando" value={data.manutencao.aguardando} color="var(--danger)" />
+        <FleetMetric label="Média parada (dias)" value={data.manutencao.tempo_medio_parado_dias} color="var(--text-primary)" />
       </div>
 
       <div className="flex items-center justify-between gap-3">

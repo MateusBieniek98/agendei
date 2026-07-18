@@ -15,7 +15,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   const { id } = await ctx.params;
   const body = await req.json().catch(() => ({}));
   const action = String(body.action ?? body.acao ?? "").trim();
-  const actions = ["assumir", "atribuir", "iniciar", "priorizar", "concluir"];
+  const actions = ["assumir", "atribuir", "iniciar", "priorizar", "concluir", "atualizar_situacao"];
   const priorities: MaintenancePriority[] = ["normal", "alta", "urgente"];
   const machineStatuses: MachineStatus[] = ["operando", "parada", "manutencao_urgente"];
 
@@ -38,8 +38,27 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
       { status: 400 }
     );
   }
+  if (
+    action === "atualizar_situacao" &&
+    (String(body.situacao_atual ?? "").trim().length < 3 ||
+      String(body.situacao_atual ?? "").trim().length > 500)
+  ) {
+    return NextResponse.json(
+      { error: "informe a situação atual com 3 a 500 caracteres" },
+      { status: 400 }
+    );
+  }
 
   const supabase = await createSupabaseServer();
+  if (action === "atualizar_situacao") {
+    const { data, error } = await supabase.rpc("update_maintenance_situation", {
+      p_manutencao_id: id,
+      p_situacao: String(body.situacao_atual).trim(),
+    });
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ item: data });
+  }
+
   const { data, error } = await supabase.rpc("maintenance_action", {
     p_manutencao_id: id,
     p_action: action,
