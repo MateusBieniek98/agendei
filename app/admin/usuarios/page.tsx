@@ -10,6 +10,9 @@ import Badge from "@/components/ui/Badge";
 import { useToast } from "@/components/ui/Toast";
 import PageHeader from "@/components/ui/PageHeader";
 import type { Equipe, Profile, UserRole } from "@/lib/types";
+import BulkImportDialog, { type BulkImportColumn } from "@/components/bulk/BulkImportDialog";
+import BulkSelectionBar from "@/components/bulk/BulkSelectionBar";
+import { normalizeBulkValue, responseError } from "@/lib/bulk-import";
 
 type ProfileWithEquipe = Profile & {
   equipes: { nome: string } | null;
@@ -53,6 +56,23 @@ const NOVO_VAZIO: NovoUsuario = {
   equipe_id: "",
 };
 
+const USER_COLUMNS: BulkImportColumn[] = [
+  { key: "nome", label: "Nome", example: "João Silva", required: true },
+  { key: "email", label: "E-mail", example: "joao@gn.com.br", required: true, validate: (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? null : "E-mail inválido." },
+  { key: "senha", label: "Senha inicial", example: "gn123456", required: true, validate: (value) => value.length >= 6 ? null : "Senha deve ter ao menos 6 caracteres." },
+  { key: "perfil", label: "Perfil", example: "encarregado", required: true, validate: (value) => normalizeImportedRole(value) ? null : "Perfil inválido." },
+  { key: "equipe", label: "Equipe", example: "Equipe Norte" },
+];
+
+function normalizeImportedRole(value: string): UserRole | null {
+  const role = normalizeBulkValue(value);
+  if (role === "admin" || role === "administrador") return "admin";
+  if (role === "gestor") return "gestor";
+  if (role === "manutencao" || role === "tecnico") return "manutencao";
+  if (role === "encarregado") return "encarregado";
+  return null;
+}
+
 export default function UsuariosPage() {
   const { toast } = useToast();
   const [items, setItems] = useState<ProfileWithEquipe[]>([]);
@@ -69,6 +89,9 @@ export default function UsuariosPage() {
   const [roleFiltro, setRoleFiltro] = useState("");
   const [statusFiltro, setStatusFiltro] = useState("ativos");
   const [expandida, setExpandida] = useState(false);
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [deleting, setDeleting] = useState(false);
 
   async function carregar() {
     setCarregando(true);
@@ -214,6 +237,31 @@ export default function UsuariosPage() {
     }
   }
 
+  async function importar(values: Record<string, string>) {
+    const equipeName = normalizeBulkValue(values.equipe);
+    const equipe = equipeName ? equipes.find((item) => normalizeBulkValue(item.nome) === equipeName) : null;
+    if (equipeName && !equipe) throw new Error(`Equipe não encontrada: ${values.equipe}`);
+    await responseError(await fetch("/api/usuarios/criar", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ nome: values.nome.trim(), email: values.email.trim().toLowerCase(), senha: values.senha, role: normalizeImportedRole(values.perfil), equipe_id: equipe?.id ?? null }),
+    }));
+  }
+
+  async function excluirSelecionados() {
+    if (!selected.size || !confirm(`Excluir ${selected.size} usuário${selected.size === 1 ? "" : "s"}? Contas com histórico serão apenas desativadas.`)) return;
+    setDeleting(true);
+    let errors = 0;
+    for (const id of selected) {
+      const response = await fetch("/api/usuarios", { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify({ id }) });
+      if (!response.ok) errors += 1;
+    }
+    setDeleting(false);
+    setSelected(new Set());
+    toast(errors ? `${errors} usuário(s) não puderam ser excluídos.` : "Usuários processados.", errors ? "error" : "success");
+    await carregar();
+  }
+
   const filtrados = searchItems(
     items.filter((u) => {
       if (roleFiltro && u.role !== roleFiltro) return false;
@@ -242,11 +290,7 @@ export default function UsuariosPage() {
         eyebrow="Acessos"
         title="Usuários"
         subtitle="Crie acessos personalizados, altere papéis, ative/desative ou redefina senhas."
-        right={
-          <Button className="w-full sm:w-auto" onClick={() => setCriando(true)}>
-            + Novo usuário
-          </Button>
-        }
+        right={<div className="flex w-full gap-2 sm:w-auto"><Button variant="secondary" className="flex-1 sm:flex-none" onClick={() => setBulkOpen(true)}>Importar em lote</Button><Button className="flex-1 sm:flex-none" onClick={() => setCriando(true)}>+ Novo usuário</Button></div>}
       />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
@@ -281,6 +325,8 @@ export default function UsuariosPage() {
           <p className="mt-1 text-2xl font-bold tabular">{contadores.manutencao}</p>
         </Card>
       </div>
+
+      <BulkSelectionBar selectedCount={selected.size} visibleCount={visiveis.length} allVisibleSelected={visiveis.length > 0 && visiveis.every((item) => selected.has(item.id))} deleting={deleting} onToggleAll={() => setSelected((current) => visiveis.every((item) => current.has(item.id)) ? new Set() : new Set([...current, ...visiveis.map((item) => item.id)]))} onClear={() => setSelected(new Set())} onDelete={excluirSelecionados} />
 
       <Card>
         <div className="border-b border-[var(--border)] p-4">
@@ -336,6 +382,7 @@ export default function UsuariosPage() {
           {visiveis.map((u) => (
             <div key={u.id} className="p-4">
               <div className="flex items-start justify-between gap-3">
+                <input type="checkbox" aria-label={`Selecionar ${u.nome}`} checked={selected.has(u.id)} onChange={() => setSelected((current) => { const next = new Set(current); if (next.has(u.id)) next.delete(u.id); else next.add(u.id); return next; })} className="mt-1 h-4 w-4 shrink-0 accent-[var(--accent)]" />
                 <div className="min-w-0">
                   <p className="break-words text-base font-bold text-[var(--text-primary)]">
                     {u.nome}
@@ -432,6 +479,7 @@ export default function UsuariosPage() {
           <table className="w-full text-sm">
             <thead className="bg-[var(--bg-card-alt)] text-left text-[var(--text-muted)]">
               <tr>
+                <th className="w-10 px-4 py-2"><span className="sr-only">Selecionar</span></th>
                 <th className="px-4 py-2 font-medium">Nome</th>
                 <th className="px-4 py-2 font-medium">E-mail</th>
                 <th className="px-4 py-2 font-medium">Papel</th>
@@ -443,13 +491,14 @@ export default function UsuariosPage() {
             <tbody>
               {carregando && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-6 text-center text-[var(--text-muted)]">
+                  <td colSpan={7} className="px-4 py-6 text-center text-[var(--text-muted)]">
                     Carregando usuários...
                   </td>
                 </tr>
               )}
               {visiveis.map((u) => (
                 <tr key={u.id} className="border-t border-[var(--border)]">
+                  <td className="px-4 py-2"><input type="checkbox" aria-label={`Selecionar ${u.nome}`} checked={selected.has(u.id)} onChange={() => setSelected((current) => { const next = new Set(current); if (next.has(u.id)) next.delete(u.id); else next.add(u.id); return next; })} className="h-4 w-4 accent-[var(--accent)]" /></td>
                   <td className="px-4 py-2">
                     <div className="font-semibold text-[var(--text-primary)]">
                       {u.nome}
@@ -528,7 +577,7 @@ export default function UsuariosPage() {
               ))}
               {!carregando && filtrados.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-6 text-center text-[var(--text-muted)]">
+                  <td colSpan={7} className="px-4 py-6 text-center text-[var(--text-muted)]">
                     Nenhum usuário encontrado neste filtro.
                   </td>
                 </tr>
@@ -648,6 +697,7 @@ export default function UsuariosPage() {
           </div>
         </div>
       )}
+      <BulkImportDialog open={bulkOpen} title="Importar usuários em lote" description="Crie contas individuais já confirmadas. Use os perfis encarregado, gestor, manutenção ou admin." columns={USER_COLUMNS} onClose={() => setBulkOpen(false)} onImportRow={importar} onComplete={carregar} />
     </div>
   );
 }

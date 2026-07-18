@@ -8,7 +8,22 @@ import { Card } from "@/components/ui/Card";
 import ListControls, { searchItems, visibleItems } from "@/components/ui/ListControls";
 import { useToast } from "@/components/ui/Toast";
 import { brl, ddmmyyyy, num } from "@/lib/format";
-import type { Atividade, Equipe, Projeto } from "@/lib/types";
+import type { Atividade, Equipe, Insumo, Projeto } from "@/lib/types";
+import BulkImportDialog, { type BulkImportColumn } from "@/components/bulk/BulkImportDialog";
+import BulkSelectionBar from "@/components/bulk/BulkSelectionBar";
+import { normalizeBulkValue, parseDatePtBr, parseNumberPtBr, responseError } from "@/lib/bulk-import";
+
+const PRODUCTION_COLUMNS: BulkImportColumn[] = [
+  { key: "data", label: "Data", example: "18/07/2026", required: true, validate: (value) => parseDatePtBr(value) ? null : "Data inválida." },
+  { key: "equipe", label: "Equipe", example: "Equipe Norte", required: true },
+  { key: "projeto", label: "Projeto", example: "Mãe Santa", required: true },
+  { key: "talhao", label: "Talhão", example: "017-01", required: true, validate: (value) => /^\d{3}-\d{2}$/.test(value.trim()) ? null : "Talhão deve usar o formato 000-00." },
+  { key: "servico", label: "Serviço", example: "Roçada manual", required: true },
+  { key: "quantidade", label: "Quantidade", example: "12,5", required: true, validate: (value) => (parseNumberPtBr(value) ?? 0) > 0 ? null : "Quantidade inválida." },
+  { key: "insumos", label: "Insumos", example: "INS-001:2,5 | Óleo:1" },
+  { key: "descarte", label: "Descarte", example: "0" },
+  { key: "observacoes", label: "Observações", example: "Concluído sem intercorrências" },
+];
 
 type Linha = {
   id: string;
@@ -31,10 +46,12 @@ export default function LancamentosTable({
   equipes,
   atividades,
   projetos,
+  insumos,
 }: {
   equipes: Equipe[];
   atividades: Atividade[];
   projetos: Projeto[];
+  insumos: Insumo[];
 }) {
   const { toast } = useToast();
   const [items, setItems] = useState<Linha[]>([]);
@@ -48,6 +65,9 @@ export default function LancamentosTable({
   const [busca, setBusca] = useState("");
   const [expandida, setExpandida] = useState(false);
   const [editing, setEditing] = useState<Linha | null>(null);
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [deleting, setDeleting] = useState(false);
 
   async function carregar() {
     setLoading(true);
@@ -138,8 +158,65 @@ export default function LancamentosTable({
     carregar();
   }
 
+  function findByName<T extends { nome: string }>(list: T[], value: string, label: string) {
+    const normalized = normalizeBulkValue(value);
+    const item = list.find((candidate) => normalizeBulkValue(candidate.nome) === normalized);
+    if (!item) throw new Error(`${label} não encontrado: ${value}`);
+    return item;
+  }
+
+  function parseImportedSupplies(value: string) {
+    if (!value.trim()) return [];
+    return value.split("|").map((entry) => {
+      const separator = entry.lastIndexOf(":");
+      if (separator < 1) throw new Error(`Insumo inválido: ${entry.trim()}`);
+      const reference = entry.slice(0, separator).trim();
+      const quantity = parseNumberPtBr(entry.slice(separator + 1));
+      const normalized = normalizeBulkValue(reference);
+      const item = insumos.find((candidate) => normalizeBulkValue(candidate.codigo) === normalized || normalizeBulkValue(candidate.nome) === normalized);
+      if (!item) throw new Error(`Insumo não encontrado: ${reference}`);
+      if (!quantity || quantity <= 0) throw new Error(`Quantidade inválida para ${reference}`);
+      return { insumo_id: item.id, nome: item.nome, unidade: item.unidade, quantidade: quantity };
+    });
+  }
+
+  async function importar(values: Record<string, string>) {
+    const equipeItem = findByName(equipes, values.equipe, "Equipe");
+    const atividadeItem = findByName(atividades, values.servico, "Serviço");
+    const projetoItem = findByName(projetos, values.projeto, "Projeto");
+    await responseError(await fetch("/api/producao", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        data: parseDatePtBr(values.data),
+        equipe_id: equipeItem.id,
+        atividade_id: atividadeItem.id,
+        projeto_id: projetoItem.id,
+        talhao: values.talhao.trim(),
+        quantidade: parseNumberPtBr(values.quantidade),
+        insumos: parseImportedSupplies(values.insumos),
+        descarte: parseNumberPtBr(values.descarte),
+        observacoes: values.observacoes.trim() || null,
+        client_id: `bulk-${crypto.randomUUID()}`,
+      }),
+    }));
+  }
+
+  async function excluirSelecionados() {
+    if (!selected.size || !confirm(`Excluir ${selected.size} apontamento${selected.size === 1 ? "" : "s"}? As baixas de estoque serão estornadas.`)) return;
+    setDeleting(true);
+    let errors = 0;
+    for (const id of selected) if (!(await fetch(`/api/producao/${id}`, { method: "DELETE" })).ok) errors += 1;
+    setDeleting(false);
+    setSelected(new Set());
+    toast(errors ? `${errors} apontamento(s) não puderam ser excluídos.` : "Apontamentos excluídos.", errors ? "error" : "success");
+    await carregar();
+  }
+
   return (
     <div className="space-y-4">
+      <div className="flex justify-end"><Button variant="secondary" onClick={() => setBulkOpen(true)}>Importar em lote</Button></div>
+      <BulkSelectionBar selectedCount={selected.size} visibleCount={itemsVisiveis.length} allVisibleSelected={itemsVisiveis.length > 0 && itemsVisiveis.every((item) => selected.has(item.id))} deleting={deleting} onToggleAll={() => setSelected((current) => itemsVisiveis.every((item) => current.has(item.id)) ? new Set() : new Set([...current, ...itemsVisiveis.map((item) => item.id)]))} onClear={() => setSelected(new Set())} onDelete={excluirSelecionados} />
       <Card className="p-4">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-7">
           <Input label="De" type="date" value={de} onChange={(e) => setDe(e.target.value)} />
@@ -200,6 +277,7 @@ export default function LancamentosTable({
           {itemsVisiveis.map((l) => (
             <div key={l.id} className="p-4">
               <div className="flex items-start justify-between gap-3">
+                <input type="checkbox" aria-label={`Selecionar apontamento de ${ddmmyyyy(l.data)}`} checked={selected.has(l.id)} onChange={() => setSelected((current) => { const next = new Set(current); if (next.has(l.id)) next.delete(l.id); else next.add(l.id); return next; })} className="mt-1 h-4 w-4 shrink-0 accent-[var(--accent)]" />
                 <div className="min-w-0">
                   <p className="text-sm font-bold text-[var(--text-muted)]">
                     {ddmmyyyy(l.data)}
@@ -273,6 +351,7 @@ export default function LancamentosTable({
           <table className="w-full text-sm">
             <thead className="bg-[var(--bg-card-alt)] text-left text-[var(--text-muted)]">
               <tr>
+                <th className="w-10 px-4 py-2"><span className="sr-only">Selecionar</span></th>
                 <th className="px-4 py-2 font-medium">Data</th>
                 <th className="px-4 py-2 font-medium">Equipe</th>
                 <th className="px-4 py-2 font-medium">Atividade</th>
@@ -287,6 +366,7 @@ export default function LancamentosTable({
             <tbody>
               {itemsVisiveis.map((l) => (
                 <tr key={l.id} className="border-t border-[var(--border)]">
+                  <td className="px-4 py-2"><input type="checkbox" aria-label={`Selecionar apontamento de ${ddmmyyyy(l.data)}`} checked={selected.has(l.id)} onChange={() => setSelected((current) => { const next = new Set(current); if (next.has(l.id)) next.delete(l.id); else next.add(l.id); return next; })} className="h-4 w-4 accent-[var(--accent)]" /></td>
                   <td className="px-4 py-2 whitespace-nowrap">{ddmmyyyy(l.data)}</td>
                   <td className="px-4 py-2">{l.equipes?.nome}</td>
                   <td className="px-4 py-2">{l.atividades?.nome}</td>
@@ -338,7 +418,7 @@ export default function LancamentosTable({
               ))}
               {itemsFiltrados.length === 0 && !loading && (
                 <tr>
-                  <td colSpan={9} className="px-4 py-6 text-center text-[var(--text-muted)]">
+                  <td colSpan={10} className="px-4 py-6 text-center text-[var(--text-muted)]">
                     Nenhum lançamento encontrado.
                   </td>
                 </tr>
@@ -418,6 +498,7 @@ export default function LancamentosTable({
           </div>
         </div>
       )}
+      <BulkImportDialog open={bulkOpen} title="Importar apontamentos em lote" description="Cole lançamentos do Excel. Insumos são opcionais e usam o formato Código:Quantidade separados por |." columns={PRODUCTION_COLUMNS} onClose={() => setBulkOpen(false)} onImportRow={importar} onComplete={carregar} />
     </div>
   );
 }

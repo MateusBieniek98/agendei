@@ -10,6 +10,16 @@ import PageHeader from "@/components/ui/PageHeader";
 import { useToast } from "@/components/ui/Toast";
 import { brl } from "@/lib/format";
 import type { Atividade } from "@/lib/types";
+import BulkImportDialog, { type BulkImportColumn } from "@/components/bulk/BulkImportDialog";
+import BulkSelectionBar from "@/components/bulk/BulkSelectionBar";
+import { parseBooleanPtBr, parseNumberPtBr, responseError } from "@/lib/bulk-import";
+
+const ACTIVITY_COLUMNS: BulkImportColumn[] = [
+  { key: "nome", label: "Nome", example: "Roçada manual", required: true },
+  { key: "unidade", label: "Unidade", example: "ha", required: true },
+  { key: "valor_unitario", label: "Valor unitário", example: "125,50", required: true, validate: (value) => parseNumberPtBr(value) === null ? "Valor unitário inválido." : null },
+  { key: "ativo", label: "Ativo", example: "sim" },
+];
 
 export default function AtividadesPage() {
   const { toast } = useToast();
@@ -18,6 +28,9 @@ export default function AtividadesPage() {
   const [busca, setBusca] = useState("");
   const [statusFiltro, setStatusFiltro] = useState("");
   const [expandida, setExpandida] = useState(false);
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [deleting, setDeleting] = useState(false);
 
   async function carregar() {
     try {
@@ -76,6 +89,33 @@ export default function AtividadesPage() {
     carregar();
   }
 
+  async function importar(values: Record<string, string>) {
+    await responseError(await fetch("/api/atividades", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        nome: values.nome.trim(),
+        unidade: values.unidade.trim(),
+        valor_unitario: parseNumberPtBr(values.valor_unitario),
+        ativo: parseBooleanPtBr(values.ativo),
+      }),
+    }));
+  }
+
+  async function excluirSelecionadas() {
+    if (!selected.size || !confirm(`Inativar ${selected.size} atividade${selected.size === 1 ? "" : "s"}?`)) return;
+    setDeleting(true);
+    let errors = 0;
+    for (const id of selected) {
+      const response = await fetch(`/api/atividades/${id}`, { method: "DELETE" });
+      if (!response.ok) errors += 1;
+    }
+    setDeleting(false);
+    setSelected(new Set());
+    toast(errors ? `${errors} atividade(s) não puderam ser inativadas.` : "Atividades inativadas.", errors ? "error" : "success");
+    await carregar();
+  }
+
   const filtradas = searchItems(
     items.filter((a) =>
       statusFiltro === "ativas" ? a.ativo : statusFiltro === "inativas" ? !a.ativo : true
@@ -91,14 +131,17 @@ export default function AtividadesPage() {
         eyebrow="Cadastro"
         title="Atividades"
         subtitle="Tipos de serviço e seus valores por unidade."
-        right={
-          <Button
-            className="w-full sm:w-auto"
-            onClick={() => setEditing({ nome: "", unidade: "ha", valor_unitario: 0 })}
-          >
-            + Nova
-          </Button>
-        }
+        right={<div className="flex w-full gap-2 sm:w-auto"><Button variant="secondary" className="flex-1 sm:flex-none" onClick={() => setBulkOpen(true)}>Importar em lote</Button><Button className="flex-1 sm:flex-none" onClick={() => setEditing({ nome: "", unidade: "ha", valor_unitario: 0 })}>+ Nova</Button></div>}
+      />
+
+      <BulkSelectionBar
+        selectedCount={selected.size}
+        visibleCount={visiveis.length}
+        allVisibleSelected={visiveis.length > 0 && visiveis.every((item) => selected.has(item.id))}
+        deleting={deleting}
+        onToggleAll={() => setSelected((current) => visiveis.every((item) => current.has(item.id)) ? new Set() : new Set([...current, ...visiveis.map((item) => item.id)]))}
+        onClear={() => setSelected(new Set())}
+        onDelete={excluirSelecionadas}
       />
 
       <Card>
@@ -133,6 +176,7 @@ export default function AtividadesPage() {
           {visiveis.map((a) => (
             <div key={a.id} className="p-4">
               <div className="flex items-start justify-between gap-3">
+                <input type="checkbox" aria-label={`Selecionar ${a.nome}`} checked={selected.has(a.id)} onChange={() => setSelected((current) => { const next = new Set(current); if (next.has(a.id)) next.delete(a.id); else next.add(a.id); return next; })} className="mt-1 h-4 w-4 shrink-0 accent-[var(--accent)]" />
                 <div className="min-w-0">
                   <p className="break-words text-base font-bold text-[var(--text-primary)]">
                     {a.nome}
@@ -174,6 +218,7 @@ export default function AtividadesPage() {
           <table className="w-full text-sm">
             <thead className="bg-[var(--bg-card-alt)] text-left text-[var(--text-muted)]">
               <tr>
+                <th className="w-10 px-4 py-2"><span className="sr-only">Selecionar</span></th>
                 <th className="px-4 py-2 font-medium">Nome</th>
                 <th className="px-4 py-2 font-medium">Unidade</th>
                 <th className="px-4 py-2 font-medium text-right">Valor unitário</th>
@@ -184,6 +229,7 @@ export default function AtividadesPage() {
             <tbody>
               {visiveis.map((a) => (
                 <tr key={a.id} className="border-t border-[var(--border)]">
+                  <td className="px-4 py-2"><input type="checkbox" aria-label={`Selecionar ${a.nome}`} checked={selected.has(a.id)} onChange={() => setSelected((current) => { const next = new Set(current); if (next.has(a.id)) next.delete(a.id); else next.add(a.id); return next; })} className="h-4 w-4 accent-[var(--accent)]" /></td>
                   <td className="px-4 py-2">{a.nome}</td>
                   <td className="px-4 py-2">{a.unidade}</td>
                   <td className="px-4 py-2 text-right tabular">{brl(a.valor_unitario)}</td>
@@ -240,6 +286,7 @@ export default function AtividadesPage() {
           </div>
         </div>
       )}
+      <BulkImportDialog open={bulkOpen} title="Importar serviços em lote" description="Cadastre vários serviços mantendo unidade, valor e status." columns={ACTIVITY_COLUMNS} onClose={() => setBulkOpen(false)} onImportRow={importar} onComplete={carregar} />
     </div>
   );
 }

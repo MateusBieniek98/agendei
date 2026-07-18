@@ -7,6 +7,15 @@ import PageHeader from "@/components/ui/PageHeader";
 import { useToast } from "@/components/ui/Toast";
 import { brl, todayISO } from "@/lib/format";
 import type { Equipe, Producao } from "@/lib/types";
+import BulkImportDialog, { type BulkImportColumn } from "@/components/bulk/BulkImportDialog";
+import BulkSelectionBar from "@/components/bulk/BulkSelectionBar";
+import { parseBooleanPtBr, responseError } from "@/lib/bulk-import";
+
+const TEAM_COLUMNS: BulkImportColumn[] = [
+  { key: "nome", label: "Nome", example: "Equipe Norte", required: true },
+  { key: "descricao", label: "Descrição", example: "Frente de plantio" },
+  { key: "ativo", label: "Ativo", example: "sim" },
+];
 
 const FILTER_KEY = "gn:equipes-filtro";
 
@@ -64,12 +73,16 @@ function EquipeCard({
   days,
   onEdit,
   onInativar,
+  selected,
+  onSelect,
 }: {
   equipe: Equipe;
   producoesDaEquipe: Producao[];
   days: string[];
   onEdit: () => void;
   onInativar: () => void;
+  selected: boolean;
+  onSelect: () => void;
 }) {
   // Aggregate production per day
   const porDia = useMemo(() => {
@@ -98,6 +111,7 @@ function EquipeCard({
     >
       {/* Header */}
       <div className="flex items-start justify-between gap-2">
+        <input type="checkbox" aria-label={`Selecionar ${equipe.nome}`} checked={selected} onChange={onSelect} className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--accent)]" />
         <div className="min-w-0">
           <p
             className="font-bold text-sm leading-tight truncate"
@@ -191,6 +205,9 @@ export default function EquipesPage() {
     return "ativas";
   });
   const [loading, setLoading] = useState(true);
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [deleting, setDeleting] = useState(false);
 
   const days = useMemo(() => lastNDays(7), []);
 
@@ -250,6 +267,25 @@ export default function EquipesPage() {
     void carregar();
   }
 
+  async function importar(values: Record<string, string>) {
+    await responseError(await fetch("/api/equipes", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ nome: values.nome.trim(), descricao: values.descricao.trim() || null, ativo: parseBooleanPtBr(values.ativo) }),
+    }));
+  }
+
+  async function excluirSelecionadas() {
+    if (!selected.size || !confirm(`Inativar ${selected.size} equipe${selected.size === 1 ? "" : "s"}?`)) return;
+    setDeleting(true);
+    let errors = 0;
+    for (const id of selected) if (!(await fetch(`/api/equipes/${id}`, { method: "DELETE" })).ok) errors += 1;
+    setDeleting(false);
+    setSelected(new Set());
+    toast(errors ? `${errors} equipe(s) não puderam ser inativadas.` : "Equipes inativadas.", errors ? "error" : "success");
+    await carregar();
+  }
+
   const filtradas = items.filter((e) => {
     if (statusFiltro === "ativas"   && !e.ativo) return false;
     if (statusFiltro === "inativas" &&  e.ativo) return false;
@@ -276,14 +312,7 @@ export default function EquipesPage() {
         eyebrow="Cadastro"
         title="Equipes / Frentes"
         subtitle="Frentes de trabalho com desempenho dos últimos 7 dias."
-        right={
-          <Button
-            className="w-full sm:w-auto"
-            onClick={() => setEditing({ nome: "", descricao: "", ativo: true })}
-          >
-            + Nova equipe
-          </Button>
-        }
+        right={<div className="flex w-full gap-2 sm:w-auto"><Button variant="secondary" className="flex-1 sm:flex-none" onClick={() => setBulkOpen(true)}>Importar em lote</Button><Button className="flex-1 sm:flex-none" onClick={() => setEditing({ nome: "", descricao: "", ativo: true })}>+ Nova equipe</Button></div>}
       />
 
       {/* Summary strip */}
@@ -339,6 +368,8 @@ export default function EquipesPage() {
         </div>
       </div>
 
+      <BulkSelectionBar selectedCount={selected.size} visibleCount={filtradas.length} allVisibleSelected={filtradas.length > 0 && filtradas.every((item) => selected.has(item.id))} deleting={deleting} onToggleAll={() => setSelected((current) => filtradas.every((item) => current.has(item.id)) ? new Set() : new Set([...current, ...filtradas.map((item) => item.id)]))} onClear={() => setSelected(new Set())} onDelete={excluirSelecionadas} />
+
       {/* Grid */}
       {loading ? (
         <div className="text-center py-12 text-sm" style={{ color: "var(--text-muted)" }}>
@@ -361,6 +392,8 @@ export default function EquipesPage() {
               days={days}
               onEdit={() => setEditing(e)}
               onInativar={() => excluir(e.id)}
+              selected={selected.has(e.id)}
+              onSelect={() => setSelected((current) => { const next = new Set(current); if (next.has(e.id)) next.delete(e.id); else next.add(e.id); return next; })}
             />
           ))}
         </div>
@@ -398,6 +431,7 @@ export default function EquipesPage() {
           </div>
         </div>
       )}
+      <BulkImportDialog open={bulkOpen} title="Importar equipes em lote" description="Cole várias frentes de trabalho e revise antes de cadastrar." columns={TEAM_COLUMNS} onClose={() => setBulkOpen(false)} onImportRow={importar} onComplete={carregar} />
     </div>
   );
 }

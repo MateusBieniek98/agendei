@@ -11,6 +11,18 @@ import Select from "@/components/ui/Select";
 import { useToast } from "@/components/ui/Toast";
 import { num } from "@/lib/format";
 import type { Insumo } from "@/lib/types";
+import BulkImportDialog, { type BulkImportColumn } from "@/components/bulk/BulkImportDialog";
+import BulkSelectionBar from "@/components/bulk/BulkSelectionBar";
+import { parseBooleanPtBr, parseNumberPtBr, responseError } from "@/lib/bulk-import";
+
+const SUPPLY_COLUMNS: BulkImportColumn[] = [
+  { key: "codigo", label: "Código", example: "INS-001" },
+  { key: "nome", label: "Nome", example: "Óleo mineral", required: true },
+  { key: "grupo", label: "Grupo", example: "Operacional", required: true },
+  { key: "unidade", label: "Unidade", example: "L", required: true },
+  { key: "estoque_minimo", label: "Estoque mínimo", example: "10", validate: (value) => value && (parseNumberPtBr(value) ?? -1) < 0 ? "Estoque mínimo inválido." : null },
+  { key: "ativo", label: "Ativo", example: "sim" },
+];
 
 type EditingInsumo = Partial<Insumo>;
 type MovementState = {
@@ -43,6 +55,9 @@ export default function AdminInsumosPage() {
   const [expandida, setExpandida] = useState(false);
   const [editing, setEditing] = useState<EditingInsumo | null>(null);
   const [movement, setMovement] = useState<MovementState | null>(null);
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [deleting, setDeleting] = useState(false);
 
   async function carregar() {
     setLoading(true);
@@ -137,6 +152,32 @@ export default function AdminInsumosPage() {
     carregar();
   }
 
+  async function importar(values: Record<string, string>) {
+    await responseError(await fetch("/api/insumos", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        codigo: values.codigo.trim() || null,
+        nome: values.nome.trim(),
+        grupo: values.grupo.trim(),
+        unidade: values.unidade.trim(),
+        estoque_minimo: parseNumberPtBr(values.estoque_minimo) ?? 0,
+        ativo: parseBooleanPtBr(values.ativo),
+      }),
+    }));
+  }
+
+  async function excluirSelecionados() {
+    if (!selected.size || !confirm(`Inativar ${selected.size} insumo${selected.size === 1 ? "" : "s"}? O histórico e os saldos serão preservados.`)) return;
+    setDeleting(true);
+    let errors = 0;
+    for (const id of selected) if (!(await fetch(`/api/insumos/${id}`, { method: "DELETE" })).ok) errors += 1;
+    setDeleting(false);
+    setSelected(new Set());
+    toast(errors ? `${errors} insumo(s) não puderam ser inativados.` : "Insumos inativados.", errors ? "error" : "success");
+    await carregar();
+  }
+
   const filtradas = useMemo(() => {
     const byStatus = items.filter((item) => {
       if (statusFiltro === "ativos") return item.ativo;
@@ -168,21 +209,10 @@ export default function AdminInsumosPage() {
         title="Insumos"
         subtitle="Cadastro e saldo disponível para os próximos apontamentos."
         right={
-          <Button
-            className="w-full sm:w-auto"
-            onClick={() =>
-              setEditing({
-                codigo: "",
-                nome: "",
-                grupo: "Operacional",
-                unidade: "un",
-                estoque_minimo: 0,
-                ativo: true,
-              })
-            }
-          >
-            + Novo insumo
-          </Button>
+          <div className="flex w-full gap-2 sm:w-auto">
+            <Button variant="secondary" className="flex-1 sm:flex-none" onClick={() => setBulkOpen(true)}>Importar em lote</Button>
+            <Button className="flex-1 sm:flex-none" onClick={() => setEditing({ codigo: "", nome: "", grupo: "Operacional", unidade: "un", estoque_minimo: 0, ativo: true })}>+ Novo insumo</Button>
+          </div>
         }
       />
 
@@ -194,6 +224,8 @@ export default function AdminInsumosPage() {
           </p>
         </div>
       )}
+
+      <BulkSelectionBar selectedCount={selected.size} visibleCount={visiveis.length} allVisibleSelected={visiveis.length > 0 && visiveis.every((item) => selected.has(item.id))} deleting={deleting} onToggleAll={() => setSelected((current) => visiveis.every((item) => current.has(item.id)) ? new Set() : new Set([...current, ...visiveis.map((item) => item.id)]))} onClear={() => setSelected(new Set())} onDelete={excluirSelecionados} />
 
       <Card>
         <div className="border-b border-[var(--border)] p-4">
@@ -228,6 +260,7 @@ export default function AdminInsumosPage() {
           {visiveis.map((item) => (
             <div key={item.id} className="p-4">
               <div className="flex items-start justify-between gap-3">
+                <input type="checkbox" aria-label={`Selecionar ${item.nome}`} checked={selected.has(item.id)} onChange={() => setSelected((current) => { const next = new Set(current); if (next.has(item.id)) next.delete(item.id); else next.add(item.id); return next; })} className="mt-1 h-4 w-4 shrink-0 accent-[var(--accent)]" />
                 <div className="min-w-0">
                   <p className="text-xs font-bold uppercase text-[var(--text-muted)]">
                     {item.codigo || item.grupo}
@@ -276,6 +309,7 @@ export default function AdminInsumosPage() {
           <table className="w-full text-sm">
             <thead className="bg-[var(--bg-card-alt)] text-left text-[var(--text-muted)]">
               <tr>
+                <th className="w-10 px-4 py-2"><span className="sr-only">Selecionar</span></th>
                 <th className="px-4 py-2 font-medium">Código</th>
                 <th className="px-4 py-2 font-medium">Insumo</th>
                 <th className="px-4 py-2 font-medium">Grupo</th>
@@ -288,6 +322,7 @@ export default function AdminInsumosPage() {
             <tbody>
               {visiveis.map((item) => (
                 <tr key={item.id} className="border-t border-[var(--border)]">
+                  <td className="px-4 py-2"><input type="checkbox" aria-label={`Selecionar ${item.nome}`} checked={selected.has(item.id)} onChange={() => setSelected((current) => { const next = new Set(current); if (next.has(item.id)) next.delete(item.id); else next.add(item.id); return next; })} className="h-4 w-4 accent-[var(--accent)]" /></td>
                   <td className="px-4 py-2 text-xs font-semibold text-[var(--text-muted)]">
                     {item.codigo || "—"}
                   </td>
@@ -335,7 +370,7 @@ export default function AdminInsumosPage() {
               ))}
               {filtradas.length === 0 && !loading && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-6 text-center text-[var(--text-muted)]">
+                  <td colSpan={8} className="px-4 py-6 text-center text-[var(--text-muted)]">
                     Nenhum insumo encontrado.
                   </td>
                 </tr>
@@ -459,6 +494,7 @@ export default function AdminInsumosPage() {
           </div>
         </div>
       )}
+      <BulkImportDialog open={bulkOpen} title="Importar insumos em lote" description="Cadastre o catálogo. Os saldos continuam sendo informados depois, nas movimentações de estoque." columns={SUPPLY_COLUMNS} onClose={() => setBulkOpen(false)} onImportRow={importar} onComplete={carregar} />
     </div>
   );
 }

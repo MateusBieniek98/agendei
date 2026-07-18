@@ -7,11 +7,21 @@ import PageHeader from "@/components/ui/PageHeader";
 import { useToast } from "@/components/ui/Toast";
 import { num } from "@/lib/format";
 import type { ProjetoComTalhoes, Talhao } from "@/lib/types";
+import BulkImportDialog, { type BulkImportColumn } from "@/components/bulk/BulkImportDialog";
+import BulkSelectionBar from "@/components/bulk/BulkSelectionBar";
+import { parseBooleanPtBr, parseNumberPtBr, responseError } from "@/lib/bulk-import";
 
 type ProjetoForm = { nome: string };
 type TalhaoForm = { codigo: string; area_ha: string; observacoes: string };
 
 const EMPTY_TALHAO: TalhaoForm = { codigo: "", area_ha: "", observacoes: "" };
+const PROJECT_COLUMNS: BulkImportColumn[] = [
+  { key: "projeto", label: "Projeto", example: "Mãe Santa", required: true },
+  { key: "talhao", label: "Talhão", example: "017-01" },
+  { key: "area_ha", label: "Área (ha)", example: "68,250", validate: (value) => value && (parseNumberPtBr(value) ?? -1) < 0 ? "Área inválida." : null },
+  { key: "observacoes", label: "Observações", example: "Gleba norte" },
+  { key: "ativo", label: "Ativo", example: "sim" },
+];
 
 function sortTalhoes(talhoes: Talhao[]) {
   return [...talhoes].sort((a, b) => a.codigo.localeCompare(b.codigo, "pt-BR", { numeric: true }));
@@ -27,6 +37,9 @@ export default function ProjetosAdminPage() {
   const [talhaoForms, setTalhaoForms] = useState<Record<string, TalhaoForm>>({});
   const [editingProjeto, setEditingProjeto] = useState<Record<string, string>>({});
   const [editingTalhao, setEditingTalhao] = useState<Record<string, TalhaoForm>>({});
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [deleting, setDeleting] = useState(false);
 
   async function carregar() {
     setLoading(true);
@@ -63,6 +76,7 @@ export default function ProjetosAdminPage() {
   }, [busca, items]);
 
   const totalTalhoes = items.reduce((sum, projeto) => sum + (projeto.talhoes?.filter((t) => t.ativo).length ?? 0), 0);
+  const selectableKeys = filtrados.flatMap((projeto) => [`p:${projeto.id}`, ...(projeto.talhoes ?? []).filter((talhao) => talhao.ativo).map((talhao) => `t:${talhao.id}`)]);
 
   async function criarProjeto() {
     const nome = projetoForm.nome.trim();
@@ -186,6 +200,37 @@ export default function ProjetosAdminPage() {
     carregar();
   }
 
+  async function importar(values: Record<string, string>) {
+    const projectResult = await responseError(await fetch("/api/projetos", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ nome: values.projeto.trim(), ativo: parseBooleanPtBr(values.ativo) }),
+    })) as { item?: { id?: string } };
+    if (values.talhao.trim() && projectResult.item?.id) {
+      await responseError(await fetch(`/api/projetos/${projectResult.item.id}/talhoes`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ codigo: values.talhao.trim(), area_ha: parseNumberPtBr(values.area_ha), observacoes: values.observacoes.trim() || null, ativo: parseBooleanPtBr(values.ativo) }),
+      }));
+    }
+  }
+
+  async function excluirSelecionados() {
+    if (!selected.size || !confirm(`Inativar ${selected.size} item${selected.size === 1 ? "" : "s"}? O histórico será preservado.`)) return;
+    setDeleting(true);
+    let errors = 0;
+    const ordered = [...selected].sort((a) => a.startsWith("t:") ? -1 : 1);
+    for (const key of ordered) {
+      const [kind, id] = key.split(":");
+      const response = await fetch(kind === "t" ? `/api/talhoes/${id}` : `/api/projetos/${id}`, { method: "DELETE" });
+      if (!response.ok) errors += 1;
+    }
+    setDeleting(false);
+    setSelected(new Set());
+    toast(errors ? `${errors} item(ns) não puderam ser inativados.` : "Itens inativados.", errors ? "error" : "success");
+    await carregar();
+  }
+
   return (
     <div className="space-y-5">
       <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
@@ -193,6 +238,7 @@ export default function ProjetosAdminPage() {
           eyebrow="Cadastro"
           title="Projetos e talhões"
           subtitle="Fazendas, projetos e talhões usados em planejamento e apontamentos."
+          right={<Button variant="secondary" onClick={() => setBulkOpen(true)}>Importar em lote</Button>}
         />
         <div className="grid grid-cols-2 gap-2 md:min-w-72">
           <Metric label="Projetos ativos" value={items.filter((p) => p.ativo).length} />
@@ -211,6 +257,8 @@ export default function ProjetosAdminPage() {
           <Button onClick={criarProjeto}>+ Adicionar projeto</Button>
         </div>
       </section>
+
+      <BulkSelectionBar selectedCount={selected.size} visibleCount={selectableKeys.length} allVisibleSelected={selectableKeys.length > 0 && selectableKeys.every((key) => selected.has(key))} deleting={deleting} onToggleAll={() => setSelected((current) => selectableKeys.every((key) => current.has(key)) ? new Set() : new Set([...current, ...selectableKeys]))} onClear={() => setSelected(new Set())} onDelete={excluirSelecionados} />
 
       <section className="rounded-lg p-4" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
         <Input
@@ -248,6 +296,7 @@ export default function ProjetosAdminPage() {
                 style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}
               >
                 <div className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
+                  <input type="checkbox" aria-label={`Selecionar ${projeto.nome}`} checked={selected.has(`p:${projeto.id}`)} onChange={() => setSelected((current) => { const next = new Set(current); const key = `p:${projeto.id}`; if (next.has(key)) next.delete(key); else next.add(key); return next; })} className="h-4 w-4 shrink-0 accent-[var(--accent)]" />
                   <button
                     type="button"
                     onClick={() => setExpanded(isOpen ? null : projeto.id)}
@@ -400,6 +449,7 @@ export default function ProjetosAdminPage() {
                                 </div>
                               ) : (
                                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                                  <input type="checkbox" aria-label={`Selecionar talhão ${talhao.codigo}`} checked={selected.has(`t:${talhao.id}`)} onChange={() => setSelected((current) => { const next = new Set(current); const key = `t:${talhao.id}`; if (next.has(key)) next.delete(key); else next.add(key); return next; })} className="h-4 w-4 shrink-0 accent-[var(--accent)]" />
                                   <div>
                                     <p className="text-base font-bold" style={{ color: "var(--text-primary)" }}>
                                       Talhão {talhao.codigo}
@@ -445,6 +495,7 @@ export default function ProjetosAdminPage() {
           })}
         </div>
       )}
+      <BulkImportDialog open={bulkOpen} title="Importar projetos e talhões" description="Repita o nome do projeto em várias linhas para cadastrar vários talhões de uma vez." columns={PROJECT_COLUMNS} onClose={() => setBulkOpen(false)} onImportRow={importar} onComplete={carregar} />
     </div>
   );
 }
