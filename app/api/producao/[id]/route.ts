@@ -13,7 +13,7 @@ import {
 } from "@/lib/insumos";
 import { syncPlanningProgressForProduction } from "@/lib/planning-progress";
 import { resolvePreset } from "@/lib/period";
-import { resolveActivePlot } from "@/lib/project-context";
+import { resolveProductionPlot } from "@/lib/project-context";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -121,7 +121,9 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     const finalEquipeId = String(allowed.equipe_id ?? anterior.equipe_id);
     const finalAtividadeId = String(allowed.atividade_id ?? anterior.atividade_id);
     const finalProjetoId = String(allowed.projeto_id ?? anterior.projeto_id);
-    const finalTalhaoId = String(allowed.talhao_id ?? anterior.talhao_id ?? "").trim();
+    const finalTalhaoId = body.talhao_id !== undefined
+      ? String(body.talhao_id ?? "").trim()
+      : String(anterior.talhao_id ?? "").trim();
     const finalTalhao = String(allowed.talhao ?? anterior.talhao ?? "").trim();
     const finalQuantidade = Number(allowed.quantidade ?? anterior.quantidade);
     const finalDescarte =
@@ -149,7 +151,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
       (!!finalTalhaoId && finalTalhaoId !== anterior.talhao_id);
     if (locationChanged || anterior.talhao_id) {
       try {
-        const plot = await resolveActivePlot(supabase, {
+        const plot = await resolveProductionPlot(supabase, {
           projeto_id: finalProjetoId,
           talhao_id: finalTalhaoId,
           talhao: finalTalhao,
@@ -219,7 +221,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     requestedTalhao !== String(anterior.talhao ?? "").trim();
   if (legacyLocationChanged) {
     try {
-      const plot = await resolveActivePlot(supabase, {
+      const plot = await resolveProductionPlot(supabase, {
         projeto_id: requestedProjetoId,
         talhao_id: requestedTalhaoId,
         talhao: requestedTalhao,

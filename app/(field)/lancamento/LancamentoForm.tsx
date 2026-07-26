@@ -519,6 +519,9 @@ export default function LancamentoForm({
     )?.id;
     return found ?? (editingItem && codigo ? "__legacy__" : "");
   });
+  const [talhaoLivre, setTalhaoLivre] = useState(
+    editingItem?.talhao ?? initialTalhao ?? ""
+  );
   const [atividadeId,    setAtividadeId]    = useState(editingItem?.atividade_id ?? initialAtividadeId ?? atividades[0]?.id ?? "");
   const [atividadeBusca, setAtividadeBusca] = useState("");
   const [projetoBusca,   setProjetoBusca]   = useState("");
@@ -584,7 +587,9 @@ export default function LancamentoForm({
     () => projetos.find((p) => p.id === projetoId)?.talhoes.filter((t) => t.ativo) ?? [],
     [projetoId, projetos]
   );
-  const talhao = talhoesProjeto.find((item) => item.id === talhaoId)?.codigo ?? editingItem?.talhao ?? initialTalhao ?? "";
+  const talhaoOficial = talhoesProjeto.find((item) => item.id === talhaoId)?.codigo;
+  const usarTalhaoLivre = talhoesProjeto.length === 0 || (!talhaoId && !!talhaoLivre.trim());
+  const talhao = talhaoOficial ?? talhaoLivre.trim();
 
   useEffect(() => {
     if (modoEdicao || temPrefill || !equipeId) return;
@@ -596,6 +601,7 @@ export default function LancamentoForm({
         if (!active || !allocation?.projeto_id || !allocation?.talhao_id) return;
         setProjetoId(allocation.projeto_id);
         setTalhaoId(allocation.talhao_id);
+        setTalhaoLivre("");
       })
       .catch(() => undefined);
     return () => { active = false; };
@@ -669,7 +675,8 @@ export default function LancamentoForm({
 
   const talhaoValido = talhaoId === "__legacy__" && modoEdicao
     ? true
-    : !!talhaoId && !!talhoesProjeto.find((item) => item.id === talhaoId);
+    : (!!talhaoId && !!talhoesProjeto.find((item) => item.id === talhaoId)) ||
+      (usarTalhaoLivre && talhaoLivre.trim().length > 0);
   const canAdvance: Record<StepId, boolean> = {
     1: !!equipeId && !!projetoId && talhaoValido,
     2: !!atividadeId && !!qtd && Number(qtd) > 0,
@@ -681,7 +688,7 @@ export default function LancamentoForm({
   }
 
   function limpar() {
-    setQtd(""); setTalhaoId(""); setDescarte(""); setInsumos(emptyInsumos()); setObs("");
+    setQtd(""); setTalhaoId(""); setTalhaoLivre(""); setDescarte(""); setInsumos(emptyInsumos()); setObs("");
     setTemPrefill(false);
   }
 
@@ -813,25 +820,35 @@ export default function LancamentoForm({
             onSearchChange={setProjetoBusca}
             items={projetoOptions}
             selectedId={projetoId}
-            onSelect={(projeto) => { setProjetoId(projeto.id); setTalhaoId(""); }}
+            onSelect={(projeto) => { setProjetoId(projeto.id); setTalhaoId(""); setTalhaoLivre(""); }}
             getId={(projeto) => projeto.id}
             renderTitle={(projeto) => projeto.nome}
             placeholder="Buscar projeto ou fazenda"
             emptyLabel="Nenhum projeto encontrado."
           />
-          <Select
-            label="Talhão *"
-            value={talhaoId}
-            onChange={(e) => setTalhaoId(e.target.value)}
-            options={[
-              ...(talhaoId === "__legacy__" && talhao ? [{ value: "__legacy__", label: `${talhao} · histórico sem vínculo` }] : []),
-              ...talhoesProjeto.map((item) => ({
-                value: item.id,
-                label: item.area_ha == null ? item.codigo : `${item.codigo} · ${Number(item.area_ha).toLocaleString("pt-BR")} ha`,
-              })),
-            ]}
-            placeholder={projetoId ? "Selecione o talhão" : "Selecione o projeto primeiro"}
-          />
+          {usarTalhaoLivre ? (
+            <Input
+              label="Talhão *"
+              value={talhaoLivre}
+              onChange={(e) => setTalhaoLivre(e.target.value)}
+              placeholder="Digite o código do talhão"
+              hint="Cadastro oficial pendente; o código será registrado como informado."
+            />
+          ) : (
+            <Select
+              label="Talhão *"
+              value={talhaoId}
+              onChange={(e) => { setTalhaoId(e.target.value); setTalhaoLivre(""); }}
+              options={[
+                ...(talhaoId === "__legacy__" && talhao ? [{ value: "__legacy__", label: `${talhao} · histórico sem vínculo` }] : []),
+                ...talhoesProjeto.map((item) => ({
+                  value: item.id,
+                  label: item.area_ha == null ? item.codigo : `${item.codigo} · ${Number(item.area_ha).toLocaleString("pt-BR")} ha`,
+                })),
+              ]}
+              placeholder={projetoId ? "Selecione o talhão" : "Selecione o projeto primeiro"}
+            />
+          )}
           <button
             type="button"
             disabled={!canAdvance[1]}

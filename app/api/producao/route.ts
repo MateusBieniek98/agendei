@@ -10,7 +10,7 @@ import {
   sanitizeControlledInsumos,
 } from "@/lib/insumos";
 import { syncPlanningProgressForProduction } from "@/lib/planning-progress";
-import { resolveActivePlot } from "@/lib/project-context";
+import { resolveProductionPlot } from "@/lib/project-context";
 
 function normalizeClientId(value: unknown) {
   if (typeof value !== "string") return null;
@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
   const supabase = await createSupabaseServer();
   let plot;
   try {
-    plot = await resolveActivePlot(supabase, { projeto_id, talhao_id, talhao });
+    plot = await resolveProductionPlot(supabase, { projeto_id, talhao_id, talhao });
   } catch (error) {
     return NextResponse.json({ error: (error as Error).message }, { status: 400 });
   }

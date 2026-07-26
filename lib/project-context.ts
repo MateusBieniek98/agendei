@@ -7,6 +7,12 @@ type PlotInput = {
   talhao?: unknown;
 };
 
+export type ResolvedProductionPlot = {
+  id: string | null;
+  projeto_id: string;
+  codigo: string;
+};
+
 export async function resolveActivePlot(supabase: SupabaseClient, input: PlotInput) {
   const projetoId = String(input.projeto_id ?? "").trim();
   const talhaoId = String(input.talhao_id ?? "").trim();
@@ -30,6 +36,55 @@ export async function resolveActivePlot(supabase: SupabaseClient, input: PlotInp
   }
 
   return data as unknown as Talhao;
+}
+
+export async function resolveProductionPlot(
+  supabase: SupabaseClient,
+  input: PlotInput
+): Promise<ResolvedProductionPlot> {
+  const projetoId = String(input.projeto_id ?? "").trim();
+  const talhaoId = String(input.talhao_id ?? "").trim();
+  const codigo = String(input.talhao ?? "").trim();
+
+  if (!projetoId || (!talhaoId && !codigo)) {
+    throw new Error("Selecione o projeto e informe o talhão.");
+  }
+
+  if (talhaoId) {
+    const plot = await resolveActivePlot(supabase, input);
+    return { id: plot.id, projeto_id: plot.projeto_id, codigo: plot.codigo };
+  }
+
+  const { data: officialPlot, error: plotError } = await supabase
+    .from("talhoes")
+    .select("id, projeto_id, codigo, projetos!inner(id, ativo)")
+    .eq("projeto_id", projetoId)
+    .ilike("codigo", codigo)
+    .eq("ativo", true)
+    .eq("projetos.ativo", true)
+    .limit(1)
+    .maybeSingle();
+
+  if (plotError) throw plotError;
+  if (officialPlot) {
+    return {
+      id: officialPlot.id,
+      projeto_id: officialPlot.projeto_id,
+      codigo: officialPlot.codigo,
+    };
+  }
+
+  const { data: projeto, error: projetoError } = await supabase
+    .from("projetos")
+    .select("id")
+    .eq("id", projetoId)
+    .eq("ativo", true)
+    .maybeSingle();
+
+  if (projetoError) throw projetoError;
+  if (!projeto) throw new Error("Projeto inexistente ou inativo.");
+
+  return { id: null, projeto_id: projetoId, codigo };
 }
 
 export async function getActiveAllocation(
