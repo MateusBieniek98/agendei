@@ -3,6 +3,7 @@ import {
   hasOnlyControlledInsumos,
   normalizeInsumoInput,
   optionalNumber,
+  parseBulkImportedInsumos,
   sanitizeControlledInsumos,
   sanitizeInsumos,
 } from "@/lib/insumos";
@@ -42,6 +43,86 @@ describe("insumos", () => {
         { insumo_id: "b", quantidade: -1 },
       ])
     ).toEqual([{ insumo_id: "a", quantidade: 3.5 }]);
+  });
+
+  it("mantém até seis insumos controlados no apontamento", () => {
+    const rows = Array.from({ length: 7 }, (_, index) => ({
+      insumo_id: `insumo-${index + 1}`,
+      quantidade: index + 1,
+    }));
+
+    expect(sanitizeControlledInsumos(rows)).toHaveLength(6);
+    expect(sanitizeControlledInsumos(rows)[5]).toEqual({
+      insumo_id: "insumo-6",
+      quantidade: 6,
+    });
+  });
+
+  it("resolve os seis pares da importação em massa por código ou nome", () => {
+    const catalog = Array.from({ length: 6 }, (_, index) => ({
+      id: `id-${index + 1}`,
+      codigo: `COD-${index + 1}`,
+      nome: `Insumo ${index + 1}`,
+      unidade: "kg",
+      ativo: true,
+    }));
+    const values = Object.fromEntries(
+      catalog.flatMap((item, index) => [
+        [`insumo_${index + 1}`, index % 2 === 0 ? item.codigo : item.nome],
+        [`quantidade_insumo_${index + 1}`, `${index + 1},5`],
+      ])
+    );
+
+    const parsed = parseBulkImportedInsumos(values, catalog);
+
+    expect(parsed).toHaveLength(6);
+    expect(parsed[0]).toEqual({
+      insumo_id: "id-1",
+      nome: "Insumo 1",
+      unidade: "kg",
+      quantidade: 1.5,
+    });
+    expect(parsed[5].quantidade).toBe(6.5);
+  });
+
+  it("aceita menos de seis insumos e ignora os pares vazios", () => {
+    const catalog = [{
+      id: "id-1",
+      codigo: "COD-1",
+      nome: "Insumo 1",
+      unidade: "kg",
+      ativo: true,
+    }];
+
+    expect(parseBulkImportedInsumos({
+      insumo_1: "COD-1",
+      quantidade_insumo_1: "2,5",
+      insumo_2: "",
+      quantidade_insumo_2: "",
+    }, catalog)).toEqual([{
+      insumo_id: "id-1",
+      nome: "Insumo 1",
+      unidade: "kg",
+      quantidade: 2.5,
+    }]);
+    expect(parseBulkImportedInsumos({}, catalog)).toEqual([]);
+  });
+
+  it("rejeita par incompleto ou insumo não cadastrado na importação", () => {
+    const catalog = [{
+      id: "id-1",
+      codigo: "COD-1",
+      nome: "Insumo 1",
+      unidade: "kg",
+      ativo: true,
+    }];
+
+    expect(() => parseBulkImportedInsumos({ insumo_1: "COD-1" }, catalog)).toThrow(
+      "Quantidade do insumo 1 não informada."
+    );
+    expect(() => parseBulkImportedInsumos({ insumo_1: "INEXISTENTE", quantidade_insumo_1: "1" }, catalog)).toThrow(
+      "Insumo 1 não encontrado: INEXISTENTE"
+    );
   });
 
   it("distingue carga controlada de histórico legado", () => {

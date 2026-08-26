@@ -53,6 +53,8 @@ const HEADERS = [
   "QTD 4",
   "Insumo 5",
   "QTD 5",
+  "Insumo 6",
+  "QTD 6",
   "Tarifa",
   "Faturamento",
   "Observações",

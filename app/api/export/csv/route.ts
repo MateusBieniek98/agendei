@@ -73,6 +73,8 @@ export async function GET(req: NextRequest) {
     "qtd_insumo_4",
     "insumo_5",
     "qtd_insumo_5",
+    "insumo_6",
+    "qtd_insumo_6",
     "valor_unitario",
     "total",
     "observacoes",

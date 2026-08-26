@@ -1,3 +1,5 @@
+import { parseNumberPtBr } from "@/lib/bulk-import";
+
 export type InsumoLancamento = {
   insumo_id?: string;
   id?: string;
@@ -71,6 +73,8 @@ export type ControlledInsumoPayload = {
   quantidade: number;
 };
 
+export const MAX_PRODUCTION_INSUMOS = 6;
+
 const INSUMOS_CACHE_KEY = "gn:insumos-cache:v1";
 
 function catalogKey(value: string) {
@@ -128,7 +132,7 @@ export function sanitizeInsumos(input: unknown): InsumoLancamento[] {
     });
   }
 
-  return rows.slice(0, 5);
+  return rows.slice(0, MAX_PRODUCTION_INSUMOS);
 }
 
 export function sanitizeControlledInsumos(input: unknown): ControlledInsumoPayload[] {
@@ -148,7 +152,50 @@ export function sanitizeControlledInsumos(input: unknown): ControlledInsumoPaylo
   return Array.from(totals, ([insumo_id, quantidade]) => ({
     insumo_id,
     quantidade,
-  })).slice(0, 5);
+  })).slice(0, MAX_PRODUCTION_INSUMOS);
+}
+
+export function parseBulkImportedInsumos(
+  values: Record<string, string>,
+  catalog: Array<Pick<InsumoEstoqueItem, "id" | "codigo" | "nome" | "unidade" | "ativo">>,
+  max = MAX_PRODUCTION_INSUMOS
+) {
+  const totals = new Map<
+    string,
+    { insumo_id: string; nome: string; unidade: string; quantidade: number }
+  >();
+
+  for (let position = 1; position <= max; position += 1) {
+    const reference = String(values[`insumo_${position}`] ?? "").trim();
+    const quantityRaw = String(values[`quantidade_insumo_${position}`] ?? "").trim();
+    if (!reference && !quantityRaw) continue;
+    if (!reference) throw new Error(`Insumo ${position} não informado.`);
+    if (!quantityRaw) throw new Error(`Quantidade do insumo ${position} não informada.`);
+
+    const quantidade = parseNumberPtBr(quantityRaw);
+    if (quantidade === null || quantidade <= 0) {
+      throw new Error(`Quantidade inválida para o insumo ${position}: ${quantityRaw}`);
+    }
+
+    const normalizedReference = catalogKey(reference);
+    const item = catalog.find(
+      (candidate) =>
+        candidate.ativo !== false &&
+        (catalogKey(candidate.codigo ?? "") === normalizedReference ||
+          catalogKey(candidate.nome) === normalizedReference)
+    );
+    if (!item) throw new Error(`Insumo ${position} não encontrado: ${reference}`);
+
+    const current = totals.get(item.id);
+    totals.set(item.id, {
+      insumo_id: item.id,
+      nome: item.nome,
+      unidade: item.unidade,
+      quantidade: (current?.quantidade ?? 0) + quantidade,
+    });
+  }
+
+  return Array.from(totals.values());
 }
 
 export function hasOnlyControlledInsumos(input: unknown) {
@@ -210,7 +257,7 @@ export function optionalNumber(input: unknown): number | null {
   return Number.isFinite(value) ? value : null;
 }
 
-export function insumosToColumns(input: unknown, max = 5) {
+export function insumosToColumns(input: unknown, max = MAX_PRODUCTION_INSUMOS) {
   const rows = sanitizeInsumos(input);
   return Array.from({ length: max }, (_, index) => rows[index] ?? null);
 }

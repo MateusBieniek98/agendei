@@ -12,18 +12,69 @@ import type { Atividade, Equipe, Insumo, Projeto } from "@/lib/types";
 import BulkImportDialog, { type BulkImportColumn } from "@/components/bulk/BulkImportDialog";
 import BulkSelectionBar from "@/components/bulk/BulkSelectionBar";
 import { normalizeBulkValue, parseDatePtBr, parseNumberPtBr, responseError } from "@/lib/bulk-import";
+import { MAX_PRODUCTION_INSUMOS, parseBulkImportedInsumos } from "@/lib/insumos";
 
-const PRODUCTION_COLUMNS: BulkImportColumn[] = [
+const PRODUCTION_BASE_COLUMNS: BulkImportColumn[] = [
   { key: "data", label: "Data", example: "18/07/2026", required: true, validate: (value) => parseDatePtBr(value) ? null : "Data inválida." },
   { key: "equipe", label: "Equipe", example: "Equipe Norte", required: true },
   { key: "projeto", label: "Projeto", example: "Mãe Santa", required: true },
   { key: "talhao", label: "Talhão", example: "017-01", required: true, validate: (value) => /^\d{3}-\d{2}$/.test(value.trim()) ? null : "Talhão deve usar o formato 000-00." },
   { key: "servico", label: "Serviço", example: "Roçada manual", required: true },
   { key: "quantidade", label: "Quantidade", example: "12,5", required: true, validate: (value) => (parseNumberPtBr(value) ?? 0) > 0 ? null : "Quantidade inválida." },
-  { key: "insumos", label: "Insumos", example: "INS-001:2,5 | Óleo:1" },
+];
+
+const PRODUCTION_FINAL_COLUMNS: BulkImportColumn[] = [
   { key: "descarte", label: "Descarte", example: "0" },
   { key: "observacoes", label: "Observações", example: "Concluído sem intercorrências" },
 ];
+
+function findInsumoByReference(insumos: Insumo[], reference: string) {
+  const normalized = normalizeBulkValue(reference);
+  return insumos.find(
+    (candidate) =>
+      candidate.ativo !== false &&
+      (normalizeBulkValue(candidate.codigo) === normalized ||
+        normalizeBulkValue(candidate.nome) === normalized)
+  );
+}
+
+function productionColumns(insumos: Insumo[]): BulkImportColumn[] {
+  const supplyColumns = Array.from({ length: MAX_PRODUCTION_INSUMOS }, (_, index) => {
+    const position = index + 1;
+    const supplyKey = `insumo_${position}`;
+    const quantityKey = `quantidade_insumo_${position}`;
+    return [
+      {
+        key: supplyKey,
+        label: `Insumo ${position}`,
+        example: position === 1 ? "90000746" : "",
+        validate: (value: string, values: Record<string, string>) => {
+          const quantity = values[quantityKey]?.trim() ?? "";
+          if (!value.trim()) return quantity ? `Insumo ${position} não informado.` : null;
+          if (!quantity) return `Quantidade do insumo ${position} não informada.`;
+          return findInsumoByReference(insumos, value)
+            ? null
+            : `Insumo ${position} não encontrado: ${value}`;
+        },
+      },
+      {
+        key: quantityKey,
+        label: `Quantidade ${position}`,
+        example: position === 1 ? "2,5" : "",
+        validate: (value: string, values: Record<string, string>) => {
+          if (!value.trim()) return values[supplyKey]?.trim()
+            ? `Quantidade do insumo ${position} não informada.`
+            : null;
+          return (parseNumberPtBr(value) ?? 0) > 0
+            ? null
+            : `Quantidade inválida para o insumo ${position}.`;
+        },
+      },
+    ] satisfies BulkImportColumn[];
+  }).flat();
+
+  return [...PRODUCTION_BASE_COLUMNS, ...supplyColumns, ...PRODUCTION_FINAL_COLUMNS];
+}
 
 type Linha = {
   id: string;
@@ -68,6 +119,7 @@ export default function LancamentosTable({
   const [bulkOpen, setBulkOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState(false);
+  const bulkColumns = useMemo(() => productionColumns(insumos), [insumos]);
 
   async function carregar() {
     setLoading(true);
@@ -165,21 +217,6 @@ export default function LancamentosTable({
     return item;
   }
 
-  function parseImportedSupplies(value: string) {
-    if (!value.trim()) return [];
-    return value.split("|").map((entry) => {
-      const separator = entry.lastIndexOf(":");
-      if (separator < 1) throw new Error(`Insumo inválido: ${entry.trim()}`);
-      const reference = entry.slice(0, separator).trim();
-      const quantity = parseNumberPtBr(entry.slice(separator + 1));
-      const normalized = normalizeBulkValue(reference);
-      const item = insumos.find((candidate) => normalizeBulkValue(candidate.codigo) === normalized || normalizeBulkValue(candidate.nome) === normalized);
-      if (!item) throw new Error(`Insumo não encontrado: ${reference}`);
-      if (!quantity || quantity <= 0) throw new Error(`Quantidade inválida para ${reference}`);
-      return { insumo_id: item.id, nome: item.nome, unidade: item.unidade, quantidade: quantity };
-    });
-  }
-
   async function importar(values: Record<string, string>) {
     const equipeItem = findByName(equipes, values.equipe, "Equipe");
     const atividadeItem = findByName(atividades, values.servico, "Serviço");
@@ -194,7 +231,7 @@ export default function LancamentosTable({
         projeto_id: projetoItem.id,
         talhao: values.talhao.trim(),
         quantidade: parseNumberPtBr(values.quantidade),
-        insumos: parseImportedSupplies(values.insumos),
+        insumos: parseBulkImportedInsumos(values, insumos),
         descarte: parseNumberPtBr(values.descarte),
         observacoes: values.observacoes.trim() || null,
         client_id: `bulk-${crypto.randomUUID()}`,
@@ -498,7 +535,7 @@ export default function LancamentosTable({
           </div>
         </div>
       )}
-      <BulkImportDialog open={bulkOpen} title="Importar apontamentos em lote" description="Cole lançamentos do Excel. Insumos são opcionais e usam o formato Código:Quantidade separados por |." columns={PRODUCTION_COLUMNS} onClose={() => setBulkOpen(false)} onImportRow={importar} onComplete={carregar} />
+      <BulkImportDialog open={bulkOpen} title="Importar apontamentos em lote" description="Cole lançamentos do Excel. Use até 6 pares de Insumo + Quantidade; informe o código ou o nome exato do insumo cadastrado." columns={bulkColumns} onClose={() => setBulkOpen(false)} onImportRow={importar} onComplete={carregar} />
     </div>
   );
 }

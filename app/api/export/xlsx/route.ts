@@ -63,6 +63,8 @@ export async function GET(req: NextRequest) {
     { header: "QTD 4", key: "qtdInsumo4", width: 12 },
     { header: "Insumo 5", key: "insumo5", width: 28 },
     { header: "QTD 5", key: "qtdInsumo5", width: 12 },
+    { header: "Insumo 6", key: "insumo6", width: 28 },
+    { header: "QTD 6", key: "qtdInsumo6", width: 12 },
     { header: "Valor unitário", key: "valor", width: 16 },
     { header: "Total", key: "total", width: 16 },
     { header: "Observações", key: "obs", width: 40 },
@@ -110,6 +112,8 @@ export async function GET(req: NextRequest) {
       qtdInsumo4: insumos[3]?.quantidade,
       insumo5: insumos[4]?.nome,
       qtdInsumo5: insumos[4]?.quantidade,
+      insumo6: insumos[5]?.nome,
+      qtdInsumo6: insumos[5]?.quantidade,
       valor: Number(row.valor_unitario_snapshot),
       total,
       obs: row.observacoes,
@@ -125,6 +129,7 @@ export async function GET(req: NextRequest) {
     "qtdInsumo3",
     "qtdInsumo4",
     "qtdInsumo5",
+    "qtdInsumo6",
   ]) {
     ws.getColumn(key).numFmt = "0.00";
   }
