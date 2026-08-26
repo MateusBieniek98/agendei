@@ -6,6 +6,7 @@ import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import { useToast } from "@/components/ui/Toast";
+import ProductionReportCard from "@/components/lancamentos/ProductionReportCard";
 import { brl, todayISO } from "@/lib/format";
 import { searchItems } from "@/components/ui/ListControls";
 import {
@@ -18,12 +19,34 @@ import {
   enqueueOfflineProduction,
   type OfflineProductionPayload,
 } from "@/lib/offline-production-queue";
+import {
+  buildProductionReport,
+  isAreaProductionUnit,
+  type ProductionReportInsumo,
+} from "@/lib/production-report";
 import type { Atividade, Equipe, Producao, ProjetoComTalhoes } from "@/lib/types";
 
 type FormInsumo = {
   insumo_id: string;
   quantidade: string;
   legacyNome?: string;
+};
+
+type ProductionReportProgress = {
+  area_total_ha: number | null;
+  quantidade_acumulada: number;
+  quantidade_restante: number | null;
+  status: "Fechado" | "Em aberto" | "Registrado";
+};
+
+type SaveResult = {
+  status: "saved" | "queued";
+  reportProgress: ProductionReportProgress | null;
+};
+
+type GeneratedProductionReport = {
+  text: string;
+  queued: boolean;
 };
 
 /* ── Card de insumo controlado por estoque ── */
@@ -475,6 +498,7 @@ export default function LancamentoForm({
   equipes,
   atividades,
   projetos,
+  encarregadoNome,
   initialAtividadeId,
   initialProjetoId,
   initialTalhao,
@@ -487,6 +511,7 @@ export default function LancamentoForm({
   equipes: Equipe[];
   atividades: Atividade[];
   projetos: ProjetoComTalhoes[];
+  encarregadoNome: string;
   initialAtividadeId?: string;
   initialProjetoId?: string;
   initialTalhao?: string;
@@ -532,6 +557,7 @@ export default function LancamentoForm({
   const [insumos,        setInsumos]        = useState(() => initialInsumos(editingItem));
   const [obs,            setObs]            = useState(editingItem?.observacoes ?? "");
   const [enviando,       setEnviando]       = useState(false);
+  const [generatedReport, setGeneratedReport] = useState<GeneratedProductionReport | null>(null);
   const [catalogoInsumos, setCatalogoInsumos] = useState<InsumoEstoqueItem[]>(() =>
     readCachedInsumos()
   );
@@ -692,7 +718,7 @@ export default function LancamentoForm({
     setTemPrefill(false);
   }
 
-  async function enviarDados(formData: OfflineProductionPayload): Promise<"saved" | "queued" | false> {
+  async function enviarDados(formData: OfflineProductionPayload): Promise<SaveResult | false> {
     setEnviando(true);
     const payload = modoEdicao
       ? formData
@@ -703,13 +729,17 @@ export default function LancamentoForm({
         headers: { "content-type": "application/json" },
         body: JSON.stringify(payload),
       });
+      const json = await r.json().catch(() => ({}));
       if (!r.ok) {
-        const j = await r.json().catch(() => ({}));
-        const error = new Error((j as { error?: string }).error ?? "Falha ao salvar");
+        const error = new Error((json as { error?: string }).error ?? "Falha ao salvar");
         (error as Error & { shouldQueue?: boolean }).shouldQueue = false;
         throw error;
       }
-      return "saved";
+      return {
+        status: "saved",
+        reportProgress:
+          ((json as { report_progress?: ProductionReportProgress | null }).report_progress ?? null),
+      };
     } catch (err) {
       if (modoEdicao) {
         toast(`Erro: ${(err as Error).message}`, "error");
@@ -721,7 +751,7 @@ export default function LancamentoForm({
       }
       try {
         await enqueueOfflineProduction(payload);
-        return "queued";
+        return { status: "queued", reportProgress: null };
       } catch {
         toast(`Erro: ${(err as Error).message}`, "error");
         return false;
@@ -755,12 +785,12 @@ export default function LancamentoForm({
     const result = await enviarDados(formData);
     if (result) {
       toast(
-        result === "queued"
+        result.status === "queued"
           ? "Sem conexão — salvo offline. Reenviaremos depois."
           : modoEdicao
           ? "Apontamento atualizado!"
           : "Produção registrada!",
-        result === "queued" ? "info" : "success"
+        result.status === "queued" ? "info" : "success"
       );
       if (modoEdicao) {
         router.push(afterEditHref);
@@ -772,6 +802,59 @@ export default function LancamentoForm({
         router.refresh();
         return;
       }
+
+      const equipe = equipes.find((item) => item.id === equipeId);
+      const projeto = projetos.find((item) => item.id === projetoId);
+      const plot = projeto?.talhoes.find((item) => item.id === talhaoId);
+      const reportInsumos: ProductionReportInsumo[] = insumosValidos.flatMap((item) => {
+        if ("insumo_id" in item) {
+          const catalogItem = catalogoInsumos.find((insumo) => insumo.id === item.insumo_id);
+          return catalogItem
+            ? [{
+                nome: catalogItem.nome,
+                quantidade: item.quantidade,
+                unidade: catalogItem.unidade,
+              }]
+            : [];
+        }
+        return [{ nome: item.nome, quantidade: item.quantidade }];
+      });
+      const areaTotalHa = result.reportProgress?.area_total_ha ?? plot?.area_ha ?? null;
+      const isAreaProduction = isAreaProductionUnit(atividade?.unidade ?? "");
+      const quantidadeRestante =
+        isAreaProduction
+          ? result.reportProgress?.quantidade_restante ??
+            (areaTotalHa != null && result.reportProgress
+              ? Math.max(areaTotalHa - result.reportProgress.quantidade_acumulada, 0)
+              : null)
+          : null;
+
+      setGeneratedReport({
+        queued: result.status === "queued",
+        text: buildProductionReport({
+          eps: "GN Florestal",
+          data,
+          operacao: atividade?.nome ?? "Atividade não informada",
+          encarregado: encarregadoNome,
+          equipe: equipe?.nome ?? "Equipe não informada",
+          fazenda: projeto?.nome ?? "Fazenda não informada",
+          talhao,
+          unidade: atividade?.unidade ?? "",
+          quantidadeRealizada: Number(qtd),
+          quantidadeAcumulada: result.reportProgress?.quantidade_acumulada ?? null,
+          areaTotalHa,
+          quantidadeRestante,
+          descarte: descarte === "" ? null : Number(descarte),
+          status:
+            result.status === "queued"
+              ? "Pendente de sincronização"
+              : isAreaProduction
+                ? result.reportProgress?.status ?? "Registrado"
+                : "Registrado",
+          insumos: reportInsumos,
+          observacoes: obs || null,
+        }),
+      });
       if (resetAfterCreate) {
         limpar();
         setStep(1);
@@ -781,6 +864,20 @@ export default function LancamentoForm({
 
   const prefillAtividade = temPrefill ? atividades.find((a) => a.id === atividadeId) : null;
   const prefillProjeto   = temPrefill ? projetos.find((p) => p.id === projetoId) : null;
+
+  if (generatedReport && !modoEdicao) {
+    return (
+      <ProductionReportCard
+        text={generatedReport.text}
+        queued={generatedReport.queued}
+        onNewProduction={() => {
+          limpar();
+          setStep(1);
+          setGeneratedReport(null);
+        }}
+      />
+    );
+  }
 
   return (
     <form onSubmit={salvar} className="space-y-4">

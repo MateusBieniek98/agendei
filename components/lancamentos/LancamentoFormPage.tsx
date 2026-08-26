@@ -117,6 +117,7 @@ export default async function LancamentoFormPage({
         equipes={(equipes ?? []) as Equipe[]}
         atividades={dedupeAtividadesPorNome((atividades ?? []) as Atividade[], editing?.atividade_id)}
         projetos={(projetos ?? []) as ProjetoComTalhoes[]}
+        encarregadoNome={profile.nome}
         initialAtividadeId={searchParams.atividade_id}
         initialProjetoId={searchParams.projeto_id}
         initialTalhao={searchParams.talhao}

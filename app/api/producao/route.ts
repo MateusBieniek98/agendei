@@ -10,7 +10,100 @@ import {
   sanitizeControlledInsumos,
 } from "@/lib/insumos";
 import { syncPlanningProgressForProduction } from "@/lib/planning-progress";
-import { resolveProductionPlot } from "@/lib/project-context";
+import {
+  resolveProductionPlot,
+  type ResolvedProductionPlot,
+} from "@/lib/project-context";
+import { cicloProducao } from "@/lib/period";
+
+type ProductionReportProgress = {
+  area_total_ha: number | null;
+  quantidade_acumulada: number;
+  quantidade_restante: number | null;
+  status: "Fechado" | "Em aberto" | "Registrado";
+};
+
+async function getProductionReportProgress(
+  supabase: Awaited<ReturnType<typeof createSupabaseServer>>,
+  input: {
+    plot: ResolvedProductionPlot;
+    atividadeId: string;
+    reportDate: string;
+  }
+): Promise<ProductionReportProgress> {
+  const pageSize = 1000;
+  let from = 0;
+  let quantidadeAcumulada = 0;
+  const [year, month, day] = input.reportDate.split("-").map(Number);
+  const hasValidReportDate = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(
+    input.reportDate
+  );
+  const reportReferenceDate = hasValidReportDate
+    ? new Date(Date.UTC(year, month - 1, day, 16))
+    : new Date();
+  const reportDate = hasValidReportDate
+    ? input.reportDate
+    : new Intl.DateTimeFormat("en-CA", { timeZone: "America/Campo_Grande" }).format(
+        reportReferenceDate
+      );
+  const reportCycle = cicloProducao(reportReferenceDate);
+
+  while (true) {
+    const { data, error } = await supabase
+      .from("producao")
+      .select("quantidade")
+      .eq("projeto_id", input.plot.projeto_id)
+      .eq("atividade_id", input.atividadeId)
+      .eq("talhao", input.plot.codigo)
+      .gte("data", reportCycle.de)
+      .lte("data", reportDate)
+      .range(from, from + pageSize - 1);
+
+    if (error) throw error;
+    for (const row of data ?? []) quantidadeAcumulada += Number(row.quantidade ?? 0);
+    if ((data?.length ?? 0) < pageSize) break;
+    from += pageSize;
+  }
+
+  let areaTotalHa: number | null = null;
+  if (input.plot.id) {
+    const { data, error } = await supabase
+      .from("talhoes")
+      .select("area_ha")
+      .eq("id", input.plot.id)
+      .maybeSingle();
+
+    const parsedArea = Number(data?.area_ha ?? 0);
+    if (!error && parsedArea > 0) areaTotalHa = parsedArea;
+  }
+
+  const quantidadeRestante =
+    areaTotalHa != null ? Math.max(areaTotalHa - quantidadeAcumulada, 0) : null;
+  const status =
+    areaTotalHa == null
+      ? "Registrado"
+      : quantidadeAcumulada >= areaTotalHa
+        ? "Fechado"
+        : "Em aberto";
+
+  return {
+    area_total_ha: areaTotalHa,
+    quantidade_acumulada: quantidadeAcumulada,
+    quantidade_restante: quantidadeRestante,
+    status,
+  };
+}
+
+async function safeProductionReportProgress(
+  supabase: Awaited<ReturnType<typeof createSupabaseServer>>,
+  input: { plot: ResolvedProductionPlot; atividadeId: string; reportDate: string }
+) {
+  try {
+    return await getProductionReportProgress(supabase, input);
+  } catch {
+    return null;
+  }
+}
 
 function normalizeClientId(value: unknown) {
   if (typeof value !== "string") return null;
@@ -110,7 +203,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: existingError.message }, { status: 400 });
     }
     if (existing) {
-      return NextResponse.json({ item: existing, deduplicated: true });
+      const reportProgress = await safeProductionReportProgress(supabase, {
+        plot,
+        atividadeId: atividade_id,
+        reportDate: existing.data,
+      });
+      return NextResponse.json({
+        item: existing,
+        deduplicated: true,
+        report_progress: reportProgress,
+      });
     }
   }
 
@@ -144,14 +246,23 @@ export async function POST(req: NextRequest) {
         .maybeSingle();
 
       if (!existingError && existing) {
-        return NextResponse.json({ item: existing, deduplicated: true });
+        const reportProgress = await safeProductionReportProgress(supabase, {
+          plot,
+          atividadeId: atividade_id,
+          reportDate: existing.data,
+        });
+        return NextResponse.json({
+          item: existing,
+          deduplicated: true,
+          report_progress: reportProgress,
+        });
       }
     }
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
   const rpcResult = rpcData as {
-    item?: { id: string; projeto_id?: string | null; talhao?: string | null; atividade_id?: string | null };
+    item?: { id: string; data?: string; projeto_id?: string | null; talhao?: string | null; atividade_id?: string | null };
     deduplicated?: boolean;
   } | null;
   const data = rpcResult?.item;
@@ -159,16 +270,33 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Resposta inválida ao salvar apontamento." }, { status: 500 });
   }
   if (rpcResult?.deduplicated) {
-    return NextResponse.json({ item: data, deduplicated: true });
+    const reportProgress = await safeProductionReportProgress(supabase, {
+      plot,
+      atividadeId: atividade_id,
+      reportDate: data.data ?? String(dataLanc ?? ""),
+    });
+    return NextResponse.json({
+      item: data,
+      deduplicated: true,
+      report_progress: reportProgress,
+    });
   }
 
-  const syncError = await syncPlanningProgressForProduction(supabase, data);
-  const sheetsSyncError = await notifyApontamentosSheet("criado", String(data.id));
+  const [syncError, sheetsSyncError, reportProgress] = await Promise.all([
+    syncPlanningProgressForProduction(supabase, data),
+    notifyApontamentosSheet("criado", String(data.id)),
+    safeProductionReportProgress(supabase, {
+      plot,
+      atividadeId: atividade_id,
+      reportDate: data.data ?? String(dataLanc ?? ""),
+    }),
+  ]);
   return NextResponse.json(
     {
       item: data,
       planejamento_sync_error: syncError?.message ?? null,
       sheets_sync_error: sheetsSyncError,
+      report_progress: reportProgress,
     },
     { status: 201 }
   );
