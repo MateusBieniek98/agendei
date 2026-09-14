@@ -1,4 +1,4 @@
-// Helpers de período de produção GN.
+// Helpers de período de produção.
 //
 // O ciclo de produção da empresa vai do dia 21 de um mês ao dia 20 do
 // mês seguinte. O cálculo precisa seguir o calendário da operação

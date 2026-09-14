@@ -36,18 +36,28 @@ export async function loginAction(
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role")
+    .select("active_organization_id, ativo")
     .eq("id", data.user.id)
     .maybeSingle();
 
-  if (!profile?.role) {
+  if (!profile?.ativo || !profile.active_organization_id) {
     return {
       error:
         "Login válido, mas o perfil do usuário não existe no banco. Rode o script de correção de perfis.",
     };
   }
 
-  const role = profile.role as UserRole;
+  const { data: membership } = await supabase
+    .from("organization_members")
+    .select("role, active")
+    .eq("organization_id", profile.active_organization_id)
+    .eq("user_id", data.user.id)
+    .maybeSingle();
+  if (!membership?.active) {
+    return { error: "Sua conta não está vinculada a uma empresa ativa." };
+  }
+
+  const role = membership.role as UserRole;
   const target = safeReturnPath(from) ?? defaultRouteForRole(role);
 
   // redirect() em Server Action emite a resposta com Set-Cookie + Location.

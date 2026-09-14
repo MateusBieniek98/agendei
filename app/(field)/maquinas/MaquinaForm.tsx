@@ -9,6 +9,7 @@ import ListControls, { searchItems, visibleItems } from "@/components/ui/ListCon
 import { useToast } from "@/components/ui/Toast";
 import { ddmmyyyy } from "@/lib/format";
 import type { Equipe, MachineStatus, Maquina, MaintenanceStatus, Projeto } from "@/lib/types";
+import { tenantStorageKey } from "@/lib/tenant-client";
 
 const STATUS_OPTS: { value: MachineStatus; label: string }[] = [
   { value: "operando", label: "Funcionando / operando" },
@@ -40,7 +41,7 @@ const MACHINE_STATUS_META: Record<MachineStatus, { label: string; tone: "success
   },
 };
 
-const FILTER_KEY = "gn:field-maquinas-filtro";
+const FILTER_KEY = "field-maquinas-filtro";
 
 type ManutPendente = {
   id: string;
@@ -333,7 +334,7 @@ export default function MaquinaForm({
   );
   const [filtroStatus, setFiltroStatus] = useState(() => {
     if (typeof window !== "undefined") {
-      return localStorage.getItem(FILTER_KEY) ?? "";
+      return localStorage.getItem(tenantStorageKey(FILTER_KEY)) ?? "";
     }
     return "";
   });
@@ -425,7 +426,7 @@ export default function MaquinaForm({
 
   function setFiltro(v: string) {
     setFiltroStatus(v);
-    localStorage.setItem(FILTER_KEY, v);
+    localStorage.setItem(tenantStorageKey(FILTER_KEY), v);
   }
 
   function atualizarLocal(id: string, status: MachineStatus) {

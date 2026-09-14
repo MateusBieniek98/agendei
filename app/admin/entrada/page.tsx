@@ -1,7 +1,7 @@
-import EntradaSettingsClient from "./EntradaSettingsClient";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default function AdminEntradaPage() {
-  return <EntradaSettingsClient />;
+  redirect("/admin");
 }

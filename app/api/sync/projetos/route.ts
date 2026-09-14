@@ -18,11 +18,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { cleanServiceText } from "@/lib/service-metadata";
-import {
-  configuredSyncTokens,
-  isAuthorizedSyncRequest,
-  syncTokenMissingMessage,
-} from "@/lib/sync-auth";
+import { resolveSyncOrganization } from "@/lib/sync-auth";
+import { consumeOrganizationRateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -112,12 +109,12 @@ function parseProjeto(
 // ─── handler ─────────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
-  if (configuredSyncTokens().length === 0) {
-    return NextResponse.json({ error: syncTokenMissingMessage() }, { status: 500 });
-  }
-  if (!isAuthorizedSyncRequest(req)) {
+  const syncOrganization = await resolveSyncOrganization(req);
+  if (!syncOrganization) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
+  const rateLimit = await consumeOrganizationRateLimit({ organizationId: syncOrganization.id, bucket: "sync.projetos", limit: 10, windowSeconds: 60 });
+  if (!rateLimit.allowed) return NextResponse.json({ error: "rate_limit_exceeded" }, { status: 429 });
 
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!serviceKey) {
@@ -162,7 +159,14 @@ export async function POST(req: NextRequest) {
     try {
       const { data, error } = await supabase
         .from("projetos")
-        .upsert({ nome: input.nome, ativo: input.ativo }, { onConflict: "nome" })
+        .upsert(
+          {
+            organization_id: syncOrganization.id,
+            nome: input.nome,
+            ativo: input.ativo,
+          },
+          { onConflict: "organization_id,nome" }
+        )
         .select("id, nome, ativo")
         .single();
 

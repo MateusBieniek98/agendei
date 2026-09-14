@@ -1,6 +1,5 @@
 import { randomUUID } from "crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type {
   MachineStatus,
   Manutencao,
@@ -12,6 +11,7 @@ import type {
   MentionableProfile,
   Profile,
 } from "@/lib/types";
+import { loadTenantProfiles } from "@/lib/tenant-profiles";
 
 export const MAINTENANCE_PHOTO_BUCKET = "manutencao-fotos";
 export const MAINTENANCE_MAX_PHOTOS = 3;
@@ -138,9 +138,7 @@ export async function sanitizeMentionIds(
   const unique = uniqueStrings(ids).filter((id) => id !== actorId);
   if (unique.length === 0) return [];
 
-  const admin = createSupabaseAdminClient();
-  const client = admin ?? supabase;
-  const { data, error } = await client
+  const { data, error } = await supabase
     .from("profiles")
     .select("id")
     .in("id", unique)
@@ -164,9 +162,11 @@ export async function uploadMaintenancePhotos({
 }) {
   const rows: Omit<ManutencaoAnexo, "id" | "created_at" | "url">[] = [];
   const errors: string[] = [];
+  const organizationId = profile.active_organization_id;
+  if (!organizationId) return ["Organização ativa não identificada."];
 
   for (const file of files) {
-    const storagePath = `${profile.id}/${manutencaoId}/${randomUUID()}-${safeFileName(
+    const storagePath = `${organizationId}/${profile.id}/${manutencaoId}/${randomUUID()}-${safeFileName(
       file.name
     )}`;
     const { error } = await supabase.storage
@@ -271,22 +271,18 @@ export async function buildMaintenanceThreads(
       .order("created_at", { ascending: true }),
     supabase
       .from("manutencao_comentarios")
-      .select(
-        "*, autor:profiles!manutencao_comentarios_autor_id_fkey(id,nome,role,equipe_id)"
-      )
+      .select("*, autor:profiles!manutencao_comentarios_autor_id_fkey(id,nome)")
       .in("manutencao_id", ids)
       .is("deleted_at", null)
       .order("created_at", { ascending: true }),
     supabase
       .from("manutencao_mencoes")
-      .select(
-        "*, mentioned:profiles!manutencao_mencoes_mentioned_profile_id_fkey(id,nome,role,equipe_id)"
-      )
+      .select("*, mentioned:profiles!manutencao_mencoes_mentioned_profile_id_fkey(id,nome)")
       .in("manutencao_id", ids)
       .order("created_at", { ascending: true }),
     supabase
       .from("manutencao_eventos")
-      .select("*, ator:profiles!manutencao_eventos_ator_id_fkey(id,nome,role)")
+      .select("*, ator:profiles!manutencao_eventos_ator_id_fkey(id,nome)")
       .in("manutencao_id", ids)
       .order("created_at", { ascending: true }),
   ]);
@@ -300,6 +296,28 @@ export async function buildMaintenanceThreads(
   const comments = (commentsError ? [] : commentsRaw ?? []) as CommentRow[];
   const mentions = (mentionsError ? [] : mentionsRaw ?? []) as MentionRow[];
   const events = (eventsError ? [] : eventsRaw ?? []) as ManutencaoEvento[];
+  const tenantProfiles = await loadTenantProfiles(
+    supabase,
+    profile.active_organization_id!,
+    [
+      ...rows.flatMap((row) => [row.reportado_por, row.responsavel_id, row.concluido_por]),
+      ...comments.map((comment) => comment.autor_id),
+      ...mentions.map((mention) => mention.mentioned_profile_id),
+      ...events.map((event) => event.ator_id),
+    ]
+  );
+  const tenantComments = comments.map((comment) => ({
+    ...comment,
+    autor: tenantProfiles.get(comment.autor_id) ?? null,
+  }));
+  const tenantMentions = mentions.map((mention) => ({
+    ...mention,
+    mentioned: tenantProfiles.get(mention.mentioned_profile_id) ?? null,
+  }));
+  const tenantEvents = events.map((event) => ({
+    ...event,
+    ator: event.ator_id ? tenantProfiles.get(event.ator_id) ?? null : null,
+  }));
 
   const anexosByManut = new Map<string, ManutencaoAnexo[]>();
   for (const anexo of anexos) {
@@ -309,7 +327,7 @@ export async function buildMaintenanceThreads(
   }
 
   const commentsByManut = new Map<string, CommentRow[]>();
-  for (const comment of comments) {
+  for (const comment of tenantComments) {
     const current = commentsByManut.get(comment.manutencao_id) ?? [];
     current.push(comment);
     commentsByManut.set(comment.manutencao_id, current);
@@ -318,7 +336,7 @@ export async function buildMaintenanceThreads(
   const mentionsByManut = new Map<string, MentionRow[]>();
   const eventsByManut = new Map<string, ManutencaoEvento[]>();
   const mentionsByComment = new Map<string, MentionRow[]>();
-  for (const mention of mentions) {
+  for (const mention of tenantMentions) {
     const byManut = mentionsByManut.get(mention.manutencao_id) ?? [];
     byManut.push(mention);
     mentionsByManut.set(mention.manutencao_id, byManut);
@@ -330,7 +348,7 @@ export async function buildMaintenanceThreads(
     }
   }
 
-  for (const event of events) {
+  for (const event of tenantEvents) {
     if (!event.manutencao_id) continue;
     const current = eventsByManut.get(event.manutencao_id) ?? [];
     current.push(event);
@@ -356,6 +374,13 @@ export async function buildMaintenanceThreads(
 
       return {
         ...row,
+        autor: tenantProfiles.get(row.reportado_por) ?? null,
+        responsavel: row.responsavel_id
+          ? tenantProfiles.get(row.responsavel_id) ?? null
+          : null,
+        concluido_por_profile: row.concluido_por
+          ? tenantProfiles.get(row.concluido_por) ?? null
+          : null,
         anexos: rowAnexos,
         comentarios: rowComments.map((comment) => ({
           ...comment,

@@ -2,6 +2,7 @@
 
 import Button from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { useRouter } from "next/navigation";
 
 export default function RouteError({
   title = "Não foi possível carregar esta seção",
@@ -10,6 +11,7 @@ export default function RouteError({
   title?: string;
   reset: () => void;
 }) {
+  const router = useRouter();
   return (
     <div className="min-h-[60vh] flex items-center justify-center p-4">
       <Card className="w-full max-w-md p-6 text-center">
@@ -25,9 +27,7 @@ export default function RouteError({
           <Button onClick={reset}>Recarregar</Button>
           <Button
             variant="secondary"
-            onClick={() => {
-              window.location.href = "/admin";
-            }}
+            onClick={() => router.push("/admin")}
           >
             Dashboard
           </Button>

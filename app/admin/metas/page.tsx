@@ -384,7 +384,7 @@ export default function MetasPage() {
             <p className="text-xs font-bold uppercase text-[var(--color-ink-500)]">
               Distribuído
             </p>
-            <p className="mt-1 text-lg font-bold tabular text-[var(--color-gn-700)] md:text-xl">
+            <p className="mt-1 text-lg font-bold tabular text-[var(--color-brand-700)] md:text-xl">
               {brl(totalMetasEquipe)}
             </p>
           </div>
@@ -477,7 +477,7 @@ export default function MetasPage() {
                 <p className="text-base font-bold capitalize text-[var(--color-ink-900)]">
                   {MESES[m.mes - 1]}/{m.ano}
                 </p>
-                <p className="mt-1 text-xl font-bold text-[var(--color-gn-700)] tabular">
+                <p className="mt-1 text-xl font-bold text-[var(--color-brand-700)] tabular">
                   {brl(m.valor_meta)}
                 </p>
                 {m.observacoes && (

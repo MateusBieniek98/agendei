@@ -1,9 +1,10 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { PRODUCT_BRAND } from "@/lib/product-brand";
 
 export default function PageHeader({
-  eyebrow = "GN Operações",
+  eyebrow = PRODUCT_BRAND.descriptor,
   title,
   subtitle,
   right,

@@ -1,8 +1,7 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import BottomNav from "./BottomNav";
 import LogoutButton from "./LogoutButton";
@@ -10,12 +9,17 @@ import NavigationIcon from "./NavigationIcon";
 import SyncStatus from "@/components/sync/SyncStatus";
 import ThemeToggle from "@/components/theme/ThemeToggle";
 import type { NavigationGroup, NavigationItem } from "./navigation";
+import Logo from "@/components/branding/Logo";
+import { PRODUCT_BRAND } from "@/lib/product-brand";
+import { setActiveOrganizationId } from "@/lib/tenant-client";
 
 type AppShellProps = {
   children: React.ReactNode;
   navigation: NavigationGroup[];
   user: { nome: string; role: string };
   areaLabel: string;
+  organization: { id: string; displayName: string };
+  organizations?: Array<{ id: string; displayName: string }>;
   mobileStrategy?: "drawer" | "bottom";
   contentWidth?: "standard" | "wide";
 };
@@ -63,8 +67,8 @@ function NavigationList({
                         : "text-white/68 hover:bg-white/7 hover:text-white"
                     }`}
                   >
-                    {active && <span className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-[#aeb2ff]" />}
-                    <span className={active ? "text-[#c8caff]" : "text-white/52 group-hover:text-white/80"}>
+                    {active && <span className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-[#d6a23a]" />}
+                    <span className={active ? "text-[#b9d8c7]" : "text-white/52 group-hover:text-white/80"}>
                       <NavigationIcon name={item.icon} />
                     </span>
                     <span className="truncate">{item.label}</span>
@@ -84,6 +88,8 @@ export default function AppShell({
   navigation,
   user,
   areaLabel,
+  organization,
+  organizations = [],
   mobileStrategy = "drawer",
   contentWidth = "wide",
 }: AppShellProps) {
@@ -93,9 +99,24 @@ export default function AppShell({
   const activeItem = items.find((item) => isItemActive(pathname, item));
   const pageTitle = activeItem?.label ?? areaLabel;
 
+  async function switchOrganization(organizationId: string) {
+    if (!organizationId || organizationId === organization.id) return;
+    const response = await fetch("/api/organizations/active", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ organization_id: organizationId }),
+    });
+    const body = await response.json().catch(() => ({}));
+    if (response.ok) window.location.assign(body.home ?? "/");
+  }
+
   useEffect(() => {
     setDrawerOpen(false);
   }, [pathname]);
+
+  useLayoutEffect(() => {
+    setActiveOrganizationId(organization.id);
+  }, [organization.id]);
 
   useEffect(() => {
     if (!drawerOpen) return;
@@ -114,10 +135,23 @@ export default function AppShell({
   const sidebarContent = (
     <>
       <div className="flex h-[calc(72px+max(var(--app-top-safe-area),20px))] items-center gap-3 border-b border-white/10 px-5 pt-[max(var(--app-top-safe-area),20px)] lg:h-[72px] lg:pt-0">
-        <Image src="/gn-login-logo.jpeg" alt="Logo GN" width={38} height={38} className="h-9 w-9 rounded-md object-cover ring-1 ring-white/15" priority />
+        <Logo size={38} variant="mono-light" />
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-white">GN Operações</p>
-          <p className="truncate text-xs text-white/48">Gestão operacional</p>
+          <p className="truncate text-sm font-semibold text-white">{PRODUCT_BRAND.shortName}</p>
+          {organizations.length > 1 ? (
+            <select
+              aria-label="Empresa ativa"
+              value={organization.id}
+              onChange={(event) => void switchOrganization(event.target.value)}
+              className="max-w-40 truncate bg-transparent text-xs text-white/60 outline-none"
+            >
+              {organizations.map((item) => (
+                <option key={item.id} value={item.id} className="text-slate-900">{item.displayName}</option>
+              ))}
+            </select>
+          ) : (
+            <p className="truncate text-xs text-white/48">{organization.displayName}</p>
+          )}
         </div>
         <button type="button" onClick={() => setDrawerOpen(false)} className="ml-auto grid h-9 w-9 place-items-center rounded-md text-xl font-light text-white/60 hover:bg-white/10 hover:text-white lg:hidden" aria-label="Fechar menu">
           ×
@@ -162,11 +196,11 @@ export default function AppShell({
                   <span className="space-y-1.5"><span className="block h-0.5 w-5 bg-current" /><span className="block h-0.5 w-5 bg-current" /><span className="block h-0.5 w-5 bg-current" /></span>
                 </button>
               ) : (
-                <Image src="/gn-login-logo.jpeg" alt="Logo GN" width={34} height={34} className="h-8 w-8 rounded-md object-cover lg:hidden" priority />
+                <Logo size={34} className="lg:hidden" />
               )}
               <div className="min-w-0 flex-1">
-                <p className="truncate text-[11px] font-medium text-[var(--text-muted)]">{areaLabel}</p>
-                <h1 className="truncate text-base font-semibold tracking-[-0.01em] text-[var(--text-primary)]">{pageTitle}</h1>
+                <p className="truncate text-[11px] font-medium text-[var(--text-muted)]">{organization.displayName} · {areaLabel}</p>
+                <h1 className="truncate text-base font-semibold text-[var(--text-primary)]">{pageTitle}</h1>
               </div>
               <div className="flex items-center gap-1 lg:hidden">
                 {mobileStrategy === "bottom" && <SyncStatus />}

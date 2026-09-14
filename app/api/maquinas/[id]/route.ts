@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
+import { loadTenantProfiles } from "@/lib/tenant-profiles";
 
 type Ctx = { params: Promise<{ id: string }> };
 const MACHINE_STATUSES = ["operando", "parada", "manutencao_urgente"] as const;
@@ -22,7 +23,7 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
       supabase.from("maquinas").select("*").eq("id", id).maybeSingle(),
       supabase
         .from("manutencao_eventos")
-        .select("*, ator:profiles!manutencao_eventos_ator_id_fkey(id,nome,role)")
+        .select("*, ator:profiles!manutencao_eventos_ator_id_fkey(id,nome)")
         .eq("maquina_id", id)
         .order("created_at", { ascending: false }),
     ]);
@@ -34,7 +35,18 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
     );
   }
   if (!machine) return NextResponse.json({ error: "machine_not_found" }, { status: 404 });
-  return NextResponse.json({ item: machine, events: events ?? [] });
+  const profiles = await loadTenantProfiles(
+    supabase,
+    profile.active_organization_id!,
+    (events ?? []).map((event) => event.ator_id)
+  );
+  return NextResponse.json({
+    item: machine,
+    events: (events ?? []).map((event) => ({
+      ...event,
+      ator: event.ator_id ? profiles.get(event.ator_id) ?? null : null,
+    })),
+  });
 }
 
 export async function PATCH(req: NextRequest, ctx: Ctx) {

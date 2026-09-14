@@ -1,14 +1,16 @@
 "use client";
 
-const DB_NAME = "gn-offline";
-const DB_VERSION = 1;
+import { getActiveOrganizationId, tenantStorageKey } from "@/lib/tenant-client";
+
+const DB_NAME = "forestry-ops-offline";
+const LEGACY_DB_NAME = "gn-offline";
+const DB_VERSION = 2;
 const STORE_NAME = "productionQueue";
 const LEGACY_QUEUE_KEY = "gn:pendentes";
-const LAST_SYNC_KEY = "gn:last-manual-sync";
-const QUEUE_CHANGED_EVENT = "gn:offline-production-queue-changed";
-const QUEUE_PULSE_KEY = "gn:offline-production-queue-updated-at";
+const QUEUE_CHANGED_EVENT = "forestry-ops:offline-production-queue-changed";
 
 export type OfflineProductionPayload = {
+  organization_id?: string;
   client_id?: string;
   data?: string;
   equipe_id?: string;
@@ -28,6 +30,7 @@ export type OfflineQueueStatus = "pending" | "syncing" | "failed";
 
 export type OfflineProductionQueueItem = {
   clientId: string;
+  organizationId: string;
   payload: OfflineProductionPayload;
   status: OfflineQueueStatus;
   attempts: number;
@@ -119,6 +122,12 @@ function openQueueDb() {
           const store = db.createObjectStore(STORE_NAME, { keyPath: "clientId" });
           store.createIndex("status", "status", { unique: false });
           store.createIndex("createdAt", "createdAt", { unique: false });
+          store.createIndex("organizationId", "organizationId", { unique: false });
+        } else {
+          const store = request.transaction!.objectStore(STORE_NAME);
+          if (!store.indexNames.contains("organizationId")) {
+            store.createIndex("organizationId", "organizationId", { unique: false });
+          }
         }
       };
 
@@ -156,7 +165,10 @@ async function deleteItemRaw(clientId: string) {
   await done;
 }
 
-function normalizeQueueItem(item: OfflineProductionQueueItem): OfflineProductionQueueItem {
+function normalizeQueueItem(
+  item: OfflineProductionQueueItem,
+  fallbackOrganizationId: string
+): OfflineProductionQueueItem {
   const status: OfflineQueueStatus =
     item.status === "syncing" || item.status === "failed" || item.status === "pending"
       ? item.status
@@ -164,7 +176,12 @@ function normalizeQueueItem(item: OfflineProductionQueueItem): OfflineProduction
 
   return {
     clientId: item.clientId,
-    payload: { ...item.payload, client_id: item.clientId },
+    organizationId: item.organizationId || fallbackOrganizationId,
+    payload: {
+      ...item.payload,
+      organization_id: item.organizationId || fallbackOrganizationId,
+      client_id: item.clientId,
+    },
     status,
     attempts: Number.isFinite(item.attempts) ? Math.max(0, item.attempts) : 0,
     lastError: item.lastError ?? null,
@@ -178,31 +195,35 @@ function emitQueueChanged() {
   if (!isBrowser()) return;
   window.dispatchEvent(new CustomEvent(QUEUE_CHANGED_EVENT));
   try {
-    window.localStorage.setItem(QUEUE_PULSE_KEY, nowISO());
+    window.localStorage.setItem(tenantStorageKey("queue-pulse"), nowISO());
   } catch {
     // Cross-tab notifications are best effort only.
   }
 }
 
-function readLastSync() {
+function readLastSync(organizationId: string) {
   if (!isBrowser()) return null;
   try {
-    return window.localStorage.getItem(LAST_SYNC_KEY);
+    return window.localStorage.getItem(tenantStorageKey("last-manual-sync", organizationId));
   } catch {
     return null;
   }
 }
 
-function writeLastSync(value: string) {
+function writeLastSync(organizationId: string, value: string) {
   if (!isBrowser()) return;
   try {
-    window.localStorage.setItem(LAST_SYNC_KEY, value);
+    window.localStorage.setItem(tenantStorageKey("last-manual-sync", organizationId), value);
   } catch {
     // Last sync is informative; queue integrity does not depend on it.
   }
 }
 
-function legacyPayloadToItem(raw: Record<string, unknown>, index: number): OfflineProductionQueueItem {
+function legacyPayloadToItem(
+  raw: Record<string, unknown>,
+  index: number,
+  organizationId: string
+): OfflineProductionQueueItem {
   const rawClientId =
     normalizeClientId(raw.client_id) ??
     normalizeClientId(raw.clientId) ??
@@ -215,7 +236,8 @@ function legacyPayloadToItem(raw: Record<string, unknown>, index: number): Offli
 
   return {
     clientId: rawClientId,
-    payload: { ...payload, client_id: rawClientId },
+    organizationId,
+    payload: { ...payload, organization_id: organizationId, client_id: rawClientId },
     status: "pending",
     attempts: 0,
     lastError: null,
@@ -230,6 +252,40 @@ async function migrateLegacyQueue() {
   if (migrationPromise) return migrationPromise;
 
   migrationPromise = (async () => {
+    const organizationId = getActiveOrganizationId();
+    if (!organizationId) return;
+
+    await new Promise<void>((resolve) => {
+        const request = window.indexedDB.open(LEGACY_DB_NAME);
+        request.onerror = () => resolve();
+        request.onsuccess = async () => {
+          const legacyDb = request.result;
+          if (!legacyDb.objectStoreNames.contains(STORE_NAME)) {
+            legacyDb.close();
+            resolve();
+            return;
+          }
+          try {
+            const transaction = legacyDb.transaction(STORE_NAME, "readonly");
+            const legacyItems = await requestToPromise<OfflineProductionQueueItem[]>(
+              transaction.objectStore(STORE_NAME).getAll()
+            );
+            await transactionDone(transaction);
+            const existing = new Set((await getAllItemsRaw()).map((item) => item.clientId));
+            for (const legacy of legacyItems) {
+              if (existing.has(legacy.clientId)) continue;
+              await putItemRaw(normalizeQueueItem(legacy, organizationId));
+              existing.add(legacy.clientId);
+            }
+          } catch {
+            // A fila local antiga é migrada em melhor esforço e nunca apagada aqui.
+          } finally {
+            legacyDb.close();
+            resolve();
+          }
+        };
+    });
+
     let parsed: unknown;
     try {
       const raw = window.localStorage.getItem(LEGACY_QUEUE_KEY);
@@ -250,7 +306,11 @@ async function migrateLegacyQueue() {
     const existing = new Set((await getAllItemsRaw()).map((item) => item.clientId));
     for (const [index, rawItem] of parsed.entries()) {
       if (!rawItem || typeof rawItem !== "object" || Array.isArray(rawItem)) continue;
-      const item = legacyPayloadToItem(rawItem as Record<string, unknown>, index);
+      const item = legacyPayloadToItem(
+        rawItem as Record<string, unknown>,
+        index,
+        organizationId
+      );
       if (!existing.has(item.clientId)) {
         await putItemRaw(item);
         existing.add(item.clientId);
@@ -270,11 +330,14 @@ async function migrateLegacyQueue() {
 
 export async function enqueueOfflineProduction(payload: OfflineProductionPayload) {
   await migrateLegacyQueue();
+  const organizationId = payload.organization_id || getActiveOrganizationId();
+  if (!organizationId) throw new Error("Organização ativa não identificada.");
   const clientId = normalizeClientId(payload.client_id) ?? createOfflineProductionClientId();
   const createdAt = nowISO();
   const item: OfflineProductionQueueItem = {
     clientId,
-    payload: { ...payload, client_id: clientId },
+    organizationId,
+    payload: { ...payload, organization_id: organizationId, client_id: clientId },
     status: "pending",
     attempts: 0,
     lastError: null,
@@ -290,13 +353,17 @@ export async function enqueueOfflineProduction(payload: OfflineProductionPayload
 
 export async function listOfflineProductions() {
   await migrateLegacyQueue();
+  const organizationId = getActiveOrganizationId();
+  if (!organizationId) return [];
   const items = await getAllItemsRaw();
   return items
-    .map(normalizeQueueItem)
+    .map((item) => normalizeQueueItem(item, organizationId))
+    .filter((item) => item.organizationId === organizationId)
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
 
 export async function getOfflineProductionSnapshot(): Promise<OfflineProductionQueueSnapshot> {
+  const organizationId = getActiveOrganizationId();
   const items = await listOfflineProductions();
   return {
     items,
@@ -304,7 +371,7 @@ export async function getOfflineProductionSnapshot(): Promise<OfflineProductionQ
     pending: items.filter((item) => item.status === "pending").length,
     syncing: items.filter((item) => item.status === "syncing").length,
     failed: items.filter((item) => item.status === "failed").length,
-    lastSync: readLastSync(),
+    lastSync: organizationId ? readLastSync(organizationId) : null,
   };
 }
 
@@ -330,6 +397,11 @@ async function flushQueueNow(): Promise<OfflineProductionFlushResult> {
     return { attempted: 0, sent: 0, failed: 0, remaining: 0, lastError: null };
   }
 
+  const organizationId = getActiveOrganizationId();
+  if (!organizationId) {
+    return { attempted: 0, sent: 0, failed: items.length, remaining: items.length, lastError: "Organização ativa não identificada." };
+  }
+
   if (!navigator.onLine) {
     return {
       attempted: 0,
@@ -350,7 +422,11 @@ async function flushQueueNow(): Promise<OfflineProductionFlushResult> {
     const attemptAt = nowISO();
     const syncingItem: OfflineProductionQueueItem = {
       ...item,
-      payload: { ...item.payload, client_id: item.clientId },
+      payload: {
+        ...item.payload,
+        organization_id: item.organizationId,
+        client_id: item.clientId,
+      },
       status: "syncing",
       attempts: item.attempts + 1,
       lastError: null,
@@ -401,7 +477,7 @@ async function flushQueueNow(): Promise<OfflineProductionFlushResult> {
 
   const remaining = (await getAllItemsRaw()).length;
   if (remaining === 0) {
-    writeLastSync(nowISO());
+    writeLastSync(organizationId, nowISO());
     emitQueueChanged();
   }
 
@@ -425,8 +501,8 @@ export function subscribeOfflineProductions(listener: () => void) {
     if (
       !event.key ||
       event.key === LEGACY_QUEUE_KEY ||
-      event.key === QUEUE_PULSE_KEY ||
-      event.key === LAST_SYNC_KEY
+      event.key === tenantStorageKey("queue-pulse") ||
+      event.key === tenantStorageKey("last-manual-sync")
     ) {
       listener();
     }

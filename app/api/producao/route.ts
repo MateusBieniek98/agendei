@@ -190,13 +190,17 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     return NextResponse.json({ error: (error as Error).message }, { status: 400 });
   }
-  const origemChave = clientId ? `gn-app:${profile.id}:${clientId}` : null;
+  const origemChave = clientId ? `forestry-app:${profile.id}:${clientId}` : null;
+  const legacyOrigemChave = clientId ? `gn-app:${profile.id}:${clientId}` : null;
 
   if (origemChave) {
     const { data: existing, error: existingError } = await supabase
       .from("producao")
       .select("*")
-      .eq("origem_chave", origemChave)
+      // The old prefix is queried only to preserve offline idempotency for the
+      // first customer during the brand migration.
+      .in("origem_chave", [origemChave, legacyOrigemChave].filter(Boolean))
+      .limit(1)
       .maybeSingle();
 
     if (existingError) {
@@ -284,7 +288,10 @@ export async function POST(req: NextRequest) {
 
   const [syncError, sheetsSyncError, reportProgress] = await Promise.all([
     syncPlanningProgressForProduction(supabase, data),
-    notifyApontamentosSheet("criado", String(data.id)),
+    notifyApontamentosSheet("criado", String(data.id), {
+      organizationId: profile.active_organization_id!,
+      solicitadoPor: profile.id,
+    }),
     safeProductionReportProgress(supabase, {
       plot,
       atividadeId: atividade_id,

@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
   const from = String(form.get("from") ?? "");
   const returnPath = safeReturnPath(from);
 
-  function errorRedirect(code: "campos" | "credenciais" | "perfil") {
+  function errorRedirect(code: "campos" | "credenciais" | "perfil" | "organizacao") {
     const url = new URL("/login", req.url);
     url.searchParams.set("erro", code);
     if (returnPath) url.searchParams.set("from", returnPath);
@@ -61,15 +61,24 @@ export async function POST(req: NextRequest) {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role")
+    .select("active_organization_id, ativo")
     .eq("id", data.user.id)
     .maybeSingle();
 
-  if (!profile?.role) {
+  if (!profile?.ativo || !profile.active_organization_id) {
     return errorRedirect("perfil");
   }
 
-  const role = profile.role as UserRole;
+  const { data: membership } = await supabase
+    .from("organization_members")
+    .select("role, active, organizations:organizations(status)")
+    .eq("organization_id", profile.active_organization_id)
+    .eq("user_id", data.user.id)
+    .maybeSingle();
+  const organization = membership?.organizations as unknown as { status?: string } | null;
+  if (!membership?.active || !organization) return errorRedirect("organizacao");
+
+  const role = membership.role as UserRole;
   const target = returnPath ?? defaultRouteForRole(role);
   const response = NextResponse.redirect(new URL(target, req.url), {
     status: 303,

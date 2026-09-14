@@ -9,6 +9,7 @@ import PageHeader from "@/components/ui/PageHeader";
 import { useToast } from "@/components/ui/Toast";
 import { ddmmyyyy } from "@/lib/format";
 import type { Equipe, Maquina, MachineStatus, MaintenanceStatus, Manutencao, Projeto } from "@/lib/types";
+import { tenantStorageKey } from "@/lib/tenant-client";
 
 type ManutComMaquina = Manutencao & {
   maquinas: { nome: string; tipo: string; identificador: string | null; status: MachineStatus } | null;
@@ -321,7 +322,7 @@ function MaquinaCard({
   );
 }
 
-const FILTER_KEY = "gn:maquinas-filtro";
+const FILTER_KEY = "maquinas-filtro";
 
 export default function MaquinasAdminPage() {
   const { toast } = useToast();
@@ -333,7 +334,7 @@ export default function MaquinasAdminPage() {
   const [busca, setBusca] = useState("");
   const [statusFiltro, setStatusFiltro] = useState(() => {
     if (typeof window !== "undefined") {
-      return localStorage.getItem(FILTER_KEY) ?? "";
+      return localStorage.getItem(tenantStorageKey(FILTER_KEY)) ?? "";
     }
     return "";
   });
@@ -362,7 +363,7 @@ export default function MaquinasAdminPage() {
   // Persist filter
   function setFiltro(v: string) {
     setStatusFiltro(v);
-    localStorage.setItem(FILTER_KEY, v);
+    localStorage.setItem(tenantStorageKey(FILTER_KEY), v);
   }
 
   async function salvar() {

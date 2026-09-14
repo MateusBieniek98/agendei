@@ -384,7 +384,7 @@ export default function AutomacoesOperacionaisClient() {
       </section>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(340px,0.72fr)]">
-        <section className="gn-card overflow-hidden">
+        <section className="app-card overflow-hidden">
           <div
             className="flex items-center justify-between border-b px-4 py-3"
             style={{ borderColor: "var(--border)" }}
@@ -413,7 +413,7 @@ export default function AutomacoesOperacionaisClient() {
         </section>
 
         <aside className="space-y-4">
-          <section className="gn-card overflow-hidden">
+          <section className="app-card overflow-hidden">
             <div
               className="flex items-center justify-between border-b px-4 py-3"
               style={{ borderColor: "var(--border)" }}
@@ -478,7 +478,7 @@ export default function AutomacoesOperacionaisClient() {
             </div>
           </section>
 
-          <section className="gn-card p-4">
+          <section className="app-card p-4">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h2 className="text-sm font-black">Telefone</h2>

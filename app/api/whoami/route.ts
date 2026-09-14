@@ -7,6 +7,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createSupabaseServer } from "@/lib/supabase/server";
+import { getCurrentTenantContext } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -19,21 +20,21 @@ export async function GET() {
   const cookieNames = cookieStore.getAll().map((c) => c.name);
   const sbCookies = cookieNames.filter((n) => n.startsWith("sb-"));
 
-  let profile = null;
-  if (data.user) {
-    const { data: p } = await supabase
-      .from("profiles")
-      .select("id, email, nome, role")
-      .eq("id", data.user.id)
-      .maybeSingle();
-    profile = p;
-  }
+  const tenant = data.user ? await getCurrentTenantContext() : null;
 
   return NextResponse.json({
     authenticated: !!data.user,
     user_id: data.user?.id ?? null,
     user_email: data.user?.email ?? null,
-    profile,
+    profile: tenant?.profile ?? null,
+    organization: tenant
+      ? {
+          id: tenant.organization.id,
+          display_name: tenant.organization.display_name,
+          status: tenant.organization.status,
+          role: tenant.membership.role,
+        }
+      : null,
     auth_error: error?.message ?? null,
     cookies_total: cookieNames.length,
     cookies_supabase: sbCookies,

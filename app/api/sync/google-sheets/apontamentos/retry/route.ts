@@ -1,10 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { retryPendingApontamentosSheetSyncJobs } from "@/lib/google-sheets-apontamentos";
 import {
-  configuredSyncTokens,
   isAuthorizedCronRequest,
-  isAuthorizedSyncRequest,
-  syncTokenMissingMessage,
+  resolveSyncOrganization,
 } from "@/lib/sync-auth";
 
 export const dynamic = "force-dynamic";
@@ -12,19 +10,9 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 async function handle(req: NextRequest) {
-  const hasSyncToken = configuredSyncTokens().length > 0;
-  const hasCronSecret = Boolean(process.env.CRON_SECRET?.trim());
-
-  if (!hasSyncToken && !hasCronSecret) {
-    return NextResponse.json(
-      {
-        error: `${syncTokenMissingMessage()} Configure tambem CRON_SECRET para o agendamento da Vercel.`,
-      },
-      { status: 500 }
-    );
-  }
-
-  if (!isAuthorizedSyncRequest(req) && !isAuthorizedCronRequest(req)) {
+  const isCron = isAuthorizedCronRequest(req);
+  const organization = isCron ? null : await resolveSyncOrganization(req);
+  if (!isCron && !organization) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
@@ -32,7 +20,10 @@ async function handle(req: NextRequest) {
     Math.max(Number(req.nextUrl.searchParams.get("limit") ?? 25), 1),
     100
   );
-  const result = await retryPendingApontamentosSheetSyncJobs(limit);
+  const result = await retryPendingApontamentosSheetSyncJobs(
+    limit,
+    organization?.id ?? null
+  );
   return NextResponse.json(result, {
     status: result.ok ? 200 : 500,
     headers: { "cache-control": "no-store" },

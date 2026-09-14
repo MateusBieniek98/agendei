@@ -1,4 +1,4 @@
-# Build iOS do Agendei
+# Build iOS do Talhivo
 
 Este projeto usa Capacitor para gerar o app nativo iOS. Diferente do Android, o iOS nao gera APK; o pacote instalavel para aparelhos Apple e um `.ipa`.
 
@@ -6,7 +6,7 @@ Este projeto usa Capacitor para gerar o app nativo iOS. Diferente do Android, o 
 
 - Projeto Xcode: `ios/App/App.xcodeproj`
 - Bundle id: `br.com.gnsilvicultura.app`
-- App name: `GN Silvicultura`
+- App name: `Talhivo`
 - URL carregada pelo app: `https://agendei-rho.vercel.app`
 
 ## Comandos

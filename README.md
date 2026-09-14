@@ -1,232 +1,102 @@
-# GN — Gestão de Produção em Silvicultura
+# Talhivo
 
-Web app responsivo (mobile-first) para a operação de silvicultura da **GN**:
-lançamento diário de produção em campo, acompanhamento gerencial e visão
-estratégica para tomada de decisão.
+**Gestão operacional florestal.** SaaS web/PWA multiempresa para operações de silvicultura. O produto conecta
+apontamentos de produção, equipes, planejamento, máquinas, manutenção, estoque,
+metas, relatórios e integrações sem misturar dados entre clientes.
+
+**Talhivo** foi adotado como marca de trabalho após triagem pública preliminar.
+O uso comercial externo ainda depende de reserva dos domínios, busca profissional
+e protocolo da marca. A organização GN é tratada como o primeiro cliente, não
+como a marca do software.
 
 ## Stack
 
-| Camada              | Escolha                                |
-| ------------------- | -------------------------------------- |
-| Frontend            | Next.js 16 (App Router) + React 19     |
-| Estilo              | Tailwind CSS v4                        |
-| Backend / API       | Next.js Route Handlers (`app/api/*`)   |
-| Banco               | PostgreSQL (Supabase) com RLS          |
-| Auth                | Supabase Auth (email + senha)          |
-| Gráficos            | Recharts                               |
-| Exportação          | ExcelJS (XLSX) + CSV                   |
-| Deploy sugerido     | Vercel + Supabase Cloud                |
+| Camada | Tecnologia |
+| --- | --- |
+| Aplicação | Next.js 16.3, React 19 e TypeScript |
+| Interface | Tailwind CSS 4, web responsiva e PWA |
+| Banco/Auth | PostgreSQL e Supabase Auth com RLS |
+| Exportação | ExcelJS, CSV e Google Sheets |
+| Qualidade | ESLint, TypeScript, Vitest e build Next.js |
+| Runtime | Node.js 24 |
 
-## Estrutura
+## Multiempresa
 
-```
-app/
-  login/                  Tela de login
-  (field)/                Encarregado: lançamento, máquinas, histórico do dia
-    lancamento/
-    maquinas/
-    historico/
-  admin/                  Admin: dashboard + CRUDs
-    lancamentos/
-    atividades/
-    equipes/
-    maquinas/
-    metas/
-    usuarios/
-  gestor/                 Gestor: visão executiva única
-  api/
-    producao/             GET/POST + [id] PATCH/DELETE
-    atividades/           CRUD
-    equipes/              CRUD
-    maquinas/             CRUD
-    manutencoes/          GET/POST + [id] PATCH
-    metas/                GET / upsert
-    usuarios/             GET / PATCH
-    dashboard/            agregações
-    export/xlsx           XLSX (ExcelJS)
-    export/csv            CSV (Power BI / Sheets)
+- `organizations` representa cada cliente.
+- `organization_members` guarda o papel do usuário dentro de cada cliente.
+- `organization_invitations` controla convites com expiração.
+- `organization_settings` guarda configurações operacionais do cliente.
+- `organization_integrations` guarda apenas referências ou hashes de segredos.
+- Todas as tabelas operacionais recebem `organization_id`.
+- A autorização combina associação ativa, papel e organização ativa.
+- `/platform` é uma área separada para administração comercial da plataforma e
+  exige MFA.
 
-components/
-  branding/Logo.tsx       Logo SVG GN inline
-  ui/                     Button, Input, Select, Card, Badge, Toast
-  nav/                    BottomNav, Sidebar, TopBar, LogoutButton
+As migrations foram separadas em expansão/backfill, isolamento e endurecimento
+das RPCs. Elas devem ser validadas em staging antes de qualquer aplicação na
+produção. Consulte [o runbook de migração](docs/commercial/MULTI_TENANT_ROLLOUT.md).
 
-lib/
-  db/schema.sql           Bootstrap legado (base anterior às migrations)
-  db/seed.sql             Dados mockados para dev
-  supabase/client.ts      Browser client
-  supabase/server.ts      Server client (cookies)
-  auth.ts                 requireSession / requireRole
-  format.ts               BRL, datas, helpers
-  integrations/           Google Sheets, Power BI, webhooks
-  types.ts                Tipos compartilhados
+## Desenvolvimento local
 
-supabase/migrations/      Evolução versionada do banco de produção
-tests/                    Testes unitários Vitest
-proxy.ts                  Proxy do Next.js 16 (refresh sessão + guard)
-```
-
-## Pré-requisitos
-
-- Node 20+
-- Conta Supabase (gratuita — 500 MB Postgres já basta)
-
-## Como rodar local
-
-### 1. Clone e instale
+Pré-requisitos: Node.js 24 e um projeto Supabase isolado para desenvolvimento.
 
 ```bash
 npm install
 cp .env.local.example .env.local
-```
-
-Preencha as variáveis com seu projeto Supabase
-(Project Settings → API → URL + anon public).
-
-### 2. Crie o banco local
-
-Para um ambiente vazio, use `lib/db/schema.sql` apenas como bootstrap legado,
-carregue o seed opcional e aplique as migrations de `supabase/migrations/` em
-ordem. O banco de produção deve evoluir somente por migrations versionadas.
-
-No SQL Editor, o primeiro arquivo é:
-
-```
-lib/db/schema.sql
-```
-
-Depois siga [docs/DATABASE_MIGRATIONS.md](docs/DATABASE_MIGRATIONS.md). O
-`schema.sql` não substitui o histórico de migrations.
-
-### 3. Crie os 3 usuários de teste
-
-Em **Authentication → Users → Add user** crie:
-
-| E-mail                    | Senha       | Papel        |
-| ------------------------- | ----------- | ------------ |
-| `encarregado@gn.local`    | `gn123456`  | encarregado  |
-| `admin@gn.local`          | `gn123456`  | admin        |
-| `gestor@gn.local`         | `gn123456`  | gestor       |
-
-> *Authentication → Users → Add user → "Auto Confirm User" marcado.*
-
-### 4. Carregue os dados mockados
-
-No SQL Editor, rode:
-
-```
-lib/db/seed.sql
-```
-
-O seed associa os usuários do passo 3 aos seus papéis e cria 4 equipes,
-8 atividades de silvicultura, 6 máquinas, 2 manutenções abertas, meta
-do mês corrente e ~36 lançamentos dos últimos 12 dias.
-
-### 5. Suba o app
-
-```bash
 npm run dev
 ```
 
-Abra http://localhost:3000 → faça login com qualquer um dos 3 usuários.
-
-## Papéis e telas
-
-| Papel        | Home          | O que vê                                                   |
-| ------------ | ------------- | ---------------------------------------------------------- |
-| Encarregado  | `/lancamento` | Form rápido de produção, problemas mecânicos, hoje         |
-| Admin        | `/admin`      | Dashboard + CRUDs (lançamentos, atividades, equipes, máquinas, metas, usuários) |
-| Gestor       | `/gestor`     | Visão executiva única (faturamento, % meta, frota, ranking) |
-
-## Regras de negócio implementadas
-
-- **Faturamento** = `Σ (quantidade × valor_unitario_snapshot)` — o valor é
-  capturado no lançamento e recalculado nos apontamentos da atividade quando
-  a tarifa é alterada em **Atividades**.
-- **% da meta** = `produção do mês ÷ meta mensal × 100`
-- **Meta do próximo dia** = `(meta − faturado) ÷ dias restantes no mês`
-- **RLS por papel**:
-  - encarregado: lê tudo do app, escreve só os próprios lançamentos e
-    abre manutenções
-  - admin: leitura/escrita total
-  - gestor: leitura
-- **Estoque controlado para frente**: lançamentos novos usam RPCs transacionais
-  no Supabase para baixar/estornar saldo. O histórico legado continua legível e
-  não é reescrito.
-
-## Auditoria
-
-Todas as mutações em `producao`, `atividades`, `maquinas` e `metas` são
-registradas na tabela `audit_log` (com `usuario_id` e diff em JSONB).
-Visível só pelo papel admin.
-
-## Exportações
-
-- `GET /api/export/xlsx?escopo=mes|semana|hoje&data_de=&data_ate=`
-- `GET /api/export/csv?...`  (formato amigável a Power BI / Sheets)
-- `GET /api/sync/google-sheets/apontamentos?escopo=tudo` retorna JSON
-  protegido por `SHARED_SYNC_TOKEN` para alimentar a planilha
-  **Controle de Produção GN** por Apps Script.
-- `POST /api/sync/google-sheets/registro-atividades` recebe a aba
-  **Registro de atividades** da planilha e importa/atualiza apontamentos no
-  Supabase sem duplicar linhas.
-- `POST /api/sync/metadata` recebe metadados de serviços da planilha e
-  sincroniza nomes, tarifas, unidades e aliases em `services_metadata`.
-
-Os apontamentos incluem projeto, talhão, atividade, equipe, produção,
-tarifa, faturamento, até 5 insumos utilizados, descarte e observações.
-Insumos são operacionais: aparecem para encarregado/admin/exportação,
-mas não entram na tela do gestor.
-
-Os adapters de integração ficam em `lib/integrations/`. O script de
-importação da planilha para o app fica em
-`docs/google-sheets-registro-atividades-import.js`.
-
-## Deploy
-
-```bash
-vercel --prod
-```
-
-No painel Vercel, configure as variáveis de ambiente do `.env.local`.
-Aponte o domínio na DNS da GN.
-
-Para a sincronização automática com Google Sheets, configure também:
-
-- `SUPABASE_SERVICE_ROLE_KEY` — chave service role do projeto Supabase.
-- `SHARED_SYNC_TOKEN` — token secreto único compartilhado com o Apps Script.
-- `GOOGLE_SHEETS_APONTAMENTOS_WEBHOOK_URL` — URL publicada do Apps Script,
-  obrigatoriamente terminando em `/exec`.
-- `CRON_SECRET` — token usado pela Vercel para autenticar o reprocessamento
-  diário da fila em `/api/sync/google-sheets/apontamentos/retry`.
-
-O cron de `vercel.json` roda diariamente às 09:00 UTC. A publicação correta do
-Apps Script continua sendo necessária; respostas HTTP 404 permanecem na fila
-com tentativa e erro registrados.
-
-Nos projetos do Apps Script, salve o token em **Configurações do projeto →
-Propriedades do script** com o nome `GN_SYNC_TOKEN`. Os scripts em `docs/` não
-contêm mais segredos em texto. Se um token já tiver sido versionado, atualize a
-propriedade, rotacione o valor correspondente na Vercel e publique uma nova
-versão do Web App antes de reprocessar a fila.
+O arquivo `lib/db/schema.sql` é apenas um bootstrap legado para banco vazio. A
+evolução de ambientes existentes ocorre exclusivamente pelas migrations em
+`supabase/migrations/`.
 
 ## Qualidade
-
-Antes de publicar, rode o gate completo:
 
 ```bash
 npm run check
 git diff --check
 ```
 
-O mesmo conjunto (lint, TypeScript, Vitest e build) roda em
-`.github/workflows/ci.yml`. O build não ignora mais erros de TypeScript.
+O gate executa lint, TypeScript, testes unitários e build. Antes da migração de
+um cliente, também é obrigatório executar a matriz SQL de isolamento em um
+ambiente descartável e o fluxo Playwright em staging.
 
-Consulte também:
+## Produção, estoque e importações
 
-- [Migrations do banco](docs/DATABASE_MIGRATIONS.md)
-- [Rollout do estoque](docs/ESTOQUE_ROLLOUT.md)
+- RPCs transacionais validam organização, usuário, papel e entidades
+  relacionadas antes de movimentar estoque ou produção.
+- A importação em massa aceita de zero a seis insumos por apontamento. Cada
+  posição é opcional; nome e quantidade devem ser informados juntos.
+- Filas offline, caches, integrações, chaves de idempotência e arquivos de
+  manutenção são separados por organização.
+- O resumo para WhatsApp usa os dados completos do apontamento e o nome da
+  organização cliente.
 
-## Licença
+## Deploy
 
-Propriedade da GN.
+Mantenha desenvolvimento, staging e produção em projetos separados. Configure
+as variáveis descritas em `.env.local.example`, domínio, SMTP, SPF, DKIM, DMARC,
+monitoramento, alertas e backups antes do go-live.
+
+Não execute as migrations multiempresa diretamente em produção. O processo
+exige backup, ensaio em staging, reconciliação de dados e plano de reversão.
+
+## Documentação comercial e operacional
+
+- [Status da transformação](docs/commercial/README.md)
+- [Naming e pesquisa preliminar](docs/commercial/NAMING_BRIEF.md)
+- [Cronograma de 90 dias](docs/commercial/90_DAY_EXECUTION.md)
+- [Migração multiempresa](docs/commercial/MULTI_TENANT_ROLLOUT.md)
+- [Onboarding de cliente](docs/commercial/ONBOARDING_RUNBOOK.md)
+- [Formato completo da importação](docs/commercial/IMPORTACAO_APONTAMENTO_COMPLETO.md)
+- [Gate Playwright de staging](docs/commercial/PLAYWRIGHT_STAGING.md)
+- [Segredos de integração por cliente](docs/commercial/INTEGRATION_SECRETS.md)
+- [Jurídico, LGPD e propriedade intelectual](docs/commercial/LEGAL_AND_IP_CHECKLIST.md)
+- [Estrutura das minutas jurídicas](docs/commercial/LEGAL_DOCUMENTS_DRAFT.md)
+- [SMTP e domínios](docs/commercial/SMTP_AND_DOMAINS.md)
+
+## Titularidade
+
+Código privado. A titularidade comercial deverá ser formalizada por cessão para
+a nova empresa antes da venda do SaaS. Este repositório não substitui contrato
+de cessão, registro de software ou registro de marca.

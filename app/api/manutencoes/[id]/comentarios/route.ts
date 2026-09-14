@@ -36,9 +36,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       autor_id: profile.id,
       texto,
     })
-    .select(
-      "*, autor:profiles!manutencao_comentarios_autor_id_fkey(id,nome,role,equipe_id)"
-    )
+    .select("*, autor:profiles!manutencao_comentarios_autor_id_fkey(id,nome)")
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
@@ -59,5 +57,15 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     }
   }
 
-  return NextResponse.json({ item: data }, { status: 201 });
+  return NextResponse.json({
+    item: {
+      ...data,
+      autor: {
+        id: profile.id,
+        nome: profile.nome,
+        role: profile.role,
+        equipe_id: profile.equipe_id,
+      },
+    },
+  }, { status: 201 });
 }

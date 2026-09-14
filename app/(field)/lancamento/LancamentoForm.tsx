@@ -499,6 +499,7 @@ export default function LancamentoForm({
   atividades,
   projetos,
   encarregadoNome,
+  organizationName,
   initialAtividadeId,
   initialProjetoId,
   initialTalhao,
@@ -512,6 +513,7 @@ export default function LancamentoForm({
   atividades: Atividade[];
   projetos: ProjetoComTalhoes[];
   encarregadoNome: string;
+  organizationName: string;
   initialAtividadeId?: string;
   initialProjetoId?: string;
   initialTalhao?: string;
@@ -832,7 +834,7 @@ export default function LancamentoForm({
       setGeneratedReport({
         queued: result.status === "queued",
         text: buildProductionReport({
-          eps: "GN Florestal",
+          eps: organizationName,
           data,
           operacao: atividade?.nome ?? "Atividade não informada",
           encarregado: encarregadoNome,

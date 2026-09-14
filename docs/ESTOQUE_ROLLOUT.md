@@ -7,7 +7,7 @@ estornam estoque retroativamente.
 ## Antes de liberar a operação
 
 - [ ] Conferir unidade e estoque mínimo de cada insumo ativo.
-- [ ] Fazer contagem física do estoque geral GN.
+- [ ] Fazer contagem física do estoque da organização migrada.
 - [ ] Registrar cada saldo real em **Admin → Insumos → Estoque** como entrada
       ou ajuste, com uma observação de inventário inicial.
 - [ ] Confirmar que o catálogo offline foi atualizado nos aparelhos de campo.

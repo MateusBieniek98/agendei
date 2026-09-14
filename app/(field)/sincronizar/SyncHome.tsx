@@ -8,6 +8,7 @@ import {
   subscribeOfflineProductions,
   type OfflineProductionQueueSnapshot,
 } from "@/lib/offline-production-queue";
+import { PRODUCT_BRAND } from "@/lib/product-brand";
 
 function formatDateTime(value: string | null) {
   if (!value) return "Ainda não sincronizado";
@@ -110,7 +111,7 @@ export default function SyncHome({
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-xs font-bold uppercase" style={{ color: "var(--text-muted)" }}>
-              GN Silvicultura
+              {PRODUCT_BRAND.shortName}
             </p>
             <h1 className="mt-1 text-2xl font-bold leading-tight" style={{ color: "var(--text-primary)" }}>
               {saudacao}

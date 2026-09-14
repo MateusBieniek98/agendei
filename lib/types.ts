@@ -6,6 +6,50 @@ export type MachineStatus = "operando" | "parada" | "manutencao_urgente";
 export type MaintenanceStatus = "aberto" | "em_andamento" | "resolvido";
 export type MaintenancePriority = "normal" | "alta" | "urgente";
 export type PlanningStatus = "planejado" | "em_execucao" | "concluido" | "cancelado";
+export type OrganizationStatus = "onboarding" | "active" | "suspended" | "cancelled";
+
+export type Organization = {
+  id: string;
+  slug: string;
+  display_name: string;
+  legal_name: string | null;
+  document_number: string | null;
+  status: OrganizationStatus;
+  plan_code: string;
+  user_limit: number;
+  billing_email: string | null;
+  contract_started_at: string | null;
+  contract_ends_at: string | null;
+  suspended_reason: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type OrganizationMembership = {
+  organization_id: string;
+  user_id: string;
+  role: UserRole;
+  equipe_id: string | null;
+  active: boolean;
+  invited_by: string | null;
+  joined_at: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type OrganizationSettings = {
+  organization_id: string;
+  timezone: string;
+  locale: string;
+  operational_name: string | null;
+  support_email: string | null;
+  privacy_email: string | null;
+  production_report: Record<string, unknown>;
+  feature_flags: Record<string, boolean>;
+  onboarding_state: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
 
 export type Profile = {
   id: string;
@@ -13,9 +57,21 @@ export type Profile = {
   nome: string;
   role: UserRole;
   equipe_id: string | null;
+  active_organization_id: string | null;
   ativo: boolean;
   created_at: string;
   updated_at: string;
+};
+
+export type TenantContext = {
+  profile: Profile;
+  organization: Organization;
+  membership: OrganizationMembership;
+  settings: OrganizationSettings | null;
+  availableOrganizations: Array<{
+    organization: Organization;
+    membership: OrganizationMembership;
+  }>;
 };
 
 export type Equipe = {

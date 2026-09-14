@@ -1,20 +1,20 @@
 @import "tailwindcss";
 
 /* ──────────────────────────────────────────────────────────
-   GN — sistema visual operacional
-   Paleta refinada para produto de campo/admin: neutros, acento GN e status.
+   Sistema visual Talhivo
+   Verde florestal, grafite, neutros técnicos e âmbar operacional.
    ────────────────────────────────────────────────────────── */
 @theme {
-  --color-gn-50:  #eef5fb;
-  --color-gn-100: #d7e7f5;
-  --color-gn-200: #b4cfe6;
-  --color-gn-300: #86add0;
-  --color-gn-400: #4d83b3;
-  --color-gn-500: #24699b;
-  --color-gn-600: #195b86;
-  --color-gn-700: #154b70;
-  --color-gn-800: #143f5d;
-  --color-gn-900: #112f45;
+  --color-brand-50:  #eff7f3;
+  --color-brand-100: #dbece3;
+  --color-brand-200: #b9d8c7;
+  --color-brand-300: #8bbca0;
+  --color-brand-400: #589a75;
+  --color-brand-500: #2f7455;
+  --color-brand-600: #235f46;
+  --color-brand-700: #1b4c39;
+  --color-brand-800: #173f35;
+  --color-brand-900: #102f29;
 
   --color-forest-50:  #edf7f1;
   --color-forest-100: #d9ecdf;
@@ -65,7 +65,7 @@
   /* Bordas */
   --border:       #d9dfe6;
   --border-strong:#b5bec9;
-  --border-focus: #343b8f;
+  --border-focus: #2f7455;
   --divider:      #e4e8ed;
 
   /* Texto */
@@ -75,7 +75,7 @@
   --text-inverse:   #ffffff;
 
   /* Navegação (sidebar) */
-  --nav-bg:         #171b24;
+  --nav-bg:         #18211f;
   --nav-bg-hover:   rgba(255,255,255,0.08);
   --nav-bg-active:  rgba(255,255,255,0.14);
   --nav-text:       rgba(255,255,255,0.85);
@@ -86,18 +86,19 @@
   --bottomnav-bg:   #ffffff;
   --bottomnav-border: #c8d3df;
   --bottomnav-text: #5f6f82;
-  --bottomnav-active: #343b8f;
+  --bottomnav-active: #235f46;
 
   /* Accent / Brand */
-  --accent:         #343b8f;
-  --accent-hover:   #2a3078;
+  --accent:         #235f46;
+  --accent-hover:   #194936;
   --accent-fg:      #ffffff;
-  --accent-subtle:  #eeeef9;
+  --accent-subtle:  #e8f2ec;
 
-  --brand-blue:     #343b8f;
-  --brand-green:    #2f7d4f;
-  --shell-bg:       #171b24;
-  --shell-panel:    #202631;
+  --brand-blue:     #315f6d;
+  --brand-green:    #2f7455;
+  --brand-amber:    #d6a23a;
+  --shell-bg:       #18211f;
+  --shell-panel:    #212c28;
   --shell-line:     rgba(255,255,255,0.12);
 
   /* Status */
@@ -120,43 +121,43 @@ html[data-theme="dark"] {
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.24);
   --shadow-elevated: 0 10px 30px rgba(0, 0, 0, 0.28);
 
-  --bg-page:      #0f141b;
-  --bg-card:      #171d26;
-  --bg-card-alt:  #1c232d;
-  --bg-elevated:  #171d26;
-  --bg-input:     #131922;
-  --bg-hover:     #202832;
-  --bg-active:    #29323e;
+  --bg-page:      #101915;
+  --bg-card:      #17221d;
+  --bg-card-alt:  #1c2923;
+  --bg-elevated:  #17221d;
+  --bg-input:     #131e19;
+  --bg-hover:     #213029;
+  --bg-active:    #293a32;
 
-  --border:       #2c3541;
-  --border-strong:#414d5c;
-  --border-focus: #aeb2ff;
-  --divider:      #242c36;
+  --border:       #2d3b34;
+  --border-strong:#43564c;
+  --border-focus: #8bc6a5;
+  --divider:      #25332c;
 
   --text-primary:   #f3f5f7;
   --text-secondary: #aab3bf;
   --text-muted:     #778290;
   --text-inverse:   #0f172a;
 
-  --nav-bg:         #0b0f15;
+  --nav-bg:         #0d1512;
   --nav-bg-hover:   rgba(255,255,255,0.06);
   --nav-bg-active:  rgba(255,255,255,0.12);
   --nav-text:       rgba(255,255,255,0.75);
   --nav-text-active:#ffffff;
   --nav-border:     rgba(255,255,255,0.07);
 
-  --bottomnav-bg:   #101b2a;
-  --bottomnav-border: #24354c;
-  --bottomnav-text: #8ca0b6;
-  --bottomnav-active: #bfc2ff;
+  --bottomnav-bg:   #111c17;
+  --bottomnav-border: #273a31;
+  --bottomnav-text: #90a89b;
+  --bottomnav-active: #9bd0af;
 
-  --accent:         #bfc2ff;
-  --accent-hover:   #d5d7ff;
-  --accent-fg:      #171b24;
-  --accent-subtle:  #292c4e;
+  --accent:         #9bd0af;
+  --accent-hover:   #b8dec6;
+  --accent-fg:      #102018;
+  --accent-subtle:  #203a2d;
 
-  --shell-bg:       #0b0f15;
-  --shell-panel:    #141922;
+  --shell-bg:       #0d1512;
+  --shell-panel:    #15221c;
 
   --success:        #8fbd9d;
   --success-bg:     #0d2518;
@@ -216,7 +217,10 @@ body {
   body { min-height: 100vh; }
 }
 
-* { min-width: 0; }
+* {
+  min-width: 0;
+  letter-spacing: 0 !important;
+}
 
 /* Scroll area helpers para evitar content clipping atrás da bottom nav */
 .app-scroll-area {
@@ -251,7 +255,7 @@ body {
    ────────────────────────────────────────────────────────── */
 
 /* Cards */
-.gn-card {
+.app-card {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -433,8 +437,8 @@ body {
     max-width: 100vw;
   }
 
-  .corporate-shell .gn-card {
-    border-radius: 1rem;
+  .corporate-shell .app-card {
+    border-radius: var(--radius-lg);
   }
 
   :where(input, select, textarea) {

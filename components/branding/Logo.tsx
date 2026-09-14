@@ -1,5 +1,4 @@
-// Logo GN — versão SVG inline. Mantém fidelidade ao símbolo da empresa
-// (pinheiro estilizado + monograma "GN") e escala bem em qualquer tamanho.
+import { PRODUCT_BRAND } from "@/lib/product-brand";
 
 type Props = {
   size?: number;
@@ -14,43 +13,49 @@ export default function Logo({
   withWordmark = false,
   className,
 }: Props) {
-  const blue = "#2f80ed";
-  const fg =
+  const wordmark =
     variant === "mono-light"
       ? "#ffffff"
       : variant === "mono-dark"
-      ? "#0f172a"
-      : blue;
+        ? PRODUCT_BRAND.colors.graphite
+        : PRODUCT_BRAND.colors.pine;
+  const background = variant === "color" ? PRODUCT_BRAND.colors.pine : "none";
+  const foreground =
+    variant === "mono-dark" ? PRODUCT_BRAND.colors.pine : "#f7f7f2";
+  const accent = variant === "color" ? PRODUCT_BRAND.colors.amber : foreground;
 
   return (
-    <span className={"inline-flex items-center gap-2 " + (className ?? "")}>
+    <span className={`inline-flex min-w-0 items-center gap-2 ${className ?? ""}`}>
       <svg
         width={size}
         height={size}
         viewBox="0 0 96 96"
         xmlns="http://www.w3.org/2000/svg"
-        aria-label="GN"
+        aria-label={PRODUCT_BRAND.name}
         role="img"
       >
-        {/* pinheiro estilizado (curvas livres) */}
+        <rect x="5" y="5" width="86" height="86" rx="19" fill={background} />
         <path
-          d="M28 12c-3 6-9 8-12 14 4-1 6 1 7 4-4 2-9 6-11 12 5-1 8 1 10 4-4 3-9 8-10 16 6-2 10 0 13 3-3 4-6 8-6 14h22V14c-5-2-9-3-13-2z"
-          fill={fg}
+          d="M24 26h48M48 27v44"
+          fill="none"
+          stroke={foreground}
+          strokeWidth="8"
+          strokeLinecap="square"
         />
-        {/* tronco */}
-        <rect x="33" y="76" width="6" height="10" fill={fg} />
-        {/* G */}
         <path
-          d="M58 32h22a4 4 0 0 1 4 4v6h-9v-2H62v22h13v-6h-7v-7h16v17a4 4 0 0 1-4 4H58a4 4 0 0 1-4-4V36a4 4 0 0 1 4-4z"
-          fill={fg}
+          d="m23 72 15-31M73 72 58 41"
+          fill="none"
+          stroke={accent}
+          strokeWidth="5"
+          strokeLinecap="square"
         />
       </svg>
       {withWordmark && (
         <span
-          className="font-bold tracking-tight"
-          style={{ color: fg, fontSize: size * 0.55 }}
+          className="truncate font-semibold"
+          style={{ color: wordmark, fontSize: Math.max(14, size * 0.44) }}
         >
-          GN
+          {PRODUCT_BRAND.shortName}
         </span>
       )}
     </span>

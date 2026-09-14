@@ -6,6 +6,7 @@ import { createSupabaseServer } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
 import { insumosToColumns } from "@/lib/insumos";
 import ExcelJS from "exceljs";
+import { PRODUCT_BRAND } from "@/lib/product-brand";
 
 export async function GET(req: NextRequest) {
   const profile = await getCurrentProfile();
@@ -42,7 +43,7 @@ export async function GET(req: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
   const wb = new ExcelJS.Workbook();
-  wb.creator = "GN Silvicultura";
+  wb.creator = PRODUCT_BRAND.name;
   const ws = wb.addWorksheet("Lançamentos");
   ws.columns = [
     { header: "Data", key: "data", width: 12 },
@@ -140,7 +141,7 @@ export async function GET(req: NextRequest) {
     headers: {
       "content-type":
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "content-disposition": `attachment; filename="GN_lancamentos_${de}_a_${ate}.xlsx"`,
+      "content-disposition": `attachment; filename="lancamentos_${de}_a_${ate}.xlsx"`,
     },
   });
 }

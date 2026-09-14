@@ -47,7 +47,7 @@ export default async function HistoricoPage() {
         </p>
       </div>
 
-      <Card className="p-4 bg-[var(--color-gn-700)] text-white border-[var(--color-gn-700)]">
+      <Card className="p-4 bg-[var(--color-brand-700)] text-white border-[var(--color-brand-700)]">
         <p className="text-xs uppercase tracking-wider text-white/80">Faturamento do dia</p>
         <p className="mt-1 text-3xl font-bold tabular">{brl(total)}</p>
         <p className="mt-1 text-xs text-white/70">

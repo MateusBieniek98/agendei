@@ -1,4 +1,4 @@
-// Botão padrão GN. Variantes: primary, secondary, ghost, danger.
+// Botão padrão do produto. Variantes: primary, secondary, ghost, danger.
 // `field` aumenta a área de toque (uso em campo, com luvas/sol).
 
 "use client";

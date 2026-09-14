@@ -10,6 +10,7 @@ import type { Equipe, Producao } from "@/lib/types";
 import BulkImportDialog, { type BulkImportColumn } from "@/components/bulk/BulkImportDialog";
 import BulkSelectionBar from "@/components/bulk/BulkSelectionBar";
 import { parseBooleanPtBr, responseError } from "@/lib/bulk-import";
+import { tenantStorageKey } from "@/lib/tenant-client";
 
 const TEAM_COLUMNS: BulkImportColumn[] = [
   { key: "nome", label: "Nome", example: "Equipe Norte", required: true },
@@ -17,7 +18,7 @@ const TEAM_COLUMNS: BulkImportColumn[] = [
   { key: "ativo", label: "Ativo", example: "sim" },
 ];
 
-const FILTER_KEY = "gn:equipes-filtro";
+const FILTER_KEY = "equipes-filtro";
 
 /* ── Sparkline 7 dias ─────────────────────────────────── */
 function Sparkline({ values, color = "var(--accent)" }: { values: number[]; color?: string }) {
@@ -201,7 +202,7 @@ export default function EquipesPage() {
   const [editing, setEditing] = useState<Partial<Equipe> | null>(null);
   const [busca, setBusca] = useState("");
   const [statusFiltro, setStatusFiltro] = useState(() => {
-    if (typeof window !== "undefined") return localStorage.getItem(FILTER_KEY) ?? "ativas";
+    if (typeof window !== "undefined") return localStorage.getItem(tenantStorageKey(FILTER_KEY)) ?? "ativas";
     return "ativas";
   });
   const [loading, setLoading] = useState(true);
@@ -234,7 +235,7 @@ export default function EquipesPage() {
 
   function setFiltro(v: string) {
     setStatusFiltro(v);
-    localStorage.setItem(FILTER_KEY, v);
+    localStorage.setItem(tenantStorageKey(FILTER_KEY), v);
   }
 
   async function salvar() {

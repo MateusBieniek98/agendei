@@ -340,7 +340,9 @@ export async function GET() {
     return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
   }
 
-  const settings = await getOperationalAutomationSettings();
+  const settings = await getOperationalAutomationSettings(
+    profile.active_organization_id!
+  );
   const rules = await evaluateRules(settings);
   const summary = rules.reduce(
     (acc, item) => {
@@ -386,12 +388,13 @@ export async function PATCH(req: NextRequest) {
 
   const { error } = await client.from("app_settings").upsert(
     {
+      organization_id: profile.active_organization_id,
       key: OPERATIONAL_AUTOMATIONS_KEY,
       value: settings,
       updated_by: profile.id,
       updated_at: new Date().toISOString(),
     },
-    { onConflict: "key" }
+    { onConflict: "organization_id,key" }
   );
 
   if (error) {

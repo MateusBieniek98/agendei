@@ -4,8 +4,15 @@ import {
   normalizeLoginSettings,
 } from "@/lib/app-settings-shared";
 
-describe("configuração da tela de entrada", () => {
-  it("normaliza o novo formato simplificado", () => {
+describe("configuração global da tela de entrada", () => {
+  it("usa Talhivo como identidade global padrão", () => {
+    expect(DEFAULT_LOGIN_SETTINGS.brandName).toBe("Talhivo");
+    expect(DEFAULT_LOGIN_SETTINGS.footer).toContain(
+      "Gestão operacional florestal"
+    );
+  });
+
+  it("mantém a marca global ao normalizar o conteúdo", () => {
     expect(
       normalizeLoginSettings({
         brandName: "  GN Campo  ",
@@ -14,14 +21,14 @@ describe("configuração da tela de entrada", () => {
         buttonLabel: "  Acessar ",
       })
     ).toEqual({
-      brandName: "GN Campo",
+      brandName: DEFAULT_LOGIN_SETTINGS.brandName,
       instruction: "Entre para continuar.",
       footer: "Uso interno",
       buttonLabel: "Acessar",
     });
   });
 
-  it("aproveita o antigo eyebrow como nome da marca", () => {
+  it("não restaura a marca antiga a partir do formato legado", () => {
     expect(
       normalizeLoginSettings({
         eyebrow: "GN Silvicultura",
@@ -31,7 +38,7 @@ describe("configuração da tela de entrada", () => {
         buttonLabel: "Entrar",
       })
     ).toEqual({
-      brandName: "GN Silvicultura",
+      brandName: DEFAULT_LOGIN_SETTINGS.brandName,
       instruction: DEFAULT_LOGIN_SETTINGS.instruction,
       footer: "GN",
       buttonLabel: "Entrar",
