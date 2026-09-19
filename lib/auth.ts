@@ -12,6 +12,11 @@ import type {
   UserRole,
 } from "./types";
 import { ROLE_HOME } from "./types";
+import {
+  createLegacyTenantContext,
+  isTenantSchemaUnavailable,
+  legacySingleTenantEnabled,
+} from "./tenant-transition";
 
 type MembershipQueryRow = OrganizationMembership & {
   organizations: Organization | null;
@@ -36,7 +41,7 @@ export const getCurrentTenantContext = cache(
     const baseProfile = onlyActiveProfile((profileData as Profile | null) ?? null);
     if (!baseProfile) return null;
 
-    const { data: membershipsData } = await supabase
+    const { data: membershipsData, error: membershipsError } = await supabase
       .from("organization_members")
       .select(
         "organization_id,user_id,role,equipe_id,active,invited_by,joined_at,created_at,updated_at,organizations:organizations(*)"
@@ -44,6 +49,16 @@ export const getCurrentTenantContext = cache(
       .eq("user_id", auth.user.id)
       .eq("active", true)
       .order("created_at", { ascending: true });
+
+    if (membershipsError) {
+      if (
+        legacySingleTenantEnabled() &&
+        isTenantSchemaUnavailable(membershipsError)
+      ) {
+        return createLegacyTenantContext(baseProfile);
+      }
+      return null;
+    }
 
     const memberships = (membershipsData ?? []) as unknown as MembershipQueryRow[];
     const selected =

@@ -5,7 +5,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient, type Session } from "@supabase/supabase-js";
 import { defaultRouteForRole, safeReturnPath } from "@/lib/navigation";
-import type { UserRole } from "@/lib/types";
+import { resolveLoginAccess } from "@/lib/tenant-transition";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -59,27 +59,10 @@ export async function POST(req: NextRequest) {
     return errorRedirect("credenciais");
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("active_organization_id, ativo")
-    .eq("id", data.user.id)
-    .maybeSingle();
+  const access = await resolveLoginAccess(supabase, data.user.id);
+  if (!access.ok) return errorRedirect(access.reason);
 
-  if (!profile?.ativo || !profile.active_organization_id) {
-    return errorRedirect("perfil");
-  }
-
-  const { data: membership } = await supabase
-    .from("organization_members")
-    .select("role, active, organizations:organizations(status)")
-    .eq("organization_id", profile.active_organization_id)
-    .eq("user_id", data.user.id)
-    .maybeSingle();
-  const organization = membership?.organizations as unknown as { status?: string } | null;
-  if (!membership?.active || !organization) return errorRedirect("organizacao");
-
-  const role = membership.role as UserRole;
-  const target = returnPath ?? defaultRouteForRole(role);
+  const target = returnPath ?? defaultRouteForRole(access.role);
   const response = NextResponse.redirect(new URL(target, req.url), {
     status: 303,
   });
