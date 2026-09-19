@@ -36,3 +36,6 @@ Os avisos de funções `SECURITY DEFINER` autenticadas são esperados para os RP
 transacionais que validam `auth.uid()` e o papel antes de escrever. A proteção
 contra senhas vazadas é uma configuração do Supabase Auth e deve ser habilitada
 no painel quando o plano do projeto oferecer o recurso.
+
+A revisão de grants, a exceção encontrada na sincronização de planejamento e o
+roteiro de validação estão em `docs/SECURITY_HARDENING.md`.
