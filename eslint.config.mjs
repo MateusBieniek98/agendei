@@ -13,6 +13,9 @@ const eslintConfig = defineConfig([
     "docs/**",
     "out/**",
     "build/**",
+    "coverage/**",
+    "playwright-report/**",
+    "test-results/**",
     "next-env.d.ts",
   ]),
   // Regras desativadas para o projeto GN:

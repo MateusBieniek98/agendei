@@ -1,6 +1,6 @@
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { resolvePreset } from "@/lib/period";
-import LancamentoForm from "@/app/(field)/lancamento/LancamentoForm";
+import LancamentoForm from "@/components/lancamentos/LancamentoForm";
 import PageHeader from "@/components/ui/PageHeader";
 import type { Atividade, Equipe, Producao, Profile, ProjetoComTalhoes } from "@/lib/types";
 
