@@ -1,3 +1,5 @@
+import { PRODUCT_BRAND } from "@/lib/product-brand";
+
 export type LoginSettings = {
   brandName: string;
   instruction: string;
@@ -8,9 +10,9 @@ export type LoginSettings = {
 export const LOGIN_SETTINGS_KEY = "login_content";
 
 export const DEFAULT_LOGIN_SETTINGS: LoginSettings = {
-  brandName: "GN Operações",
+  brandName: PRODUCT_BRAND.name,
   instruction: "Use seu e-mail corporativo para acessar.",
-  footer: "GN · Uso interno",
+  footer: `${PRODUCT_BRAND.descriptor} · Acesso seguro`,
   buttonLabel: "Entrar",
 };
 
@@ -27,10 +29,7 @@ export function normalizeLoginSettings(value: unknown): LoginSettings {
       : {};
 
   return {
-    brandName: textOrDefault(
-      source.brandName,
-      textOrDefault(source.eyebrow, DEFAULT_LOGIN_SETTINGS.brandName)
-    ),
+    brandName: DEFAULT_LOGIN_SETTINGS.brandName,
     instruction: textOrDefault(
       source.instruction,
       DEFAULT_LOGIN_SETTINGS.instruction

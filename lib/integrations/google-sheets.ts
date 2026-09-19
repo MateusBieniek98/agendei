@@ -38,7 +38,7 @@ export function toSheetsRow(input: {
 /**
  * Exemplo de uso no Apps Script (cole no editor de Apps Script do Sheets):
  *
- *   function importarGN() {
+ *   function importarApontamentos() {
  *     const url = 'https://SEU_DOMINIO/api/export/csv?escopo=mes';
  *     const r = UrlFetchApp.fetch(url, { headers: { Authorization: 'Bearer TOKEN' } });
  *     const sheet = SpreadsheetApp.getActiveSheet();

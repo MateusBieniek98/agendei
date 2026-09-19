@@ -55,8 +55,8 @@ export const ADMIN_NAVIGATION: NavigationGroup[] = [
   {
     label: "Sistema",
     items: [
-      { href: "/admin/entrada", label: "Tela de entrada", icon: "settings" },
       { href: "/admin/automacoes", label: "Automações", icon: "automation" },
+      { href: "/seguranca/mfa", label: "Segurança da conta", icon: "settings" },
     ],
   },
 ];

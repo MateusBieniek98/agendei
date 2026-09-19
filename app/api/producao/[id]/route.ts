@@ -188,7 +188,10 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
       syncPlanningProgressForProduction(supabase, anterior),
       syncPlanningProgressForProduction(supabase, data),
     ]);
-    const sheetsSyncError = await notifyApontamentosSheet("editado", String(data.id));
+    const sheetsSyncError = await notifyApontamentosSheet("editado", String(data.id), {
+      organizationId: profile.active_organization_id!,
+      solicitadoPor: profile.id,
+    });
 
     return NextResponse.json({
       item: data,
@@ -256,7 +259,10 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     syncPlanningProgressForProduction(writeClient, anterior),
     syncPlanningProgressForProduction(writeClient, data),
   ]);
-  const sheetsSyncError = await notifyApontamentosSheet("editado", data.id);
+  const sheetsSyncError = await notifyApontamentosSheet("editado", data.id, {
+    organizationId: profile.active_organization_id!,
+    solicitadoPor: profile.id,
+  });
 
   return NextResponse.json({
     item: data,
@@ -288,7 +294,10 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
   }
 
   const syncError = await syncPlanningProgressForProduction(supabase, anterior);
-  const sheetsSyncError = await notifyApontamentosSheet("excluido", id);
+  const sheetsSyncError = await notifyApontamentosSheet("excluido", id, {
+    organizationId: profile.active_organization_id!,
+    solicitadoPor: profile.id,
+  });
   return NextResponse.json({
     ok: true,
     planejamento_sync_error: syncError?.message ?? null,

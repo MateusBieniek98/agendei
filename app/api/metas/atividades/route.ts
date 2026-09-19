@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getCurrentProfile } from "@/lib/auth";
 import { createSupabaseServer } from "@/lib/supabase/server";
+import { loadTenantProfiles } from "@/lib/tenant-profiles";
 
 export const dynamic = "force-dynamic";
 
@@ -24,14 +25,24 @@ export async function GET() {
   const { data, error } = await supabase
     .from("metas_atividades")
     .select(
-      "*, atividades(nome, unidade, valor_unitario), equipes(nome), profiles(nome, email, role)"
+      "*, atividades(nome, unidade, valor_unitario), equipes(nome), profiles(nome, email)"
     )
     .order("ano", { ascending: false })
     .order("mes", { ascending: false })
     .order("created_at", { ascending: false });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-  return NextResponse.json({ items: data ?? [] });
+  const tenantProfiles = await loadTenantProfiles(
+    supabase,
+    profile.active_organization_id!,
+    (data ?? []).map((item) => item.profile_id)
+  );
+  return NextResponse.json({
+    items: (data ?? []).map((item) => ({
+      ...item,
+      profiles: item.profile_id ? tenantProfiles.get(item.profile_id) ?? null : null,
+    })),
+  });
 }
 
 export async function POST(req: NextRequest) {
@@ -99,12 +110,22 @@ export async function POST(req: NextRequest) {
 
   const { data, error } = await mutation
     .select(
-      "*, atividades(nome, unidade, valor_unitario), equipes(nome), profiles(nome, email, role)"
+      "*, atividades(nome, unidade, valor_unitario), equipes(nome), profiles(nome, email)"
     )
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-  return NextResponse.json({ item: data }, { status: found?.id ? 200 : 201 });
+  const tenantProfiles = await loadTenantProfiles(
+    supabase,
+    profile.active_organization_id!,
+    [data.profile_id]
+  );
+  return NextResponse.json({
+    item: {
+      ...data,
+      profiles: data.profile_id ? tenantProfiles.get(data.profile_id) ?? null : null,
+    },
+  }, { status: found?.id ? 200 : 201 });
 }
 
 export async function DELETE(req: NextRequest) {

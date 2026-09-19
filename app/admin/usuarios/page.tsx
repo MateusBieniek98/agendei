@@ -42,7 +42,6 @@ function roleTone(role: UserRole) {
 
 type NovoUsuario = {
   email: string;
-  senha: string;
   nome: string;
   role: UserRole;
   equipe_id: string;
@@ -50,7 +49,6 @@ type NovoUsuario = {
 
 const NOVO_VAZIO: NovoUsuario = {
   email: "",
-  senha: "",
   nome: "",
   role: "encarregado",
   equipe_id: "",
@@ -58,8 +56,8 @@ const NOVO_VAZIO: NovoUsuario = {
 
 const USER_COLUMNS: BulkImportColumn[] = [
   { key: "nome", label: "Nome", example: "João Silva", required: true },
-  { key: "email", label: "E-mail", example: "joao@gn.com.br", required: true, validate: (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? null : "E-mail inválido." },
-  { key: "senha", label: "Senha inicial", example: "gn123456", required: true, validate: (value) => value.length >= 6 ? null : "Senha deve ter ao menos 6 caracteres." },
+  { key: "email", label: "E-mail", example: "joao@empresa.com.br", required: true, validate: (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? null : "E-mail inválido." },
+  { key: "senha", label: "Senha inicial", example: "Campo@2026", required: true, validate: (value) => value.length >= 8 ? null : "Senha deve ter ao menos 8 caracteres." },
   { key: "perfil", label: "Perfil", example: "encarregado", required: true, validate: (value) => normalizeImportedRole(value) ? null : "Perfil inválido." },
   { key: "equipe", label: "Equipe", example: "Equipe Norte" },
 ];
@@ -176,22 +174,17 @@ export default function UsuariosPage() {
   }
 
   async function criar() {
-    if (!novo.email || !novo.senha || !novo.nome) {
-      toast("Preencha nome, e-mail e senha.", "error");
-      return;
-    }
-    if (novo.senha.length < 6) {
-      toast("Senha precisa ter ao menos 6 caracteres.", "error");
+    if (!novo.email || !novo.nome) {
+      toast("Preencha nome e e-mail.", "error");
       return;
     }
     setEnviando(true);
     try {
-      const r = await fetch("/api/usuarios/criar", {
+      const r = await fetch("/api/usuarios/convidar", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           email: novo.email,
-          senha: novo.senha,
           nome: novo.nome,
           role: novo.role,
           equipe_id: novo.equipe_id || null,
@@ -202,7 +195,7 @@ export default function UsuariosPage() {
         toast(`Erro: ${j.error ?? r.statusText}`, "error");
         return;
       }
-      toast("Usuário criado!", "success");
+      toast(j.message ?? "Convite enviado!", "success");
       setCriando(false);
       setNovo(NOVO_VAZIO);
       carregar();
@@ -213,8 +206,8 @@ export default function UsuariosPage() {
 
   async function resetSenha() {
     if (!resetando) return;
-    if (novaSenha.length < 6) {
-      toast("Senha precisa ter ao menos 6 caracteres.", "error");
+    if (novaSenha.length < 8) {
+      toast("Senha precisa ter ao menos 8 caracteres.", "error");
       return;
     }
     setEnviando(true);
@@ -289,8 +282,8 @@ export default function UsuariosPage() {
       <PageHeader
         eyebrow="Acessos"
         title="Usuários"
-        subtitle="Crie acessos personalizados, altere papéis, ative/desative ou redefina senhas."
-        right={<div className="flex w-full gap-2 sm:w-auto"><Button variant="secondary" className="flex-1 sm:flex-none" onClick={() => setBulkOpen(true)}>Importar em lote</Button><Button className="flex-1 sm:flex-none" onClick={() => setCriando(true)}>+ Novo usuário</Button></div>}
+        subtitle="Convide usuários, defina papéis e equipes e gerencie os acessos desta empresa."
+        right={<div className="flex w-full gap-2 sm:w-auto"><Button variant="secondary" className="flex-1 sm:flex-none" onClick={() => setBulkOpen(true)}>Importar em lote</Button><Button className="flex-1 sm:flex-none" onClick={() => setCriando(true)}>+ Convidar</Button></div>}
       />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
@@ -598,10 +591,9 @@ export default function UsuariosPage() {
             onClick={(e) => e.stopPropagation()}
           >
             <div>
-              <h3 className="text-lg font-bold">Novo usuário</h3>
+              <h3 className="text-lg font-bold">Convidar usuário</h3>
               <p className="mt-1 text-xs text-[var(--text-muted)]">
-                Cria conta com e-mail/senha já confirmados — o usuário pode
-                logar imediatamente.
+                O usuário receberá um link seguro, válido por sete dias, para acessar esta empresa.
               </p>
             </div>
             <Input
@@ -615,17 +607,8 @@ export default function UsuariosPage() {
               type="email"
               value={novo.email}
               onChange={(e) => setNovo({ ...novo, email: e.target.value })}
-              placeholder="usuario@gn.com.br"
+              placeholder="usuario@empresa.com.br"
               autoComplete="off"
-            />
-            <Input
-              label="Senha inicial"
-              type="text"
-              value={novo.senha}
-              onChange={(e) => setNovo({ ...novo, senha: e.target.value })}
-              placeholder="mín. 6 caracteres"
-              hint="Mostra texto pra você poder repassar pro usuário."
-              autoComplete="new-password"
             />
             <Select
               label="Papel"
@@ -647,7 +630,7 @@ export default function UsuariosPage() {
                 Cancelar
               </Button>
               <Button onClick={criar} loading={enviando}>
-                Criar usuário
+                Enviar convite
               </Button>
             </div>
           </div>

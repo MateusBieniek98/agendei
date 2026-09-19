@@ -111,14 +111,20 @@ function uniqueAliases(values: Array<string | null | undefined>) {
   return aliases;
 }
 
-async function findServiceByName(supabase: AnySupabase, name: string) {
+async function findServiceByName(
+  supabase: AnySupabase,
+  name: string,
+  organizationId?: string
+) {
   const normalized = normalizePlanningText(name);
   if (!normalized) return null;
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("services_metadata")
     .select("*")
     .limit(1000);
+  if (organizationId) query = query.eq("organization_id", organizationId);
+  const { data, error } = await query;
 
   if (error) throw new Error(error.message);
 
@@ -133,15 +139,20 @@ async function findServiceByName(supabase: AnySupabase, name: string) {
   }) ?? null;
 }
 
-async function findServiceByKey(supabase: AnySupabase, serviceKey: string) {
+async function findServiceByKey(
+  supabase: AnySupabase,
+  serviceKey: string,
+  organizationId?: string
+) {
   const key = cleanServiceText(serviceKey);
   if (!key) return null;
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("services_metadata")
     .select("*")
-    .eq("service_key", key)
-    .maybeSingle();
+    .eq("service_key", key);
+  if (organizationId) query = query.eq("organization_id", organizationId);
+  const { data, error } = await query.maybeSingle();
 
   if (error) throw new Error(error.message);
   return (data as ServiceRow | null) ?? null;
@@ -150,15 +161,17 @@ async function findServiceByKey(supabase: AnySupabase, serviceKey: string) {
 async function findActivityForService(
   supabase: AnySupabase,
   serviceKey: string,
-  displayName: string
+  displayName: string,
+  organizationId?: string
 ) {
   const key = cleanServiceText(serviceKey);
   if (key) {
-    const { data, error } = await supabase
+    let query = supabase
       .from("atividades")
       .select("id, nome, unidade, valor_unitario, ativo, service_key, service_metadata_id")
-      .eq("service_key", key)
-      .maybeSingle();
+      .eq("service_key", key);
+    if (organizationId) query = query.eq("organization_id", organizationId);
+    const { data, error } = await query.maybeSingle();
     if (error) throw new Error(error.message);
     if (data) return data as ActivityRow;
   }
@@ -166,11 +179,12 @@ async function findActivityForService(
   const name = cleanServiceText(displayName);
   if (!name) return null;
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("atividades")
     .select("id, nome, unidade, valor_unitario, ativo, service_key, service_metadata_id")
-    .eq("nome", name)
-    .maybeSingle();
+    .eq("nome", name);
+  if (organizationId) query = query.eq("organization_id", organizationId);
+  const { data, error } = await query.maybeSingle();
   if (error) throw new Error(error.message);
   return (data as ActivityRow | null) ?? null;
 }
@@ -178,14 +192,15 @@ async function findActivityForService(
 async function upsertActivityForService(
   supabase: AnySupabase,
   service: ServiceRow,
-  input: ServiceMetadataInput
+  input: ServiceMetadataInput,
+  organizationId?: string
 ) {
   const unidade = inferServiceUnit(input.displayName, input.unidade ?? service.unidade);
   const valorUnitario = input.valorUnitario ?? Number(service.valor_unitario ?? 0);
   let activity: ActivityRow | null = null;
 
   if (service.atividade_id) {
-    const { data, error } = await supabase
+    let query = supabase
       .from("atividades")
       .update({
         nome: input.displayName,
@@ -195,7 +210,9 @@ async function upsertActivityForService(
         service_key: service.service_key,
         service_metadata_id: service.id,
       })
-      .eq("id", service.atividade_id)
+      .eq("id", service.atividade_id);
+    if (organizationId) query = query.eq("organization_id", organizationId);
+    const { data, error } = await query
       .select("id, nome, unidade, valor_unitario, ativo, service_key, service_metadata_id")
       .maybeSingle();
     if (error) throw new Error(error.message);
@@ -206,11 +223,12 @@ async function upsertActivityForService(
     const existing = await findActivityForService(
       supabase,
       service.service_key,
-      input.displayName
+      input.displayName,
+      organizationId
     );
 
     if (existing) {
-      const { data, error } = await supabase
+      let query = supabase
         .from("atividades")
         .update({
           nome: input.displayName,
@@ -220,7 +238,9 @@ async function upsertActivityForService(
           service_key: service.service_key,
           service_metadata_id: service.id,
         })
-        .eq("id", (existing as ActivityRow).id)
+        .eq("id", (existing as ActivityRow).id);
+      if (organizationId) query = query.eq("organization_id", organizationId);
+      const { data, error } = await query
         .select("id, nome, unidade, valor_unitario, ativo, service_key, service_metadata_id")
         .single();
       if (error) throw new Error(error.message);
@@ -232,6 +252,7 @@ async function upsertActivityForService(
     const { data, error } = await supabase
       .from("atividades")
       .insert({
+        organization_id: organizationId,
         nome: input.displayName,
         unidade,
         valor_unitario: valorUnitario,
@@ -246,10 +267,12 @@ async function upsertActivityForService(
   }
 
   if (activity.id !== service.atividade_id) {
-    const { error } = await supabase
+    let query = supabase
       .from("services_metadata")
       .update({ atividade_id: activity.id })
       .eq("id", service.id);
+    if (organizationId) query = query.eq("organization_id", organizationId);
+    const { error } = await query;
     if (error) throw new Error(error.message);
   }
 
@@ -258,19 +281,20 @@ async function upsertActivityForService(
 
 export async function upsertServiceMetadata(
   supabase: AnySupabase,
-  input: ServiceMetadataInput
+  input: ServiceMetadataInput,
+  organizationId?: string
 ) {
   const displayName = cleanServiceText(input.displayName);
   if (!displayName) throw new Error("Nome do servico vazio.");
 
   const explicitServiceKey = cleanServiceText(input.serviceKey);
   const existingByKey = explicitServiceKey
-    ? await findServiceByKey(supabase, explicitServiceKey)
+    ? await findServiceByKey(supabase, explicitServiceKey, organizationId)
     : null;
   const existingByOldName = input.oldDisplayName
-    ? await findServiceByName(supabase, input.oldDisplayName)
+    ? await findServiceByName(supabase, input.oldDisplayName, organizationId)
     : null;
-  const existingByDisplayName = await findServiceByName(supabase, displayName);
+  const existingByDisplayName = await findServiceByName(supabase, displayName, organizationId);
   const existingService = existingByKey ?? existingByOldName ?? existingByDisplayName;
   const serviceKey = existingService?.service_key ?? stableServiceKey({ ...input, displayName });
   const slug = serviceSlug(serviceKey);
@@ -285,6 +309,7 @@ export async function upsertServiceMetadata(
   ]);
 
   const payload = {
+    organization_id: organizationId,
     service_key: serviceKey,
     slug,
     display_name: displayName,
@@ -305,13 +330,20 @@ export async function upsertServiceMetadata(
 
   const { data, error } = await supabase
     .from("services_metadata")
-    .upsert(payload, { onConflict: "service_key" })
+    .upsert(payload, {
+      onConflict: organizationId ? "organization_id,service_key" : "service_key",
+    })
     .select("*")
     .single();
   if (error) throw new Error(error.message);
 
   const service = data as ServiceRow;
-  const atividade = await upsertActivityForService(supabase, service, input);
+  const atividade = await upsertActivityForService(
+    supabase,
+    service,
+    input,
+    organizationId
+  );
 
   return { service: { ...service, atividade_id: atividade.id }, atividade };
 }

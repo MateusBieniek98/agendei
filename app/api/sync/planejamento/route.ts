@@ -2,7 +2,7 @@
  * POST /api/sync/planejamento
  *
  * Recebe linhas da aba "Programação Mensal" (ou similar) da planilha
- * "Planejamento de atividades - GN" e faz upsert na tabela `planejamento`.
+ * uma planilha de planejamento e faz upsert na tabela `planejamento`.
  *
  * • Projetos, atividades e equipes são resolvidos por nome (criados se não
  *   existirem).
@@ -19,11 +19,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { cleanServiceText, upsertServiceMetadata } from "@/lib/service-metadata";
 import { normalizePlanningText, normalizeProjectName } from "@/lib/planning-progress";
-import {
-  configuredSyncTokens,
-  isAuthorizedSyncRequest,
-  syncTokenMissingMessage,
-} from "@/lib/sync-auth";
+import { resolveSyncOrganization } from "@/lib/sync-auth";
+import { consumeOrganizationRateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -151,11 +148,11 @@ function parsePlanningStatus(value: unknown): PlanningStatus {
 
 type AdminSupabase = Pick<SupabaseClient, "from" | "rpc">;
 
-async function loadMaps(supabase: AdminSupabase): Promise<{ projetos: EntityMap; equipes: EntityMap; atividades: EntityMap }> {
+async function loadMaps(supabase: AdminSupabase, organizationId: string): Promise<{ projetos: EntityMap; equipes: EntityMap; atividades: EntityMap }> {
   const [pRes, eRes, aRes] = await Promise.all([
-    (supabase as SupabaseClient).from("projetos").select("id, nome, ativo").limit(10000),
-    (supabase as SupabaseClient).from("equipes").select("id, nome, ativo").limit(10000),
-    (supabase as SupabaseClient).from("atividades").select("id, nome, unidade, valor_unitario, ativo").limit(10000),
+    (supabase as SupabaseClient).from("projetos").select("id, nome, ativo").eq("organization_id", organizationId).limit(10000),
+    (supabase as SupabaseClient).from("equipes").select("id, nome, ativo").eq("organization_id", organizationId).limit(10000),
+    (supabase as SupabaseClient).from("atividades").select("id, nome, unidade, valor_unitario, ativo").eq("organization_id", organizationId).limit(10000),
   ]);
   for (const r of [pRes, eRes, aRes]) if (r.error) throw new Error(r.error.message);
 
@@ -177,14 +174,17 @@ async function loadMaps(supabase: AdminSupabase): Promise<{ projetos: EntityMap;
   return { projetos, equipes, atividades };
 }
 
-async function ensureProjeto(supabase: SupabaseClient, maps: { projetos: EntityMap }, nome: string): Promise<EntityRow> {
+async function ensureProjeto(supabase: SupabaseClient, maps: { projetos: EntityMap }, nome: string, organizationId: string): Promise<EntityRow> {
   const key = normalizeProjectName(nome);
   const existing = maps.projetos.get(key);
   if (existing) return existing;
 
   const { data, error } = await supabase
     .from("projetos")
-    .upsert({ nome, ativo: true }, { onConflict: "nome" })
+    .upsert(
+      { organization_id: organizationId, nome, ativo: true },
+      { onConflict: "organization_id,nome" }
+    )
     .select("id, nome, ativo")
     .single();
   if (error) throw new Error(`Projeto "${nome}": ${error.message}`);
@@ -193,14 +193,14 @@ async function ensureProjeto(supabase: SupabaseClient, maps: { projetos: EntityM
   return row;
 }
 
-async function ensureEquipe(supabase: SupabaseClient, maps: { equipes: EntityMap }, nome: string): Promise<EntityRow> {
+async function ensureEquipe(supabase: SupabaseClient, maps: { equipes: EntityMap }, nome: string, organizationId: string): Promise<EntityRow> {
   const key = normalizePlanningText(nome);
   const existing = maps.equipes.get(key);
   if (existing) return existing;
 
   const { data, error } = await supabase
     .from("equipes")
-    .insert({ nome, descricao: "Criada via sync do planejamento.", ativo: true })
+    .insert({ organization_id: organizationId, nome, descricao: "Criada via sync do planejamento.", ativo: true })
     .select("id, nome, ativo")
     .single();
   if (error) throw new Error(`Equipe "${nome}": ${error.message}`);
@@ -213,18 +213,23 @@ async function ensureAtividade(
   supabase: SupabaseClient,
   maps: { atividades: EntityMap },
   nome: string,
-  valorUnitario: number | null
+  valorUnitario: number | null,
+  organizationId: string
 ): Promise<EntityRow> {
   const key = normalizePlanningText(nome);
   const existing = maps.atividades.get(key);
   if (existing) return existing;
 
-  const result = await upsertServiceMetadata(supabase as Parameters<typeof upsertServiceMetadata>[0], {
-    displayName: nome,
-    valorUnitario,
-    sourceSheet: "Planejamento",
-    metadata: { origem: "sync_planejamento" },
-  });
+  const result = await upsertServiceMetadata(
+    supabase as Parameters<typeof upsertServiceMetadata>[0],
+    {
+      displayName: nome,
+      valorUnitario,
+      sourceSheet: "Planejamento",
+      metadata: { origem: "sync_planejamento" },
+    },
+    organizationId
+  );
   const row = result.atividade as unknown as EntityRow;
   maps.atividades.set(normalizePlanningText(row.nome), row);
   return row;
@@ -240,7 +245,8 @@ async function processRow(
   payload: PlanejamentoPayload,
   defaultAno: number,
   defaultMes: number,
-  dryRun: boolean
+  dryRun: boolean,
+  organizationId: string
 ) {
   const lineNum = rowNumber(row);
 
@@ -286,11 +292,12 @@ async function processRow(
     };
   }
 
-  const projeto = await ensureProjeto(supabase, maps, projetoNome);
-  const atividade = await ensureAtividade(supabase, maps, atividadeNome, valorUnitario);
-  const equipe = equipeNome ? await ensureEquipe(supabase, maps, equipeNome) : null;
+  const projeto = await ensureProjeto(supabase, maps, projetoNome, organizationId);
+  const atividade = await ensureAtividade(supabase, maps, atividadeNome, valorUnitario, organizationId);
+  const equipe = equipeNome ? await ensureEquipe(supabase, maps, equipeNome, organizationId) : null;
 
   const upsertPayload = {
+    organization_id: organizationId,
     ano,
     mes,
     projeto_id: projeto.id,
@@ -314,7 +321,7 @@ async function processRow(
 
   const { data, error } = await supabase
     .from("planejamento")
-    .upsert(upsertPayload, { onConflict: "origem_chave" })
+    .upsert(upsertPayload, { onConflict: "organization_id,origem_chave" })
     .select("id")
     .single();
 
@@ -333,12 +340,12 @@ async function processRow(
 // ─── handler ─────────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
-  if (configuredSyncTokens().length === 0) {
-    return NextResponse.json({ error: syncTokenMissingMessage() }, { status: 500 });
-  }
-  if (!isAuthorizedSyncRequest(req)) {
+  const syncOrganization = await resolveSyncOrganization(req);
+  if (!syncOrganization) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
+  const rateLimit = await consumeOrganizationRateLimit({ organizationId: syncOrganization.id, bucket: "sync.planejamento", limit: 10, windowSeconds: 60 });
+  if (!rateLimit.allowed) return NextResponse.json({ error: "rate_limit_exceeded" }, { status: 429 });
 
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!serviceKey) {
@@ -381,7 +388,7 @@ export async function POST(req: NextRequest) {
 
   let maps: Awaited<ReturnType<typeof loadMaps>>;
   try {
-    maps = await loadMaps(supabase);
+    maps = await loadMaps(supabase, syncOrganization.id);
   } catch (err) {
     return NextResponse.json(
       { error: `Erro ao carregar dados do banco: ${err instanceof Error ? err.message : String(err)}` },
@@ -392,7 +399,17 @@ export async function POST(req: NextRequest) {
   const results: unknown[] = [];
   for (const row of rows) {
     try {
-      results.push(await processRow(supabase, maps, row, headers, payload, defaultAno, defaultMes, dryRun));
+      results.push(await processRow(
+        supabase,
+        maps,
+        row,
+        headers,
+        payload,
+        defaultAno,
+        defaultMes,
+        dryRun,
+        syncOrganization.id
+      ));
     } catch (err) {
       results.push({
         rowNumber: rowNumber(row),

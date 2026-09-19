@@ -1,4 +1,5 @@
 import { parseNumberPtBr } from "@/lib/bulk-import";
+import { tenantStorageKey } from "@/lib/tenant-client";
 
 export type InsumoLancamento = {
   insumo_id?: string;
@@ -75,7 +76,7 @@ export type ControlledInsumoPayload = {
 
 export const MAX_PRODUCTION_INSUMOS = 6;
 
-const INSUMOS_CACHE_KEY = "gn:insumos-cache:v1";
+const LEGACY_INSUMOS_CACHE_KEY = "gn:insumos-cache:v1";
 
 function catalogKey(value: string) {
   return value
@@ -233,10 +234,17 @@ function normalizeCachedInsumo(item: unknown): InsumoEstoqueItem | null {
 export function readCachedInsumos(): InsumoEstoqueItem[] {
   if (typeof window === "undefined") return [];
   try {
-    const raw = window.localStorage.getItem(INSUMOS_CACHE_KEY);
+    const key = tenantStorageKey("insumos-cache:v2");
+    const raw =
+      window.localStorage.getItem(key) ??
+      window.localStorage.getItem(LEGACY_INSUMOS_CACHE_KEY);
     const parsed = raw ? JSON.parse(raw) : [];
     if (!Array.isArray(parsed)) return [];
-    return parsed.map(normalizeCachedInsumo).filter((item): item is InsumoEstoqueItem => !!item);
+    const items = parsed.map(normalizeCachedInsumo).filter((item): item is InsumoEstoqueItem => !!item);
+    if (!window.localStorage.getItem(key) && items.length > 0) {
+      window.localStorage.setItem(key, JSON.stringify(items));
+    }
+    return items;
   } catch {
     return [];
   }
@@ -245,7 +253,7 @@ export function readCachedInsumos(): InsumoEstoqueItem[] {
 export function writeCachedInsumos(items: InsumoEstoqueItem[]) {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(INSUMOS_CACHE_KEY, JSON.stringify(items));
+    window.localStorage.setItem(tenantStorageKey("insumos-cache:v2"), JSON.stringify(items));
   } catch {
     // O cache é apenas uma conveniência para operação offline.
   }

@@ -1,6 +1,6 @@
 # Integrações
 
-Estrutura preparada para conectar GN a sistemas externos.
+Estrutura preparada para conectar cada organização a sistemas externos.
 
 ## Google Sheets
 
@@ -9,21 +9,20 @@ Há duas estratégias suportadas:
 1. **Pull simples (relatório auto-atualizado)** — no Google Sheets, use
    `IMPORTDATA("https://SEU_DOMINIO/api/export/csv?escopo=mes")` para
    consumir uma exportação CSV autenticada pela sessão do app.
-2. **Sincronização automática recomendada** — cole o script
-   `docs/google-sheets-apontamentos-sync.js` no Apps Script da planilha
-   **Controle de Produção GN**. Ele chama
-   `/api/sync/google-sheets/apontamentos`, valida `SHARED_SYNC_TOKEN`
-   e atualiza a aba `Apontamentos App` com apontamentos, insumos e descarte.
-3. **Importação da aba Registro de atividades** — rode o SQL
-   `lib/db/sync_google_sheets_registro_atividades.sql` e cole o script
-   `docs/google-sheets-registro-atividades-import.js` no Apps Script da
-   mesma planilha. Ele envia a aba `Registro de atividades` para
+2. **Sincronização multiempresa recomendada** — use
+   `docs/google-sheets-multiempresa-completo.js`. Nas Propriedades do script,
+   configure `APP_BASE_URL` e um `SYNC_TOKEN` exclusivo da organização. O token
+   deve ser salvo no servidor apenas como hash em `organization_integrations`.
+3. **Importação da aba Registro de atividades** — o script envia a aba para
    `/api/sync/google-sheets/registro-atividades`, criando ou atualizando
-   apontamentos no Supabase sem duplicidade.
+   apontamentos sem duplicidade e dentro da organização resolvida pelo token.
 4. **Metadados de serviços** — rode
    `lib/db/2026-05-services-metadata-sync.sql`. O Apps Script também pode
    chamar `/api/sync/metadata` em edições da planilha para manter nomes,
    tarifas, unidades e aliases sincronizados com `services_metadata`.
+
+Os demais scripts deste diretório são mantidos apenas para a transição da
+primeira organização e não devem ser copiados para clientes novos.
 
 ## Power BI
 

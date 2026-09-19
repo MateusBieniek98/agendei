@@ -1,17 +1,17 @@
 /**
- * GN — Service Worker v4
+ * Service Worker v6 — Talhivo
  * Estratégia: navegação network-first com fallback cacheado, assets cache-first.
  * POSTs continuam sob controle do app para que a fila IndexedDB decida o sync.
  */
 
-const CACHE_NAME = "gn-cache-v4";
+const CACHE_NAME = "forestry-ops-cache-v6";
 
 // Páginas essenciais para pré-cache
 const PRE_CACHE = ["/", "/sincronizar", "/meu-dia", "/lancamento", "/resumo", "/maquinas"];
 
 function offlineHtml() {
   return new Response(
-    "<!doctype html><html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>GN Offline</title></head><body style=\"font-family:system-ui,sans-serif;margin:0;padding:24px;background:#061020;color:#fff\"><h1>GN — Offline</h1><p>Sem conexão. Lançamentos feitos pelo app ficam na fila do celular e serão enviados quando a internet voltar.</p></body></html>",
+    "<!doctype html><html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Talhivo offline</title></head><body style=\"font-family:system-ui,sans-serif;margin:0;padding:24px;background:#173f35;color:#f7f7f2\"><p style=\"color:#d6a23a;font-weight:700\">TALHIVO</p><h1>Operação offline</h1><p>Sem conexão. Os apontamentos feitos pelo app ficam na fila deste dispositivo e serão enviados quando a internet voltar.</p></body></html>",
     { headers: { "content-type": "text/html; charset=utf-8" } }
   );
 }

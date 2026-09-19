@@ -6,6 +6,7 @@ import Logo from "@/components/branding/Logo";
 import LogoutButton from "@/components/nav/LogoutButton";
 import ThemeToggle from "@/components/theme/ThemeToggle";
 import SyncStatus from "@/components/sync/SyncStatus";
+import { PRODUCT_BRAND } from "@/lib/product-brand";
 
 type Item = { href: string; label: string; icon?: React.ReactNode };
 
@@ -26,8 +27,8 @@ export default function Sidebar({
       <div className="px-5 pt-6 pb-5 flex items-center gap-3">
         <Logo size={36} variant="mono-light" />
         <div>
-          <p className="text-lg font-bold leading-tight" style={{ color: "var(--nav-text-active)" }}>GN</p>
-          <p className="text-xs leading-tight" style={{ color: "var(--nav-text)" }}>Silvicultura</p>
+          <p className="text-lg font-bold leading-tight" style={{ color: "var(--nav-text-active)" }}>{PRODUCT_BRAND.shortName}</p>
+          <p className="text-xs leading-tight" style={{ color: "var(--nav-text)" }}>Operação florestal</p>
         </div>
       </div>
 

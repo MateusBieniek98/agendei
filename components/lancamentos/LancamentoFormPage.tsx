@@ -3,6 +3,7 @@ import { resolvePreset } from "@/lib/period";
 import LancamentoForm from "@/app/(field)/lancamento/LancamentoForm";
 import PageHeader from "@/components/ui/PageHeader";
 import type { Atividade, Equipe, Producao, Profile, ProjetoComTalhoes } from "@/lib/types";
+import { getCurrentTenantContext } from "@/lib/auth";
 
 export type LancamentoFormSearchParams = {
   atividade_id?: string;
@@ -64,6 +65,7 @@ export default async function LancamentoFormPage({
   resetAfterCreate,
 }: LancamentoFormPageProps) {
   const supabase = await createSupabaseServer();
+  const tenant = await getCurrentTenantContext();
   const ciclo = resolvePreset("ciclo_atual");
 
   const editPromise = searchParams.edit_id
@@ -118,6 +120,7 @@ export default async function LancamentoFormPage({
         atividades={dedupeAtividadesPorNome((atividades ?? []) as Atividade[], editing?.atividade_id)}
         projetos={(projetos ?? []) as ProjetoComTalhoes[]}
         encarregadoNome={profile.nome}
+        organizationName={tenant?.organization.display_name ?? "Empresa"}
         initialAtividadeId={searchParams.atividade_id}
         initialProjetoId={searchParams.projeto_id}
         initialTalhao={searchParams.talhao}

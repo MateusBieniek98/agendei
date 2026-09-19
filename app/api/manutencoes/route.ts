@@ -203,7 +203,7 @@ export async function GET(req: NextRequest) {
   let q = supabase
     .from("manutencoes")
     .select(
-      "*, maquinas(nome, tipo, identificador, status), equipes(nome), projetos(nome), autor:profiles!manutencoes_reportado_por_fkey(id,nome,role,equipe_id), responsavel:profiles!manutencoes_responsavel_id_fkey(id,nome,role,equipe_id), concluido_por_profile:profiles!manutencoes_concluido_por_fkey(id,nome,role,equipe_id)"
+      "*, maquinas(nome, tipo, identificador, status), equipes(nome), projetos(nome), autor:profiles!manutencoes_reportado_por_fkey(id,nome), responsavel:profiles!manutencoes_responsavel_id_fkey(id,nome), concluido_por_profile:profiles!manutencoes_concluido_por_fkey(id,nome)"
     )
     .order("prioridade", { ascending: false })
     .order("created_at", { ascending: true });

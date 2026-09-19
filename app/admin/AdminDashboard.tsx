@@ -12,6 +12,7 @@ import PeriodoFiltro, { type PeriodoState } from "@/components/dashboard/Periodo
 import PlanejamentoField from "@/app/(field)/planejamento/PlanejamentoField";
 import PlanejamentoAdminPage from "@/app/admin/planejamento/page";
 import type { ManutencaoIndicadores } from "@/lib/types";
+import { tenantStorageKey } from "@/lib/tenant-client";
 
 type DashboardMode = "admin" | "gestor" | "encarregado";
 type IndicatorWidgetId =
@@ -131,7 +132,7 @@ const DEFAULT_INDICATOR_WIDGETS: IndicatorWidgetId[] = [
 const INDICATOR_WIDGET_IDS = new Set(INDICATOR_WIDGET_OPTIONS.map((item) => item.id));
 
 function dashboardStorageKey(mode: DashboardMode) {
-  return `gn:dashboard-builder:${mode}:indicadores`;
+  return tenantStorageKey(`dashboard-builder:${mode}:indicadores`);
 }
 
 function normalizeIndicatorWidgets(value: unknown): IndicatorWidgetId[] {

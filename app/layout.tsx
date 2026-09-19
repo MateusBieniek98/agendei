@@ -1,26 +1,30 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
+import { PRODUCT_BRAND } from "@/lib/product-brand";
 
 export const metadata: Metadata = {
   title: {
-    default: "GN — Gestão de Produção",
-    template: "%s · GN",
+    default: PRODUCT_BRAND.name,
+    template: `%s · ${PRODUCT_BRAND.shortName}`,
   },
   description:
-    "App de gestão de produção em silvicultura para a GN. Lançamentos diários, " +
-    "controle de máquinas, metas e dashboards em tempo real.",
-  applicationName: "GN Silvicultura",
+    PRODUCT_BRAND.description,
+  applicationName: PRODUCT_BRAND.name,
   manifest: "/manifest.webmanifest",
   icons: {
-    icon: "/favicon.ico",
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+    ],
+    apple: [{ url: "/icon-192.png", sizes: "192x192", type: "image/png" }],
   },
 };
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#343b8f" },
-    { media: "(prefers-color-scheme: dark)",  color: "#0f141b" },
+    { media: "(prefers-color-scheme: light)", color: PRODUCT_BRAND.colors.pine },
+    { media: "(prefers-color-scheme: dark)", color: "#101915" },
   ],
   width: "device-width",
   initialScale: 1,
@@ -39,7 +43,7 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{
             __html: `
               try {
-                var t = localStorage.getItem('gn-theme');
+                var t = localStorage.getItem('forestry-ops:theme') || localStorage.getItem('gn-theme');
                 if (!t) t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
                 document.documentElement.setAttribute('data-theme', t);
               } catch(e) {}

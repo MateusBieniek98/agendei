@@ -1,10 +1,12 @@
 import { primarySyncToken } from "@/lib/sync-auth";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { decryptIntegrationSecret } from "@/lib/integration-secrets";
 
 type SheetsProductionEvent = "criado" | "editado" | "excluido" | "manual";
 export type SheetsSyncAction = "atualizar_apontamentos" | "rodar_fluxo_completo";
 
 type SyncJobPayload = {
+  organizationId: string;
   acao: SheetsSyncAction;
   evento: SheetsProductionEvent;
   producaoId: string | null;
@@ -12,9 +14,9 @@ type SyncJobPayload = {
 };
 
 const WEBHOOK_HINT =
-  "Configure GOOGLE_SHEETS_APONTAMENTOS_WEBHOOK_URL no Vercel com a URL do Apps Script publicado como Web App, terminando em /exec. Nao use o link da planilha ou do Google Drive.";
+  "Configure na administracao da plataforma a URL do Apps Script publicado como Web App, terminando em /exec. Nao use o link da planilha ou do Google Drive.";
 
-function validateWebhookUrl(webhookUrl: string) {
+export function validateWebhookUrl(webhookUrl: string) {
   try {
     const url = new URL(webhookUrl);
     const host = url.hostname.toLowerCase();
@@ -58,6 +60,7 @@ async function recordSheetSyncJob(payload: SyncJobPayload, lastError: string | n
     .from("sync_jobs")
     .upsert(
       {
+        organization_id: payload.organizationId,
         tipo: "apontamentos_sheet",
         dedupe_key: dedupeKey,
         status,
@@ -69,7 +72,7 @@ async function recordSheetSyncJob(payload: SyncJobPayload, lastError: string | n
         scheduled_at: now,
         updated_at: now,
       },
-      { onConflict: "tipo,dedupe_key" }
+      { onConflict: "organization_id,tipo,dedupe_key" }
     );
 
   if (error) {
@@ -103,28 +106,61 @@ export function isWebhookConfigurationError(message: string) {
   ].some((fragment) => message.includes(fragment));
 }
 
-function configuredWebhookUrl() {
-  return (
+async function organizationWebhookConfig(organizationId: string) {
+  const supabase = createSupabaseAdminClient();
+  if (supabase) {
+    const { data } = await supabase
+      .from("organization_integrations")
+      .select("config,secret_reference,enabled")
+      .eq("organization_id", organizationId)
+      .eq("provider", "google_sheets")
+      .eq("enabled", true)
+      .maybeSingle();
+    const config = (data?.config ?? {}) as Record<string, unknown>;
+    const webhookUrl = String(config.apontamentos_webhook_url ?? "").trim();
+    const encryptedToken = String(config.encrypted_sync_token ?? "").trim();
+    const secretReference = String(data?.secret_reference ?? "").trim();
+    let token = "";
+    if (encryptedToken) {
+      try {
+        token = decryptIntegrationSecret(encryptedToken);
+      } catch (error) {
+        console.error("Falha ao decifrar segredo de integração:", (error as Error).message);
+      }
+    } else if (secretReference) {
+      token = process.env[secretReference]?.trim() ?? "";
+    }
+    if (webhookUrl && token) return { webhookUrl, token };
+  }
+
+  const legacyOrganizationSlug = process.env.LEGACY_SYNC_ORGANIZATION_SLUG?.trim() || "gn";
+  if (supabase) {
+    const { data: organization } = await supabase
+      .from("organizations")
+      .select("slug")
+      .eq("id", organizationId)
+      .maybeSingle();
+    if (organization?.slug !== legacyOrganizationSlug) return null;
+  }
+
+  const webhookUrl =
     process.env.GOOGLE_SHEETS_APONTAMENTOS_WEBHOOK_URL?.trim() ||
     process.env.GOOGLE_SHEETS_WEBHOOK_URL?.trim() ||
-    ""
-  );
-}
-
-async function sendApontamentosSheetWebhook(payload: SyncJobPayload, timeoutMs: number) {
-  const webhookUrl = configuredWebhookUrl();
-
-  if (!webhookUrl) return "Webhook da planilha nao configurado.";
-
-  const webhookUrlError = validateWebhookUrl(webhookUrl);
-  if (webhookUrlError) return webhookUrlError;
-
+    "";
   const token =
     process.env.GOOGLE_SHEETS_SYNC_TOKEN?.trim() ||
     process.env.SHARED_SYNC_TOKEN?.trim() ||
     primarySyncToken();
+  return webhookUrl && token ? { webhookUrl, token } : null;
+}
 
-  if (!token) return "Token de sincronizacao da planilha nao configurado.";
+async function sendApontamentosSheetWebhook(payload: SyncJobPayload, timeoutMs: number) {
+  const integration = await organizationWebhookConfig(payload.organizationId);
+  if (!integration) return "Webhook da planilha nao configurado.";
+  const { webhookUrl, token } = integration;
+
+  const webhookUrlError = validateWebhookUrl(webhookUrl);
+  if (webhookUrlError) return webhookUrlError;
 
   try {
     const response = await fetch(webhookUrl, {
@@ -136,7 +172,8 @@ async function sendApontamentosSheetWebhook(payload: SyncJobPayload, timeoutMs: 
         evento: payload.evento,
         producaoId: payload.producaoId,
         solicitadoPor: payload.solicitadoPor,
-        origem: "gn-app",
+        origem: "forestry-ops-app",
+        organizationId: payload.organizationId,
         timestamp: new Date().toISOString(),
       }),
       cache: "no-store",
@@ -172,16 +209,16 @@ async function sendApontamentosSheetWebhook(payload: SyncJobPayload, timeoutMs: 
 
 export async function notifyApontamentosSheet(
   evento: SheetsProductionEvent,
-  producaoId?: string | null,
+  producaoId: string | null | undefined,
   options: {
     acao?: SheetsSyncAction;
     solicitadoPor?: string | null;
     timeoutMs?: number;
-  } = {}
+    organizationId: string;
+  }
 ) {
-  if (!configuredWebhookUrl()) return null;
-
   const payload: SyncJobPayload = {
+    organizationId: options.organizationId,
     acao: options.acao ?? "atualizar_apontamentos",
     evento,
     producaoId: producaoId ?? null,
@@ -193,7 +230,10 @@ export async function notifyApontamentosSheet(
   return error;
 }
 
-export async function retryPendingApontamentosSheetSyncJobs(limit = 25) {
+export async function retryPendingApontamentosSheetSyncJobs(
+  limit = 25,
+  organizationId?: string | null
+) {
   const supabase = createSupabaseAdminClient();
   if (!supabase) {
     return {
@@ -203,20 +243,22 @@ export async function retryPendingApontamentosSheetSyncJobs(limit = 25) {
   }
 
   const now = new Date().toISOString();
-  const { data, error } = await supabase
+  let query = supabase
     .from("sync_jobs")
-    .select("id, payload, attempts, max_attempts")
+    .select("id, organization_id, payload, attempts, max_attempts")
     .eq("tipo", "apontamentos_sheet")
     .in("status", ["pendente", "erro"])
     .lte("scheduled_at", now)
     .lt("attempts", 8)
-    .order("created_at", { ascending: true })
-    .limit(limit);
+    .order("created_at", { ascending: true });
+  if (organizationId) query = query.eq("organization_id", organizationId);
+  const { data, error } = await query.limit(limit);
 
   if (error) return { ok: false, error: error.message };
 
   const jobs = (data ?? []) as {
     id: string;
+    organization_id: string;
     payload: SyncJobPayload;
     attempts: number;
     max_attempts: number;
@@ -242,7 +284,10 @@ export async function retryPendingApontamentosSheetSyncJobs(limit = 25) {
     if (lockError || !lockedJob) continue;
     processados += 1;
 
-    const sendError = await sendApontamentosSheetWebhook(job.payload, 5000);
+    const sendError = await sendApontamentosSheetWebhook(
+      { ...job.payload, organizationId: job.organization_id },
+      5000
+    );
     if (!sendError) {
       enviados += 1;
       await supabase

@@ -1,0 +1,42 @@
+name: Nova função
+description: Proponha uma nova capacidade ou módulo do produto.
+title: "[Nova função] "
+labels:
+  - "tipo: nova função"
+body:
+  - type: markdown
+    attributes:
+      value: Não inclua senhas, tokens, dados pessoais ou dados operacionais reais.
+  - type: textarea
+    id: problema
+    attributes:
+      label: Problema e público
+      description: Qual problema será resolvido e para qual perfil de usuário?
+    validations:
+      required: true
+  - type: textarea
+    id: resultado
+    attributes:
+      label: Resultado esperado
+      description: Descreva a capacidade sem prescrever detalhes desnecessários.
+    validations:
+      required: true
+  - type: textarea
+    id: escopo
+    attributes:
+      label: Escopo e fora de escopo
+    validations:
+      required: true
+  - type: textarea
+    id: aceite
+    attributes:
+      label: Critérios de aceite
+      description: Liste resultados verificáveis para encerrar a Issue.
+    validations:
+      required: true
+  - type: textarea
+    id: riscos
+    attributes:
+      label: Riscos, limitações e dependências
+    validations:
+      required: true

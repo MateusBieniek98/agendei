@@ -12,7 +12,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   // Hidrata o tema na montagem (lê localStorage + preferência do SO)
   useEffect(() => {
-    const stored = localStorage.getItem("gn-theme") as Theme | null;
+    const stored = (localStorage.getItem("forestry-ops:theme") ??
+      localStorage.getItem("gn-theme")) as Theme | null;
     const preferred = window.matchMedia("(prefers-color-scheme: dark)").matches
       ? "dark"
       : "light";
@@ -24,7 +25,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   function toggle() {
     setTheme((prev) => {
       const next: Theme = prev === "light" ? "dark" : "light";
-      localStorage.setItem("gn-theme", next);
+      localStorage.setItem("forestry-ops:theme", next);
       document.documentElement.setAttribute("data-theme", next);
       return next;
     });

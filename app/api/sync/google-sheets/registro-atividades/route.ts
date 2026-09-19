@@ -1,18 +1,15 @@
 import { createHash } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { sanitizeInsumos } from "@/lib/insumos";
+import { MAX_PRODUCTION_INSUMOS, sanitizeInsumos } from "@/lib/insumos";
 import {
   normalizePlanningText,
   normalizeProjectName,
   syncPlanningProgressForProduction,
 } from "@/lib/planning-progress";
 import { upsertServiceMetadata } from "@/lib/service-metadata";
-import {
-  configuredSyncTokens,
-  isAuthorizedSyncRequest,
-  syncTokenMissingMessage,
-} from "@/lib/sync-auth";
+import { resolveSyncOrganization } from "@/lib/sync-auth";
+import { consumeOrganizationRateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -62,10 +59,10 @@ type GenericTable = {
   Relationships: [];
 };
 
-type GnDatabase = {
+type TenantDatabase = {
   public: {
     Tables: Record<
-      "projetos" | "equipes" | "atividades" | "profiles" | "producao",
+      "projetos" | "equipes" | "atividades" | "profiles" | "producao" | "organization_members",
       GenericTable
     >;
     Views: Record<string, never>;
@@ -80,10 +77,10 @@ type GnDatabase = {
   };
 };
 
-type AdminSupabase = SupabaseClient<GnDatabase, "public", "public">;
+type AdminSupabase = SupabaseClient<TenantDatabase, "public", "public">;
 
 const SOURCE_NAME = "google_sheets";
-const DEFAULT_SPREADSHEET_NAME = "Controle de Produção GN";
+const DEFAULT_SPREADSHEET_NAME = "Controle de Produção";
 const DEFAULT_SHEET_NAME = "Registro de atividades";
 const MAX_ROWS_PER_REQUEST = 5000;
 
@@ -146,7 +143,13 @@ function rowNumber(row: SheetRowPayload) {
 function explicitSourceId(row: SheetRowPayload) {
   const data = rowData(row);
   return cleanText(
-    data.sourceId ?? data.__sourceId ?? data["GN App ID"] ?? data["gn_app_id"] ?? ""
+    data.sourceId ??
+      data.__sourceId ??
+      data["App ID"] ??
+      /* Legacy aliases keep the first customer's existing sheet working. */
+      data["GN App ID"] ??
+      data["gn_app_id"] ??
+      ""
   );
 }
 
@@ -241,7 +244,7 @@ function getInsumos(row: SheetRowPayload, headers: string[]) {
   }
 
   const data = rowData(row);
-  const insumos = Array.from({ length: 5 }, (_, index) => {
+  const insumos = Array.from({ length: MAX_PRODUCTION_INSUMOS }, (_, index) => {
     const numero = index + 1;
     return {
       nome: data[`Insumo ${numero}`],
@@ -255,20 +258,34 @@ function addEntity(map: Map<string, EntityRow>, row: EntityRow, project = false)
   map.set(project ? normalizeProjectName(row.nome) : key(row.nome), row);
 }
 
-async function loadImportMaps(supabase: AdminSupabase): Promise<ImportMaps> {
-  const [projetos, equipes, atividades, profiles] = await Promise.all([
-    supabase.from("projetos").select("id, nome, ativo").limit(10000),
-    supabase.from("equipes").select("id, nome, ativo").limit(10000),
+async function loadImportMaps(supabase: AdminSupabase, organizationId: string): Promise<ImportMaps> {
+  const [projetos, equipes, atividades, memberships] = await Promise.all([
+    supabase.from("projetos").select("id, nome, ativo").eq("organization_id", organizationId).limit(10000),
+    supabase.from("equipes").select("id, nome, ativo").eq("organization_id", organizationId).limit(10000),
     supabase
       .from("atividades")
       .select("id, nome, unidade, valor_unitario, ativo, service_key, service_metadata_id")
+      .eq("organization_id", organizationId)
       .limit(10000),
-    supabase.from("profiles").select("id, nome, email, role").limit(10000),
+    supabase
+      .from("organization_members")
+      .select("user_id,role,active")
+      .eq("organization_id", organizationId)
+      .eq("active", true)
+      .limit(10000),
   ]);
 
-  for (const response of [projetos, equipes, atividades, profiles]) {
+  for (const response of [projetos, equipes, atividades, memberships]) {
     if (response.error) throw new Error(response.error.message);
   }
+
+  const membershipRows = (memberships.data ?? []) as Array<{ user_id: string; role: string }>;
+  const membershipRole = new Map(membershipRows.map((item) => [item.user_id, item.role]));
+  const profileIds = membershipRows.map((item) => item.user_id);
+  const profiles = profileIds.length
+    ? await supabase.from("profiles").select("id, nome, email").in("id", profileIds)
+    : { data: [], error: null };
+  if (profiles.error) throw new Error(profiles.error.message);
 
   const projetoMap = new Map<string, EntityRow>();
   const equipeMap = new Map<string, EntityRow>();
@@ -279,7 +296,10 @@ async function loadImportMaps(supabase: AdminSupabase): Promise<ImportMaps> {
   for (const row of (equipes.data ?? []) as EntityRow[]) addEntity(equipeMap, row);
   for (const row of (atividades.data ?? []) as EntityRow[]) addEntity(atividadeMap, row);
 
-  const profileRows = (profiles.data ?? []) as EntityRow[];
+  const profileRows = ((profiles.data ?? []) as EntityRow[]).map((profile) => ({
+    ...profile,
+    role: membershipRole.get(profile.id),
+  }));
   for (const row of profileRows) {
     const profileKeys = [
       key(row.nome),
@@ -305,7 +325,8 @@ async function loadImportMaps(supabase: AdminSupabase): Promise<ImportMaps> {
 async function ensureProjeto(
   supabase: AdminSupabase,
   maps: ImportMaps,
-  nome: string
+  nome: string,
+  organizationId: string
 ) {
   const mapKey = normalizeProjectName(nome);
   const existing = maps.projetos.get(mapKey);
@@ -313,7 +334,7 @@ async function ensureProjeto(
 
   const { data, error } = await supabase
     .from("projetos")
-    .insert({ nome, ativo: true })
+    .insert({ organization_id: organizationId, nome, ativo: true })
     .select("id, nome, ativo")
     .single();
   if (error) throw new Error(`Projeto "${nome}": ${error.message}`);
@@ -326,7 +347,8 @@ async function ensureProjeto(
 async function ensureEquipe(
   supabase: AdminSupabase,
   maps: ImportMaps,
-  nome: string
+  nome: string,
+  organizationId: string
 ) {
   const safeName = nome || "Sem equipe informada";
   const mapKey = key(safeName);
@@ -336,6 +358,7 @@ async function ensureEquipe(
   const { data, error } = await supabase
     .from("equipes")
     .insert({
+      organization_id: organizationId,
       nome: safeName,
       descricao: `Criada pela importacao da aba ${DEFAULT_SHEET_NAME}.`,
       ativo: true,
@@ -354,14 +377,19 @@ async function ensureAtividade(
   maps: ImportMaps,
   nome: string,
   tarifa: number | null,
-  atualizarCadastros: boolean
+  atualizarCadastros: boolean,
+  organizationId: string
 ) {
-  const metadata = await upsertServiceMetadata(supabase, {
-    displayName: nome,
-    valorUnitario: atualizarCadastros ? tarifa : null,
-    sourceSheet: DEFAULT_SHEET_NAME,
-    metadata: { origem: "importacao_registro_atividades" },
-  });
+  const metadata = await upsertServiceMetadata(
+    supabase,
+    {
+      displayName: nome,
+      valorUnitario: atualizarCadastros ? tarifa : null,
+      sourceSheet: DEFAULT_SHEET_NAME,
+      metadata: { origem: "importacao_registro_atividades" },
+    },
+    organizationId
+  );
   const metadataActivity = metadata.atividade as EntityRow;
   addEntity(maps.atividades, metadataActivity);
   if (metadataActivity.service_key) {
@@ -382,7 +410,8 @@ async function importRow(
   spreadsheetName: string,
   sheetName: string,
   atualizarCadastros: boolean,
-  dryRun: boolean
+  dryRun: boolean,
+  organizationId: string
 ) {
   const line = rowNumber(row);
   const data = parseDateISO(valueAt(row, headers, ["Data"]));
@@ -437,9 +466,16 @@ async function importRow(
     };
   }
 
-  const projeto = await ensureProjeto(supabase, maps, projetoNome);
-  const equipe = await ensureEquipe(supabase, maps, equipeNome);
-  const atividade = await ensureAtividade(supabase, maps, atividadeNome, tarifa, atualizarCadastros);
+  const projeto = await ensureProjeto(supabase, maps, projetoNome, organizationId);
+  const equipe = await ensureEquipe(supabase, maps, equipeNome, organizationId);
+  const atividade = await ensureAtividade(
+    supabase,
+    maps,
+    atividadeNome,
+    tarifa,
+    atualizarCadastros,
+    organizationId
+  );
   const profile =
     maps.profiles.get(key(encarregado)) ??
     maps.profiles.get(key(encarregado.split(" ")[0])) ??
@@ -449,6 +485,7 @@ async function importRow(
   const insumos = getInsumos(row, headers);
 
   const payload = {
+    organization_id: organizationId,
     data,
     equipe_id: equipe.id,
     atividade_id: atividade.id,
@@ -488,18 +525,20 @@ async function importRow(
   const { data: existingByKey, error: existingByKeyError } = await supabase
     .from("producao")
     .select("id")
+    .eq("organization_id", organizationId)
     .eq("origem_chave", origemChave)
     .maybeSingle();
   if (existingByKeyError) throw new Error(existingByKeyError.message);
 
   let existingId = cleanText(existingByKey?.id);
 
-  // Compatibilidade com importações antigas, feitas antes da coluna GN Source ID.
+  // Compatibilidade com importações anteriores à coluna estável de origem.
   // Isso evita duplicar apontamentos quando o script novo passa a usar uma chave fixa.
   if (!existingId && line) {
     const { data: existingByLine, error: existingByLineError } = await supabase
       .from("producao")
       .select("id")
+      .eq("organization_id", organizationId)
       .eq("origem_planilha", spreadsheetName)
       .eq("origem_aba", sheetName)
       .eq("origem_linha", line)
@@ -513,11 +552,12 @@ async function importRow(
         .from("producao")
         .update(payload)
         .eq("id", existingId)
+        .eq("organization_id", organizationId)
         .select("id, projeto_id, talhao, atividade_id")
         .single()
     : supabase
         .from("producao")
-        .upsert(payload, { onConflict: "origem_chave" })
+        .upsert(payload, { onConflict: "organization_id,origem_chave" })
         .select("id, projeto_id, talhao, atividade_id")
         .single();
 
@@ -542,16 +582,12 @@ async function importRow(
 }
 
 export async function POST(req: NextRequest) {
-  if (configuredSyncTokens().length === 0) {
-    return NextResponse.json(
-      { error: syncTokenMissingMessage() },
-      { status: 500 }
-    );
-  }
-
-  if (!isAuthorizedSyncRequest(req)) {
+  const syncOrganization = await resolveSyncOrganization(req);
+  if (!syncOrganization) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
+  const rateLimit = await consumeOrganizationRateLimit({ organizationId: syncOrganization.id, bucket: "sync.registro_atividades", limit: 10, windowSeconds: 60 });
+  if (!rateLimit.allowed) return NextResponse.json({ error: "rate_limit_exceeded" }, { status: 429 });
 
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!serviceKey) {
@@ -573,7 +609,7 @@ export async function POST(req: NextRequest) {
   const dryRun = body.dryRun === true;
   const atualizarCadastros = body.atualizarCadastros !== false;
 
-  const supabase: AdminSupabase = createClient<GnDatabase, "public", "public">(
+  const supabase: AdminSupabase = createClient<TenantDatabase, "public", "public">(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     serviceKey,
     {
@@ -586,7 +622,7 @@ export async function POST(req: NextRequest) {
   );
 
   try {
-    const maps = await loadImportMaps(supabase);
+    const maps = await loadImportMaps(supabase, syncOrganization.id);
     const results = [];
 
     for (const row of rows) {
@@ -600,7 +636,8 @@ export async function POST(req: NextRequest) {
             spreadsheetName,
             sheetName,
             atualizarCadastros,
-            dryRun
+            dryRun,
+            syncOrganization.id
           )
         );
       } catch (error) {

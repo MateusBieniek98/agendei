@@ -1,11 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { insumosToColumns } from "@/lib/insumos";
-import {
-  configuredSyncTokens,
-  isAuthorizedSyncRequest,
-  syncTokenMissingMessage,
-} from "@/lib/sync-auth";
+import { resolveSyncOrganization } from "@/lib/sync-auth";
+import { consumeOrganizationRateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -74,16 +71,12 @@ function addDaysISO(days: number) {
 }
 
 export async function GET(req: NextRequest) {
-  if (configuredSyncTokens().length === 0) {
-    return NextResponse.json(
-      { error: syncTokenMissingMessage() },
-      { status: 500 }
-    );
-  }
-
-  if (!isAuthorizedSyncRequest(req)) {
+  const syncOrganization = await resolveSyncOrganization(req);
+  if (!syncOrganization) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
+  const rateLimit = await consumeOrganizationRateLimit({ organizationId: syncOrganization.id, bucket: "sync.export_apontamentos", limit: 60, windowSeconds: 60 });
+  if (!rateLimit.allowed) return NextResponse.json({ error: "rate_limit_exceeded" }, { status: 429 });
 
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!serviceKey) {
@@ -124,6 +117,7 @@ export async function GET(req: NextRequest) {
           "registrado_por, created_at, updated_at, " +
           "equipes(nome), atividades(nome, unidade), projetos(nome)"
       )
+      .eq("organization_id", syncOrganization.id)
       .order("data", { ascending: true })
       .order("created_at", { ascending: true })
       .range(from, from + pageSize - 1);

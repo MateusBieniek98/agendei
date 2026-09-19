@@ -1,6 +1,6 @@
 # Importar `Registro de atividades` para o app
 
-Este fluxo importa apontamentos da planilha **Controle de Producao GN**,
+Este fluxo importa apontamentos da planilha **Controle de Producao**,
 aba **Registro de atividades**, para a tabela `public.producao` no Supabase.
 
 ## 1. Preparar o banco
@@ -34,7 +34,7 @@ Use o mesmo valor de `SHARED_SYNC_TOKEN` no Apps Script.
 
 ## 3. Colar o Apps Script
 
-Na planilha **Controle de Producao GN**:
+Na planilha **Controle de Producao**:
 
 1. Abra `Extensoes -> Apps Script`.
 2. Cole o conteudo de `docs/google-sheets-registro-atividades-import.js`.
@@ -51,8 +51,8 @@ Na planilha **Controle de Producao GN**:
 
 O script cria duas colunas no fim da aba, se elas ainda nao existirem:
 
-- `GN App ID`: identificador estavel da linha.
-- `GN Sync Status`: resultado da ultima sincronizacao.
+- `App ID`: identificador estavel da linha (o alias antigo continua aceito).
+- `Sync Status`: resultado da ultima sincronizacao.
 
 Cada linha valida da aba vira um apontamento no app. O app usa:
 

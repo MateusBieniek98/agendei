@@ -86,11 +86,16 @@ Adicionar um adapter SAP que:
   inventário (ex.: Schumacher–Hall)
 - Geração de relatórios para órgãos ambientais
 
-### 13. Multi-empresa / multi-cliente
-Hoje o GN serve uma operação. Para escalar como produto:
-- Tabela `clientes` (a contratante)
-- RLS por `cliente_id`
-- Faturamento separado por contratante na visão admin
+### 13. Multiempresa / multicliente — base entregue, rollout pendente
+A fundação multiempresa já foi implementada com `organizations`, associações,
+contexto ativo, administração da plataforma e isolamento por `organization_id`.
+A GN permanece como primeira organização e seus dados produtivos ainda não
+foram migrados para esse modelo.
+
+Os próximos passos são o ensaio em staging, a matriz RLS com duas organizações,
+a reconciliação integral e o rollback testado descritos no
+[runbook multiempresa](commercial/MULTI_TENANT_ROLLOUT.md). Não criar uma tabela
+`clientes` ou um `cliente_id` paralelo ao modelo atual.
 
 ### 14. Assinatura digital de medições
 Encarregado e fiscal do contratante assinam a medição diária na tela

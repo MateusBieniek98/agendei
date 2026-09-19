@@ -57,7 +57,7 @@ export default function ResumoCompilado({
             Detalhe completo por projeto, atividade, talhão, data, hectares e faturamento.
           </p>
         </div>
-        <p className="text-base font-bold text-[var(--color-gn-700)]">
+        <p className="text-base font-bold text-[var(--color-brand-700)]">
           Total: {brl(totalFaturamento)}
         </p>
       </div>
@@ -80,7 +80,7 @@ export default function ResumoCompilado({
             label="Pesquisar apontamentos"
             placeholder="Data, projeto, atividade, talhão ou observação"
           />
-          <p className="text-sm font-bold text-[var(--color-gn-700)]">
+          <p className="text-sm font-bold text-[var(--color-brand-700)]">
             Total filtrado: {brl(totalFiltrado)}
           </p>
 
@@ -108,7 +108,7 @@ export default function ResumoCompilado({
                             {linha.atividades?.nome ?? "Atividade sem nome"}
                           </h4>
                         </div>
-                        <p className="text-base font-bold text-[var(--color-gn-700)]">
+                        <p className="text-base font-bold text-[var(--color-brand-700)]">
                           {brl(total)}
                         </p>
                       </div>

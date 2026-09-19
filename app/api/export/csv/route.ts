@@ -107,7 +107,7 @@ export async function GET(req: NextRequest) {
   return new NextResponse(lines.join("\n"), {
     headers: {
       "content-type": "text/csv; charset=utf-8",
-      "content-disposition": `attachment; filename="GN_producao_${de}_a_${ate}.csv"`,
+      "content-disposition": `attachment; filename="producao_${de}_a_${ate}.csv"`,
     },
   });
 }

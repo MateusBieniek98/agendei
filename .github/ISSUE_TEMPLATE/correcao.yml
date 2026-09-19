@@ -1,0 +1,43 @@
+name: Correção
+description: Registre um defeito ou comportamento incorreto.
+title: "[Correção] "
+labels:
+  - "tipo: correção"
+body:
+  - type: markdown
+    attributes:
+      value: Não inclua senhas, tokens, dados pessoais ou dados operacionais reais.
+  - type: textarea
+    id: problema
+    attributes:
+      label: Problema
+      description: O que está incorreto e qual é o impacto?
+    validations:
+      required: true
+  - type: textarea
+    id: reproducao
+    attributes:
+      label: Como reproduzir
+      description: Informe passos, perfil, rota e ambiente sem expor dados sensíveis.
+    validations:
+      required: true
+  - type: textarea
+    id: esperado
+    attributes:
+      label: Comportamento esperado
+    validations:
+      required: true
+  - type: textarea
+    id: aceite
+    attributes:
+      label: Critérios de aceite
+      description: Liste resultados verificáveis para encerrar a Issue.
+    validations:
+      required: true
+  - type: textarea
+    id: riscos
+    attributes:
+      label: Riscos, evidências e dependências
+      description: Registre impacto, anexos seguros, bloqueios e possível rollback.
+    validations:
+      required: true

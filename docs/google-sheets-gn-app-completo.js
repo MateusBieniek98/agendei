@@ -1,3 +1,5 @@
+/* LEGADO DA PRIMEIRA ORGANIZAÇÃO. Novos clientes devem usar
+ * google-sheets-multiempresa-completo.js. Não remover durante a migração. */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**

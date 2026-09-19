@@ -3,6 +3,7 @@
 import Logo from "@/components/branding/Logo";
 import ThemeToggle from "@/components/theme/ThemeToggle";
 import SyncStatus from "@/components/sync/SyncStatus";
+import { PRODUCT_BRAND } from "@/lib/product-brand";
 
 function roleTone(title?: string) {
   const key = (title ?? "").toLowerCase();
@@ -62,7 +63,7 @@ export default function TopBar({
         </div>
         <div className="min-w-0 text-left">
           <p className="text-[10px] font-bold uppercase" style={{ color: "var(--text-muted)" }}>
-            GN Operações
+            {PRODUCT_BRAND.shortName}
           </p>
           <div className="mt-0.5 flex min-w-0 items-center gap-2">
             {title && (

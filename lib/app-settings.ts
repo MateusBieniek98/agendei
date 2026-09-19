@@ -27,9 +27,7 @@ type AppSettingRow = {
 
 export function createAppSettingsClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ??
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!url || !key) return null;
 
@@ -43,27 +41,17 @@ export function createAppSettingsClient() {
 }
 
 export async function getLoginSettings() {
-  const client = createAppSettingsClient();
-  if (!client) return DEFAULT_LOGIN_SETTINGS;
-
-  const { data, error } = await client
-    .from("app_settings")
-    .select("value")
-    .eq("key", LOGIN_SETTINGS_KEY)
-    .maybeSingle();
-
-  const row = data as AppSettingRow | null;
-  if (error || !row?.value) return DEFAULT_LOGIN_SETTINGS;
-  return normalizeLoginSettings(row.value);
+  return DEFAULT_LOGIN_SETTINGS;
 }
 
-export async function getOperationalAutomationSettings() {
+export async function getOperationalAutomationSettings(organizationId: string) {
   const client = createAppSettingsClient();
   if (!client) return DEFAULT_OPERATIONAL_AUTOMATIONS;
 
   const { data, error } = await client
     .from("app_settings")
     .select("value")
+    .eq("organization_id", organizationId)
     .eq("key", OPERATIONAL_AUTOMATIONS_KEY)
     .maybeSingle();
 
