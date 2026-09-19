@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import LinkPendingIndicator from "./LinkPendingIndicator";
 
 type NavItem = {
   href: string;
@@ -33,7 +34,7 @@ export default function MobileSectionNav({ items }: { items: NavItem[] }) {
             <Link
               key={item.href}
               href={item.href}
-              className="inline-flex h-10 shrink-0 snap-start items-center gap-2 rounded-lg border px-3 text-sm font-bold transition"
+              className="relative inline-flex h-10 shrink-0 snap-start items-center gap-2 rounded-lg border px-3 text-sm font-bold transition"
               style={{
                 borderColor: active ? "var(--accent)" : "var(--border)",
                 background: active ? "var(--accent-subtle)" : "var(--bg-card)",
@@ -46,6 +47,7 @@ export default function MobileSectionNav({ items }: { items: NavItem[] }) {
                 </span>
               )}
               {item.label}
+              <LinkPendingIndicator />
             </Link>
           );
         })}

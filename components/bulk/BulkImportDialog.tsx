@@ -15,6 +15,16 @@ export type BulkImportColumn = BulkColumnDefinition & {
   validate?: (value: string, values: Record<string, string>) => string | null;
 };
 
+export type BulkImportDialogProps = {
+  open: boolean;
+  title: string;
+  description: string;
+  columns: BulkImportColumn[];
+  onClose: () => void;
+  onImportRow: (values: Record<string, string>, rowIndex: number) => Promise<void>;
+  onComplete?: () => void | Promise<void>;
+};
+
 export default function BulkImportDialog({
   open,
   title,
@@ -23,19 +33,12 @@ export default function BulkImportDialog({
   onClose,
   onImportRow,
   onComplete,
-}: {
-  open: boolean;
-  title: string;
-  description: string;
-  columns: BulkImportColumn[];
-  onClose: () => void;
-  onImportRow: (values: Record<string, string>, rowIndex: number) => Promise<void>;
-  onComplete?: () => void | Promise<void>;
-}) {
+}: BulkImportDialogProps) {
   const [text, setText] = useState("");
   const [rows, setRows] = useState<ImportRow[]>([]);
   const [importing, setImporting] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [present, setPresent] = useState(open);
 
   useEffect(() => {
     if (!open) return;
@@ -56,11 +59,17 @@ export default function BulkImportDialog({
   }, [columns, text]);
 
   useEffect(() => {
-    if (!open) {
+    if (open) {
+      setPresent(true);
+      return;
+    }
+    const timer = window.setTimeout(() => {
       setText("");
       setRows([]);
       setCopied(false);
-    }
+      setPresent(false);
+    }, 220);
+    return () => window.clearTimeout(timer);
   }, [open]);
 
   const rowErrors = useMemo(
@@ -107,15 +116,15 @@ export default function BulkImportDialog({
     if (changed) await onComplete?.();
   }
 
-  if (!open) return null;
+  if (!present) return null;
 
   return (
-    <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4" role="presentation">
+    <div className="ui-overlay fixed inset-0 z-[90] flex items-end justify-center p-0 sm:items-center sm:p-4" role="presentation" data-state={open ? "open" : "closed"}>
       <section
         role="dialog"
         aria-modal="true"
         aria-labelledby="bulk-import-title"
-        className="flex max-h-[94dvh] w-full max-w-6xl flex-col overflow-hidden rounded-t-lg border border-[var(--border)] bg-[var(--bg-elevated)] shadow-2xl sm:rounded-lg"
+        className="ui-dialog-panel flex max-h-[94dvh] w-full max-w-6xl flex-col overflow-hidden rounded-t-lg border border-[var(--border)] bg-[var(--bg-elevated)] shadow-xl sm:rounded-lg"
       >
         <header className="flex items-start justify-between gap-4 border-b border-[var(--border)] p-4 sm:p-5">
           <div>

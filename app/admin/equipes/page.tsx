@@ -7,7 +7,8 @@ import PageHeader from "@/components/ui/PageHeader";
 import { useToast } from "@/components/ui/Toast";
 import { brl, todayISO } from "@/lib/format";
 import type { Equipe, Producao } from "@/lib/types";
-import BulkImportDialog, { type BulkImportColumn } from "@/components/bulk/BulkImportDialog";
+import BulkImportDialog, { type BulkImportColumn } from "@/components/bulk/LazyBulkImportDialog";
+import { CardGridSkeleton } from "@/components/ui/Skeleton";
 import BulkSelectionBar from "@/components/bulk/BulkSelectionBar";
 import { parseBooleanPtBr, responseError } from "@/lib/bulk-import";
 import { tenantStorageKey } from "@/lib/tenant-client";
@@ -74,6 +75,7 @@ function EquipeCard({
   days,
   onEdit,
   onInativar,
+  pending,
   selected,
   onSelect,
 }: {
@@ -82,6 +84,7 @@ function EquipeCard({
   days: string[];
   onEdit: () => void;
   onInativar: () => void;
+  pending: boolean;
   selected: boolean;
   onSelect: () => void;
 }) {
@@ -165,29 +168,24 @@ function EquipeCard({
 
       {/* Actions */}
       <div className="flex gap-2 pt-1 border-t" style={{ borderColor: "var(--border)" }}>
-        <button
+        <Button
+          variant="secondary"
+          size="sm"
           onClick={onEdit}
-          className="flex-1 text-xs font-semibold py-1.5 rounded-lg border"
-          style={{
-            color: "var(--accent)",
-            borderColor: "var(--accent)",
-            background: "transparent",
-          }}
+          className="flex-1"
         >
           Editar
-        </button>
+        </Button>
         {equipe.ativo && (
-          <button
+          <Button
+            variant="danger"
+            size="sm"
             onClick={onInativar}
-            className="flex-1 text-xs font-semibold py-1.5 rounded-lg border"
-            style={{
-              color: "var(--danger)",
-              borderColor: "var(--danger)",
-              background: "transparent",
-            }}
+            loading={pending}
+            className="flex-1"
           >
             Inativar
-          </button>
+          </Button>
         )}
       </div>
     </div>
@@ -209,6 +207,8 @@ export default function EquipesPage() {
   const [bulkOpen, setBulkOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [pendingId, setPendingId] = useState<string | null>(null);
 
   const days = useMemo(() => lastNDays(7), []);
 
@@ -240,32 +240,46 @@ export default function EquipesPage() {
 
   async function salvar() {
     if (!editing?.nome) { toast("Informe o nome.", "error"); return; }
-    const url    = editing.id ? `/api/equipes/${editing.id}` : "/api/equipes";
-    const method = editing.id ? "PATCH" : "POST";
-    const r = await fetch(url, {
-      method,
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        nome: editing.nome,
-        descricao: editing.descricao ?? null,
-        ativo: editing.ativo ?? true,
-      }),
-    });
-    if (!r.ok) {
-      const j = await r.json().catch(() => ({}));
-      toast(`Erro: ${j.error ?? r.statusText}`, "error"); return;
+    setSaving(true);
+    try {
+      const url    = editing.id ? `/api/equipes/${editing.id}` : "/api/equipes";
+      const method = editing.id ? "PATCH" : "POST";
+      const r = await fetch(url, {
+        method,
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          nome: editing.nome,
+          descricao: editing.descricao ?? null,
+          ativo: editing.ativo ?? true,
+        }),
+      });
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        toast(`Erro: ${j.error ?? r.statusText}`, "error"); return;
+      }
+      toast("Equipe salva.", "success");
+      setEditing(null);
+      await carregar();
+    } catch (err) {
+      toast(`Erro ao salvar equipe: ${(err as Error).message}`, "error");
+    } finally {
+      setSaving(false);
     }
-    toast("Equipe salva.", "success");
-    setEditing(null);
-    void carregar();
   }
 
   async function excluir(id: string) {
     if (!confirm("Inativar equipe?")) return;
-    const r = await fetch(`/api/equipes/${id}`, { method: "DELETE" });
-    if (!r.ok) { toast("Erro.", "error"); return; }
-    toast("Equipe inativada.", "success");
-    void carregar();
+    setPendingId(id);
+    try {
+      const r = await fetch(`/api/equipes/${id}`, { method: "DELETE" });
+      if (!r.ok) { toast("Erro.", "error"); return; }
+      toast("Equipe inativada.", "success");
+      await carregar();
+    } catch (err) {
+      toast(`Erro ao inativar equipe: ${(err as Error).message}`, "error");
+    } finally {
+      setPendingId(null);
+    }
   }
 
   async function importar(values: Record<string, string>) {
@@ -356,7 +370,7 @@ export default function EquipesPage() {
             <button
               key={f.v}
               onClick={() => setFiltro(f.v)}
-              className="h-9 rounded-lg border px-3 text-xs font-semibold transition-all"
+              className="h-9 rounded-lg border px-3 text-xs font-semibold transition-colors"
               style={{
                 background:  statusFiltro === f.v ? "var(--accent)" : "var(--bg-card)",
                 color:       statusFiltro === f.v ? "#fff" : "var(--text-secondary)",
@@ -373,9 +387,7 @@ export default function EquipesPage() {
 
       {/* Grid */}
       {loading ? (
-        <div className="text-center py-12 text-sm" style={{ color: "var(--text-muted)" }}>
-          Carregando...
-        </div>
+        <CardGridSkeleton count={8} className="grid-cols-2 sm:grid-cols-3 lg:grid-cols-4" />
       ) : filtradas.length === 0 ? (
         <div
           className="rounded-lg p-8 text-center text-sm"
@@ -384,7 +396,7 @@ export default function EquipesPage() {
           Nenhuma equipe encontrada.
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        <div className="ui-list-enter grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {filtradas.map((e) => (
             <EquipeCard
               key={e.id}
@@ -393,6 +405,7 @@ export default function EquipesPage() {
               days={days}
               onEdit={() => setEditing(e)}
               onInativar={() => excluir(e.id)}
+              pending={pendingId === e.id}
               selected={selected.has(e.id)}
               onSelect={() => setSelected((current) => { const next = new Set(current); if (next.has(e.id)) next.delete(e.id); else next.add(e.id); return next; })}
             />
@@ -403,12 +416,12 @@ export default function EquipesPage() {
       {/* Modal */}
       {editing && (
         <div
-          className="fixed inset-0 flex items-center justify-center p-4 z-50"
-          style={{ background: "rgba(0,0,0,0.45)" }}
+          className="ui-overlay fixed inset-0 z-50 flex items-center justify-center p-4"
+          data-state="open"
           onClick={() => setEditing(null)}
         >
           <div
-            className="w-full max-w-md rounded-lg p-5 space-y-3"
+            className="ui-dialog-panel w-full max-w-md space-y-3 rounded-lg p-5"
             style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}
             onClick={(ev) => ev.stopPropagation()}
           >
@@ -427,7 +440,7 @@ export default function EquipesPage() {
             />
             <div className="grid grid-cols-2 gap-2 pt-2">
               <Button variant="ghost" onClick={() => setEditing(null)}>Cancelar</Button>
-              <Button onClick={salvar}>Salvar</Button>
+              <Button onClick={salvar} loading={saving}>Salvar</Button>
             </div>
           </div>
         </div>

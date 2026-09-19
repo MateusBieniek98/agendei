@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import Button from "@/components/ui/Button";
 import {
   flushOfflineProductions,
   getOfflineProductionSnapshot,
@@ -117,15 +118,15 @@ export default function MeuDiaSyncCard() {
       </div>
 
       <div className="mt-3 grid grid-cols-[1fr_auto] gap-2">
-        <button
+        <Button
           type="button"
           disabled={busy || !online}
+          loading={busy}
           onClick={() => flushOfflineQueue()}
-          className="h-11 rounded-lg px-3 text-sm font-bold transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
-          style={{ background: "var(--accent)", color: "#fff" }}
+          className="h-11 w-full"
         >
-          {busy ? "Enviando..." : "Enviar pendentes"}
-        </button>
+          Enviar pendentes
+        </Button>
         <Link
           href="/sincronizar"
           className="grid h-11 place-items-center rounded-lg border px-3 text-xs font-bold"
@@ -136,7 +137,7 @@ export default function MeuDiaSyncCard() {
       </div>
 
       {message && (
-        <p className="mt-2 text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
+        <p role="status" className="animate-fade-in mt-2 text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
           {message}
         </p>
       )}

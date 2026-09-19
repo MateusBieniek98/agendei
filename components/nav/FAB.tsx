@@ -51,6 +51,7 @@ const DEFAULT_ITEMS: FABItem[] = [
 
 export default function FAB({ items = DEFAULT_ITEMS }: { items?: FABItem[] }) {
   const [open, setOpen] = useState(false);
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
   const router = useRouter();
   const ref = useRef<HTMLDivElement>(null);
 
@@ -75,15 +76,25 @@ export default function FAB({ items = DEFAULT_ITEMS }: { items?: FABItem[] }) {
     return () => document.removeEventListener("keydown", handleKey);
   }, []);
 
+  useEffect(() => {
+    if (!open) return;
+    items.forEach((item) => router.prefetch(item.href));
+  }, [items, open, router]);
+
   return (
     <div ref={ref} className="fixed bottom-[calc(env(safe-area-inset-bottom)+5rem)] right-5 z-50 flex flex-col items-end gap-3">
       {/* Items do menu radial */}
-      {open && items.map((item, i) => (
-        <div
-          key={item.href}
-          className="fab-item flex items-center gap-3"
-          style={{ animationDelay: `${i * 40}ms` }}
-        >
+      <div
+        className={`flex flex-col items-end gap-3 transition-[opacity,transform,visibility] duration-200 ${open ? "visible translate-y-0 opacity-100" : "invisible pointer-events-none translate-y-2 opacity-0"}`}
+        aria-hidden={!open}
+        inert={!open}
+      >
+        {items.map((item, i) => (
+          <div
+            key={item.href}
+            className="flex items-center gap-3 transition-[opacity,transform] duration-200"
+            style={{ transitionDelay: open ? `${i * 35}ms` : "0ms" }}
+          >
           {/* Label */}
           <span
             className="rounded-lg px-3 py-1.5 text-sm font-semibold shadow-md whitespace-nowrap"
@@ -93,22 +104,26 @@ export default function FAB({ items = DEFAULT_ITEMS }: { items?: FABItem[] }) {
           </span>
           {/* Botão circular */}
           <button
-            onClick={() => { setOpen(false); router.push(item.href); }}
-            className="h-12 w-12 rounded-full text-white shadow-lg flex items-center justify-center transition-transform hover:scale-110 active:scale-95"
+            onClick={() => { setPendingHref(item.href); setOpen(false); router.push(item.href); }}
+            disabled={pendingHref !== null}
+            aria-busy={pendingHref === item.href || undefined}
+            className="flex h-12 w-12 items-center justify-center rounded-full text-white shadow-md transition-transform hover:scale-[1.03] active:scale-[0.98] disabled:opacity-60"
             style={{ background: item.color ?? "var(--accent)" }}
             aria-label={item.label}
           >
-            {item.icon}
+            {pendingHref === item.href ? <span className="ui-spinner h-4 w-4" aria-hidden="true" /> : item.icon}
           </button>
         </div>
-      ))}
+        ))}
+      </div>
 
       {/* Botão principal + */}
       <button
         onClick={() => setOpen((v) => !v)}
+        disabled={pendingHref !== null}
         aria-label={open ? "Fechar menu" : "Ações rápidas"}
         aria-expanded={open}
-        className="h-14 w-14 rounded-full text-white shadow-xl flex items-center justify-center transition-all hover:scale-105 active:scale-95"
+        className="flex h-14 w-14 items-center justify-center rounded-full text-white shadow-md transition-[background-color,transform,opacity] hover:scale-[1.03] active:scale-[0.98] disabled:opacity-60"
         style={{ background: open ? "#374151" : "var(--accent)" }}
       >
         <span
@@ -123,13 +138,13 @@ export default function FAB({ items = DEFAULT_ITEMS }: { items?: FABItem[] }) {
       </button>
 
       {/* Overlay semitransparente quando aberto */}
-      {open && (
-        <div
-          className="fixed inset-0 -z-10"
-          style={{ background: "rgba(0,0,0,0.35)" }}
-          onClick={() => setOpen(false)}
-        />
-      )}
+      <div
+        className="ui-overlay fixed inset-0 -z-10"
+        data-state={open ? "open" : "closed"}
+        aria-hidden={!open}
+        inert={!open}
+        onClick={() => setOpen(false)}
+      />
     </div>
   );
 }

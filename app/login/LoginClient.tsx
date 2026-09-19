@@ -123,12 +123,13 @@ export default function LoginClient({ settings }: { settings: LoginSettings }) {
               <button
                 type="submit"
                 disabled={submitting}
+                aria-busy={submitting || undefined}
                 className="mt-2 flex h-13 min-h-13 w-full items-center justify-center gap-2 rounded-md border border-[#235f46] bg-[#235f46] px-5 text-base font-semibold text-white transition hover:bg-[#194936] active:scale-[0.99] disabled:pointer-events-none disabled:opacity-70"
               >
                 {submitting && (
                   <span
                     aria-hidden
-                    className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
+                    className="ui-spinner h-4 w-4"
                   />
                 )}
                 {submitting ? "Entrando..." : settings.buttonLabel}

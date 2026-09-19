@@ -135,8 +135,8 @@ export default function PeriodoFiltro({
           </>
         )}
         {loading && (
-          <span className="inline-flex items-center gap-1">
-            <span className="h-3 w-3 rounded-full border-2 border-[var(--color-brand-500)] border-t-transparent animate-spin" />
+          <span className="inline-flex items-center gap-1" role="status">
+            <span className="ui-spinner h-3 w-3 text-[var(--accent)]" aria-hidden="true" />
             atualizando…
           </span>
         )}

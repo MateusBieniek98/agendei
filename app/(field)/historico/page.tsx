@@ -48,7 +48,7 @@ export default async function HistoricoPage() {
       </div>
 
       <Card className="p-4 bg-[var(--color-brand-700)] text-white border-[var(--color-brand-700)]">
-        <p className="text-xs uppercase tracking-wider text-white/80">Faturamento do dia</p>
+        <p className="text-xs uppercase text-white/80">Faturamento do dia</p>
         <p className="mt-1 text-3xl font-bold tabular">{brl(total)}</p>
         <p className="mt-1 text-xs text-white/70">
           {linhas.length} lançamento{linhas.length === 1 ? "" : "s"}

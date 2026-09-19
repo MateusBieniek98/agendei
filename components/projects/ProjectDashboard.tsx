@@ -7,6 +7,7 @@ import Select from "@/components/ui/Select";
 import PageHeader from "@/components/ui/PageHeader";
 import { Card, CardBody, CardHeader, StatCard } from "@/components/ui/Card";
 import { useToast } from "@/components/ui/Toast";
+import { PageSkeleton } from "@/components/ui/Skeleton";
 import { brl, ddmmyyyy, num } from "@/lib/format";
 import type { Equipe, Maquina, OperationalAllocation, ProjectSummary, ProjetoComTalhoes } from "@/lib/types";
 
@@ -128,7 +129,7 @@ export default function ProjectDashboard({ mode, initialProjectId }: { mode: Mod
       <PageHeader
         eyebrow={mode === "field" ? "Operação de campo" : "Gestão por projeto"}
         title={summary?.projeto.nome ?? "Projetos"}
-        subtitle={summary ? `${summary.periodo.label} · visão integrada de produção, planejamento e recursos` : "Carregando visão operacional..."}
+        subtitle={summary ? `${summary.periodo.label} · visão integrada de produção, planejamento e recursos` : "Visão integrada de produção, planejamento e recursos"}
         right={mode === "admin" && projectId ? <Link href="/admin/projetos" className="text-sm font-medium text-[var(--accent)]">Voltar ao cadastro</Link> : undefined}
       />
 
@@ -140,7 +141,7 @@ export default function ProjectDashboard({ mode, initialProjectId }: { mode: Mod
         </div>
       </Card>
 
-      {loading && !summary ? <Card className="p-10 text-center text-sm text-[var(--text-muted)]">Carregando indicadores...</Card> : summary && <>
+      {loading && !summary ? <PageSkeleton variant="dashboard" /> : summary && <>
         <div className="grid grid-cols-2 gap-3 xl:grid-cols-5">
           <StatCard label="Área cadastrada" value={`${num(summary.kpis.area_total_ha, 1)} ha`} hint={`${summary.kpis.talhoes_ativos} talhões ativos`} />
           <StatCard label="Produção" value={summary.financeiro_visivel ? brl(summary.kpis.producao_valor) : summary.kpis.lancamentos} hint={summary.financeiro_visivel ? `${summary.kpis.lancamentos} apontamentos` : "apontamentos no período"} />

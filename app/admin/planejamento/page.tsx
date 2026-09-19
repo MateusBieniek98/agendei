@@ -5,8 +5,9 @@ import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import PageHeader from "@/components/ui/PageHeader";
+import { ListSkeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/Toast";
-import BulkImportDialog, { type BulkImportColumn } from "@/components/bulk/BulkImportDialog";
+import BulkImportDialog, { type BulkImportColumn } from "@/components/bulk/LazyBulkImportDialog";
 import BulkSelectionBar from "@/components/bulk/BulkSelectionBar";
 import { normalizeBulkValue, parseDatePtBr, parseNumberPtBr, responseError } from "@/lib/bulk-import";
 import { brl, ddmmyyyy, num, todayISO } from "@/lib/format";
@@ -127,7 +128,7 @@ function ProgressBar({ pct }: { pct: number }) {
   return (
     <div className="rounded-full overflow-hidden" style={{ height: 6, background: "var(--border)" }}>
       <div
-        className="h-full rounded-full transition-all"
+        className="h-full rounded-full transition-[width] duration-200"
         style={{ width: `${Math.min(pct, 100)}%`, background: cor }}
       />
     </div>
@@ -141,6 +142,7 @@ function FormModal({
   projetos,
   atividades,
   equipes,
+  saving,
   onSalvar,
   onCancelar,
 }: {
@@ -149,7 +151,8 @@ function FormModal({
   projetos: ProjetoComTalhoes[];
   atividades: Atividade[];
   equipes: Equipe[];
-  onSalvar: () => void;
+  saving: boolean;
+  onSalvar: () => Promise<void>;
   onCancelar: () => void;
 }) {
   const now = new Date();
@@ -160,12 +163,12 @@ function FormModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex flex-col justify-end md:items-center md:justify-center"
-      style={{ background: "rgba(0,0,0,0.5)" }}
+      className="ui-overlay fixed inset-0 z-50 flex flex-col justify-end md:items-center md:justify-center"
+      data-state="open"
       onClick={(e) => e.target === e.currentTarget && onCancelar()}
     >
       <div
-        className="flex max-h-[95dvh] w-full flex-col rounded-t-lg md:max-w-2xl md:rounded-lg"
+        className="ui-dialog-panel flex max-h-[95dvh] w-full flex-col rounded-t-lg md:max-w-2xl md:rounded-lg"
         style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)" }}
       >
         {/* Handle (mobile) */}
@@ -296,7 +299,7 @@ function FormModal({
           <Button variant="ghost" onClick={onCancelar}>
             Cancelar
           </Button>
-          <Button onClick={onSalvar}>
+          <Button onClick={onSalvar} loading={saving}>
             {editing.id ? "Salvar alterações" : "Adicionar"}
           </Button>
         </div>
@@ -577,6 +580,7 @@ export default function PlanejamentoAdminPage() {
   const [bulkOpen,   setBulkOpen]   = useState(false);
   const [selected,   setSelected]   = useState<Set<string>>(new Set());
   const [deleting,   setDeleting]   = useState(false);
+  const [saving,     setSaving]     = useState(false);
 
   // Filters
   const [anoFiltro,     setAnoFiltro]     = useState(String(now.getFullYear()));
@@ -634,21 +638,28 @@ export default function PlanejamentoAdminPage() {
       toast("Preencha mês, projeto, talhão, atividade e prazo.", "error");
       return;
     }
-    const url    = editing.id ? `/api/planejamento/${editing.id}` : "/api/planejamento";
-    const method = editing.id ? "PATCH" : "POST";
-    const r = await fetch(url, {
-      method,
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(editing),
-    });
-    if (!r.ok) {
-      const j = await r.json().catch(() => ({}));
-      toast(`Erro: ${j.error ?? r.statusText}`, "error");
-      return;
+    setSaving(true);
+    try {
+      const url    = editing.id ? `/api/planejamento/${editing.id}` : "/api/planejamento";
+      const method = editing.id ? "PATCH" : "POST";
+      const r = await fetch(url, {
+        method,
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(editing),
+      });
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        toast(`Erro: ${j.error ?? r.statusText}`, "error");
+        return;
+      }
+      toast("Planejamento salvo.", "success");
+      setShowForm(false);
+      await carregar();
+    } catch (err) {
+      toast(`Erro ao salvar planejamento: ${(err as Error).message}`, "error");
+    } finally {
+      setSaving(false);
     }
-    toast("Planejamento salvo.", "success");
-    setShowForm(false);
-    carregar();
   }
 
   function findByName<T extends { nome: string }>(list: T[], value: string, label: string) {
@@ -837,7 +848,7 @@ export default function PlanejamentoAdminPage() {
           className="rounded-lg p-4"
           style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}
         >
-          <p className="text-xs font-bold uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
+          <p className="text-xs font-bold uppercase" style={{ color: "var(--text-muted)" }}>
             Faturamento planejado
           </p>
           <p className="mt-1 text-2xl font-bold tabular" style={{ color: "var(--text-primary)" }}>
@@ -914,9 +925,7 @@ export default function PlanejamentoAdminPage() {
       />
 
       {loading && (
-        <div className="py-12 text-center text-sm" style={{ color: "var(--text-muted)" }}>
-          Carregando…
-        </div>
+        <ListSkeleton count={5} className="rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-4" />
       )}
 
       {!loading && itensFiltrados.length === 0 && (
@@ -942,6 +951,7 @@ export default function PlanejamentoAdminPage() {
           projetos={projetos}
           atividades={atividades}
           equipes={equipes}
+          saving={saving}
           onSalvar={salvar}
           onCancelar={() => setShowForm(false)}
         />

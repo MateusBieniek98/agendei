@@ -9,6 +9,7 @@ import Select from "@/components/ui/Select";
 import PageHeader from "@/components/ui/PageHeader";
 import Badge from "@/components/ui/Badge";
 import { useToast } from "@/components/ui/Toast";
+import { ListSkeleton } from "@/components/ui/Skeleton";
 import { ddmmyyyy } from "@/lib/format";
 import type {
   Equipe,
@@ -465,11 +466,11 @@ export default function MaintenanceFeed({
       </div>}
 
       {loading && threads.length === 0 ? (
-        <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-8 text-center text-sm font-semibold text-[var(--text-muted)]">Carregando solicitações...</div>
+        <ListSkeleton count={compact ? 3 : 5} />
       ) : filteredThreads.length === 0 ? (
         <div className="rounded-lg border border-dashed border-[var(--border)] p-8 text-center text-sm font-semibold text-[var(--text-muted)]">Nenhuma solicitação neste filtro.</div>
       ) : (
-        <div className="grid gap-1.5">
+        <div className="ui-list-enter grid gap-1.5">
           {filteredThreads.map((thread) => (
             <button key={thread.id} type="button" onClick={() => void openThread(thread)} className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-3.5 text-left transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)] sm:p-4">
               <div className="flex items-start justify-between gap-3">
@@ -498,8 +499,8 @@ export default function MaintenanceFeed({
       )}
 
       {selected && (
-        <div className="fixed inset-0 z-[70] bg-black/45" onClick={() => setSelectedId(null)}>
-          <aside className="ml-auto h-full w-full overflow-y-auto border-l border-[var(--border)] bg-[var(--bg-page)] shadow-2xl sm:max-w-xl" onClick={(event) => event.stopPropagation()}>
+        <div className="ui-overlay fixed inset-0 z-[70] bg-black/45" data-state="open" data-side="right" onClick={() => setSelectedId(null)}>
+          <aside className="ui-drawer-panel ml-auto h-full w-full overflow-y-auto border-l border-[var(--border)] bg-[var(--bg-page)] shadow-xl sm:max-w-xl" onClick={(event) => event.stopPropagation()}>
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[var(--border)] bg-[var(--bg-card)] px-4 py-3">
               <div className="min-w-0"><p className="text-xs font-medium text-[var(--text-muted)]">Solicitação</p><h2 className="truncate text-lg font-semibold text-[var(--text-primary)]">{selected.maquinas?.nome ?? "Máquina"}</h2></div>
               <Button variant="ghost" size="sm" onClick={() => setSelectedId(null)}>Fechar</Button>

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import PageHeader from "@/components/ui/PageHeader";
+import { ListSkeleton } from "@/components/ui/Skeleton";
 import { brl, ddmmyyyy, num, todayISO } from "@/lib/format";
 import type { PlanningStatus } from "@/lib/types";
 
@@ -70,7 +71,7 @@ function ProgressBar({ pct }: { pct: number }) {
   return (
     <div className="rounded-full overflow-hidden mt-2" style={{ height: 6, background: "var(--border)" }}>
       <div
-        className="h-full rounded-full transition-all"
+        className="h-full rounded-full transition-[width] duration-200"
         style={{ width: `${Math.min(pct, 100)}%`, background: cor }}
       />
     </div>
@@ -300,9 +301,7 @@ export default function PlanejamentoField({
 
       {/* Lista */}
       {loading ? (
-        <div className="py-12 text-center text-sm" style={{ color: "var(--text-muted)" }}>
-          Carregando…
-        </div>
+        <ListSkeleton count={4} />
       ) : itensFiltrados.length === 0 ? (
         <div
           className="rounded-lg py-10 text-center"
@@ -317,7 +316,7 @@ export default function PlanejamentoField({
           </p>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="ui-list-enter space-y-3">
           {itensFiltrados.map((item) => (
             <CardItem key={item.id} item={item} onIniciar={handleIniciar} />
           ))}

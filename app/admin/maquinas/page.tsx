@@ -1,15 +1,20 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
-import MaintenanceFeed from "@/components/maintenance/MaintenanceFeed";
 import PageHeader from "@/components/ui/PageHeader";
 import { useToast } from "@/components/ui/Toast";
 import { ddmmyyyy } from "@/lib/format";
 import type { Equipe, Maquina, MachineStatus, MaintenanceStatus, Manutencao, Projeto } from "@/lib/types";
 import { tenantStorageKey } from "@/lib/tenant-client";
+import { ListSkeleton, PageSkeleton } from "@/components/ui/Skeleton";
+
+const MaintenanceFeed = dynamic(() => import("@/components/maintenance/MaintenanceFeed"), {
+  loading: () => <ListSkeleton count={4} />,
+});
 
 type ManutComMaquina = Manutencao & {
   maquinas: { nome: string; tipo: string; identificador: string | null; status: MachineStatus } | null;
@@ -85,7 +90,7 @@ function StatusDot({ status, pulse = false }: { status: MachineStatus; pulse?: b
       {pulse ? (
         <>
           <span
-            className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-60"
+            className="absolute inline-flex h-full w-full rounded-full opacity-30"
             style={{ background: color }}
           />
           <span
@@ -340,6 +345,8 @@ export default function MaquinasAdminPage() {
   });
   const [tabManut, setTabManut] = useState<"abertas" | "todas">("abertas");
   const [manutView, setManutView] = useState<"feed" | "kanban">("feed");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   const carregar = useCallback(async () => {
     try {
@@ -355,6 +362,8 @@ export default function MaquinasAdminPage() {
       setProjetos(Array.isArray(pr.items) ? (pr.items as Projeto[]) : []);
     } catch (err) {
       toast(`Erro ao carregar: ${(err as Error).message}`, "error");
+    } finally {
+      setLoading(false);
     }
   }, [toast]);
 
@@ -370,25 +379,32 @@ export default function MaquinasAdminPage() {
     if (!editing?.nome || !editing.tipo) {
       toast("Preencha nome e tipo.", "error"); return;
     }
-    const url    = editing.id ? `/api/maquinas/${editing.id}` : "/api/maquinas";
-    const method = editing.id ? "PATCH" : "POST";
-    const r = await fetch(url, {
-      method,
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        nome: editing.nome, tipo: editing.tipo,
-        identificador: editing.identificador ?? null,
-        status: editing.status ?? "operando",
-        ativo: editing.ativo ?? true,
-      }),
-    });
-    if (!r.ok) {
-      const j = await r.json().catch(() => ({}));
-      toast(`Erro: ${j.error ?? r.statusText}`, "error"); return;
+    setSaving(true);
+    try {
+      const url    = editing.id ? `/api/maquinas/${editing.id}` : "/api/maquinas";
+      const method = editing.id ? "PATCH" : "POST";
+      const r = await fetch(url, {
+        method,
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          nome: editing.nome, tipo: editing.tipo,
+          identificador: editing.identificador ?? null,
+          status: editing.status ?? "operando",
+          ativo: editing.ativo ?? true,
+        }),
+      });
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        toast(`Erro: ${j.error ?? r.statusText}`, "error"); return;
+      }
+      toast("Máquina salva.", "success");
+      setEditing(null);
+      await carregar();
+    } catch (err) {
+      toast(`Erro ao salvar máquina: ${(err as Error).message}`, "error");
+    } finally {
+      setSaving(false);
     }
-    toast("Máquina salva.", "success");
-    setEditing(null);
-    void carregar();
   }
 
   async function alterarStatus(id: string, status: MachineStatus) {
@@ -448,6 +464,10 @@ export default function MaquinasAdminPage() {
         }
       />
 
+      {loading ? (
+        <PageSkeleton variant="dashboard" />
+      ) : (
+        <>
       {/* Summary strip */}
       <div className="grid grid-cols-4 gap-3">
         {[
@@ -485,7 +505,7 @@ export default function MaquinasAdminPage() {
             <button
               key={f.v}
               onClick={() => setFiltro(f.v)}
-              className="h-9 rounded-lg border px-3 text-xs font-semibold transition-all"
+              className="h-9 rounded-lg border px-3 text-xs font-semibold transition-colors"
               style={{
                 background: statusFiltro === f.v ? "var(--accent)" : "var(--bg-card)",
                 color: statusFiltro === f.v ? "#fff" : "var(--text-secondary)",
@@ -603,12 +623,12 @@ export default function MaquinasAdminPage() {
       {/* Modal editar/criar */}
       {editing && (
         <div
-          className="fixed inset-0 flex items-center justify-center p-4 z-50"
-          style={{ background: "rgba(0,0,0,0.45)" }}
+          className="ui-overlay fixed inset-0 z-50 flex items-center justify-center p-4"
+          data-state="open"
           onClick={() => setEditing(null)}
         >
           <div
-            className="w-full max-w-md rounded-lg p-5 space-y-3"
+            className="ui-dialog-panel w-full max-w-md space-y-3 rounded-lg p-5"
             style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -631,10 +651,12 @@ export default function MaquinasAdminPage() {
             />
             <div className="grid grid-cols-2 gap-2 pt-2">
               <Button variant="ghost" onClick={() => setEditing(null)}>Cancelar</Button>
-              <Button onClick={salvar}>Salvar</Button>
+              <Button onClick={salvar} loading={saving}>Salvar</Button>
             </div>
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );

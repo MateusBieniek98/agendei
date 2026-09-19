@@ -10,9 +10,10 @@ import PageHeader from "@/components/ui/PageHeader";
 import { useToast } from "@/components/ui/Toast";
 import { brl } from "@/lib/format";
 import type { Atividade } from "@/lib/types";
-import BulkImportDialog, { type BulkImportColumn } from "@/components/bulk/BulkImportDialog";
+import BulkImportDialog, { type BulkImportColumn } from "@/components/bulk/LazyBulkImportDialog";
 import BulkSelectionBar from "@/components/bulk/BulkSelectionBar";
 import { parseBooleanPtBr, parseNumberPtBr, responseError } from "@/lib/bulk-import";
+import { ListSkeleton, TableSkeleton } from "@/components/ui/Skeleton";
 
 const ACTIVITY_COLUMNS: BulkImportColumn[] = [
   { key: "nome", label: "Nome", example: "Roçada manual", required: true },
@@ -31,8 +32,12 @@ export default function AtividadesPage() {
   const [bulkOpen, setBulkOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [pendingId, setPendingId] = useState<string | null>(null);
 
   async function carregar() {
+    setLoading(true);
     try {
       const r = await fetch("/api/atividades");
       const j = await r.json();
@@ -41,6 +46,8 @@ export default function AtividadesPage() {
     } catch (err) {
       setItems([]);
       toast(`Erro ao carregar atividades: ${(err as Error).message}`, "error");
+    } finally {
+      setLoading(false);
     }
   }
   useEffect(() => {
@@ -53,40 +60,52 @@ export default function AtividadesPage() {
       toast("Preencha nome, unidade e valor.", "error");
       return;
     }
-    const url = editing.id ? `/api/atividades/${editing.id}` : "/api/atividades";
-    const method = editing.id ? "PATCH" : "POST";
-    const r = await fetch(url, {
-      method,
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        nome: editing.nome,
-        unidade: editing.unidade,
-        valor_unitario: Number(editing.valor_unitario),
-        ativo: editing.ativo ?? true,
-      }),
-    });
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok) {
-      toast(`Erro: ${j.error ?? r.statusText}`, "error");
-      return;
+    setSaving(true);
+    try {
+      const url = editing.id ? `/api/atividades/${editing.id}` : "/api/atividades";
+      const method = editing.id ? "PATCH" : "POST";
+      const r = await fetch(url, {
+        method,
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          nome: editing.nome,
+          unidade: editing.unidade,
+          valor_unitario: Number(editing.valor_unitario),
+          ativo: editing.ativo ?? true,
+        }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        toast(`Erro: ${j.error ?? r.statusText}`, "error");
+        return;
+      }
+      const recalculadas = Number(j.producao_recalculada ?? 0);
+      toast(
+        recalculadas > 0
+          ? `Atividade salva. ${recalculadas} apontamentos recalculados.`
+          : "Atividade salva.",
+        "success"
+      );
+      setEditing(null);
+      await carregar();
+    } catch (err) {
+      toast(`Erro ao salvar atividade: ${(err as Error).message}`, "error");
+    } finally {
+      setSaving(false);
     }
-    const recalculadas = Number(j.producao_recalculada ?? 0);
-    toast(
-      recalculadas > 0
-        ? `Atividade salva. ${recalculadas} apontamentos recalculados.`
-        : "Atividade salva.",
-      "success"
-    );
-    setEditing(null);
-    carregar();
   }
 
   async function excluir(id: string) {
     if (!confirm("Inativar atividade?")) return;
-    const r = await fetch(`/api/atividades/${id}`, { method: "DELETE" });
-    if (!r.ok) { toast("Erro ao excluir.", "error"); return; }
-    toast("Atividade inativada.", "success");
-    carregar();
+    setPendingId(id);
+    try {
+      const r = await fetch(`/api/atividades/${id}`, { method: "DELETE" });
+      if (!r.ok) { toast("Erro ao excluir.", "error"); return; }
+      toast("Atividade inativada.", "success");
+      await carregar();
+    } finally {
+      setPendingId(null);
+    }
   }
 
   async function importar(values: Record<string, string>) {
@@ -172,7 +191,8 @@ export default function AtividadesPage() {
             </div>
           </ListControls>
         </div>
-        <div className="divide-y divide-[var(--border)] lg:hidden">
+        <div className="ui-list-enter divide-y divide-[var(--border)] lg:hidden">
+          {loading && <ListSkeleton count={5} className="p-4" />}
           {visiveis.map((a) => (
             <div key={a.id} className="p-4">
               <div className="flex items-start justify-between gap-3">
@@ -196,7 +216,7 @@ export default function AtividadesPage() {
                   Editar
                 </Button>
                 {a.ativo ? (
-                  <Button variant="danger" onClick={() => excluir(a.id)}>
+                  <Button variant="danger" loading={pendingId === a.id} onClick={() => excluir(a.id)}>
                     Inativar
                   </Button>
                 ) : (
@@ -207,7 +227,7 @@ export default function AtividadesPage() {
               </div>
             </div>
           ))}
-          {filtradas.length === 0 && (
+          {filtradas.length === 0 && !loading && (
             <div className="p-6 text-center text-sm font-semibold text-[var(--text-muted)]">
               Nenhuma atividade encontrada neste filtro.
             </div>
@@ -227,6 +247,11 @@ export default function AtividadesPage() {
               </tr>
             </thead>
             <tbody>
+              {loading && (
+                <tr>
+                  <td colSpan={6} className="p-4"><TableSkeleton rows={5} columns={6} /></td>
+                </tr>
+              )}
               {visiveis.map((a) => (
                 <tr key={a.id} className="border-t border-[var(--border)]">
                   <td className="px-4 py-2"><input type="checkbox" aria-label={`Selecionar ${a.nome}`} checked={selected.has(a.id)} onChange={() => setSelected((current) => { const next = new Set(current); if (next.has(a.id)) next.delete(a.id); else next.add(a.id); return next; })} className="h-4 w-4 accent-[var(--accent)]" /></td>
@@ -237,15 +262,19 @@ export default function AtividadesPage() {
                     {a.ativo ? <Badge tone="success">ativo</Badge> : <Badge>inativo</Badge>}
                   </td>
                   <td className="px-4 py-2 text-right whitespace-nowrap">
-                    <button
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       onClick={() => setEditing(a)}
-                      className="mr-3 text-[var(--accent)] hover:underline"
-                    >editar</button>
+                    >Editar</Button>
                     {a.ativo && (
-                      <button
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        className="ml-2"
+                        loading={pendingId === a.id}
                         onClick={() => excluir(a.id)}
-                        className="text-[var(--danger)] hover:underline"
-                      >inativar</button>
+                      >Inativar</Button>
                     )}
                   </td>
                 </tr>
@@ -256,9 +285,9 @@ export default function AtividadesPage() {
       </Card>
 
       {editing && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50"
+        <div className="ui-overlay fixed inset-0 z-50 flex items-center justify-center p-4" data-state="open"
              onClick={() => setEditing(null)}>
-          <div className="w-full max-w-md space-y-3 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-5"
+          <div className="ui-dialog-panel w-full max-w-md space-y-3 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-5"
                onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-bold">{editing.id ? "Editar" : "Nova"} atividade</h3>
             <Input
@@ -281,7 +310,7 @@ export default function AtividadesPage() {
             />
             <div className="grid grid-cols-2 gap-2 pt-2">
               <Button variant="ghost" onClick={() => setEditing(null)}>Cancelar</Button>
-              <Button onClick={salvar}>Salvar</Button>
+              <Button onClick={salvar} loading={saving}>Salvar</Button>
             </div>
           </div>
         </div>

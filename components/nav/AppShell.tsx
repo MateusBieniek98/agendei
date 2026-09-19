@@ -12,6 +12,8 @@ import type { NavigationGroup, NavigationItem } from "./navigation";
 import Logo from "@/components/branding/Logo";
 import { PRODUCT_BRAND } from "@/lib/product-brand";
 import { setActiveOrganizationId } from "@/lib/tenant-client";
+import LinkPendingIndicator from "./LinkPendingIndicator";
+import { useToast } from "@/components/ui/Toast";
 
 type AppShellProps = {
   children: React.ReactNode;
@@ -49,7 +51,7 @@ function NavigationList({
     <nav aria-label="Navegação principal" className="space-y-5">
       {groups.map((group) => (
         <section key={group.label}>
-          <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/40">
+          <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase text-white/40">
             {group.label}
           </p>
           <ul className="space-y-1">
@@ -72,6 +74,7 @@ function NavigationList({
                       <NavigationIcon name={item.icon} />
                     </span>
                     <span className="truncate">{item.label}</span>
+                    <LinkPendingIndicator />
                   </Link>
                 </li>
               );
@@ -93,21 +96,30 @@ export default function AppShell({
   mobileStrategy = "drawer",
   contentWidth = "wide",
 }: AppShellProps) {
+  const { toast } = useToast();
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [switchingOrganization, setSwitchingOrganization] = useState(false);
   const items = useMemo(() => navigation.flatMap((group) => group.items), [navigation]);
   const activeItem = items.find((item) => isItemActive(pathname, item));
   const pageTitle = activeItem?.label ?? areaLabel;
 
   async function switchOrganization(organizationId: string) {
     if (!organizationId || organizationId === organization.id) return;
-    const response = await fetch("/api/organizations/active", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ organization_id: organizationId }),
-    });
-    const body = await response.json().catch(() => ({}));
-    if (response.ok) window.location.assign(body.home ?? "/");
+    setSwitchingOrganization(true);
+    try {
+      const response = await fetch("/api/organizations/active", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ organization_id: organizationId }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error ?? "Não foi possível trocar de empresa.");
+      window.location.assign(body.home ?? "/");
+    } catch (error) {
+      setSwitchingOrganization(false);
+      toast((error as Error).message, "error");
+    }
   }
 
   useEffect(() => {
@@ -142,6 +154,8 @@ export default function AppShell({
             <select
               aria-label="Empresa ativa"
               value={organization.id}
+              disabled={switchingOrganization}
+              aria-busy={switchingOrganization || undefined}
               onChange={(event) => void switchOrganization(event.target.value)}
               className="max-w-40 truncate bg-transparent text-xs text-white/60 outline-none"
             >
@@ -151,6 +165,12 @@ export default function AppShell({
             </select>
           ) : (
             <p className="truncate text-xs text-white/48">{organization.displayName}</p>
+          )}
+          {switchingOrganization && (
+            <span className="mt-1 inline-flex items-center gap-1.5 text-[10px] font-medium text-white/60" role="status">
+              <span className="ui-spinner h-3 w-3" aria-hidden="true" />
+              Alterando empresa
+            </span>
           )}
         </div>
         <button type="button" onClick={() => setDrawerOpen(false)} className="ml-auto grid h-9 w-9 place-items-center rounded-md text-xl font-light text-white/60 hover:bg-white/10 hover:text-white lg:hidden" aria-label="Fechar menu">
@@ -224,10 +244,15 @@ export default function AppShell({
         </div>
       </div>
 
-      {mobileStrategy === "drawer" && drawerOpen && (
-        <div className="fixed inset-0 z-[80] lg:hidden">
-          <button type="button" className="absolute inset-0 bg-black/52 backdrop-blur-[2px]" onClick={() => setDrawerOpen(false)} aria-label="Fechar menu" />
-          <aside className="relative flex h-full w-[min(86vw,320px)] flex-col bg-[var(--shell-bg)] shadow-2xl" aria-label="Menu do sistema">
+      {mobileStrategy === "drawer" && (
+        <div
+          className="ui-overlay fixed inset-0 z-[80] lg:hidden"
+          data-state={drawerOpen ? "open" : "closed"}
+          aria-hidden={!drawerOpen}
+          inert={!drawerOpen}
+        >
+          <button type="button" className="absolute inset-0" onClick={() => setDrawerOpen(false)} aria-label="Fechar menu" />
+          <aside className="ui-drawer-panel relative flex h-full w-[min(86vw,320px)] flex-col bg-[var(--shell-bg)] shadow-xl" aria-label="Menu do sistema">
             {sidebarContent}
           </aside>
         </div>
