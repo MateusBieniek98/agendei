@@ -41,6 +41,7 @@
     "@capacitor/core": "^8.4.2",
     "@capacitor/ios": "^8.4.2",
     "@opentelemetry/api": "^1.9.1",
+    "@sentry/nextjs": "10.75.0",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.110.7",
     "@vercel/otel": "^2.1.3",
