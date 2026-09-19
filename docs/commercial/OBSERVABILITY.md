@@ -1,5 +1,17 @@
 # Observabilidade e operação
 
+## Base implementada
+
+O servidor registra traces com OpenTelemetry por meio de `@vercel/otel`, usando
+`talhivo-web` como nome padrão do serviço e `OTEL_SERVICE_NAME` para separar
+ambientes. Erros não tratados do Next.js geram evento estruturado sem conteúdo
+de requisição, query string, credencial ou dado operacional.
+
+OpenTelemetry é a camada neutra. Sentry, Datadog e New Relic não devem ser
+instalados simultaneamente. A escolha do backend de erros, métricas e alertas
+permanece na Issue #8 e deve considerar custo, retenção, residência dos dados e
+integração com os traces existentes.
+
 ## Monitorar
 
 - taxa de erro e latência por rota, sem registrar segredos ou dados excessivos;

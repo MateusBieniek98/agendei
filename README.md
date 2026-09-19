@@ -17,7 +17,8 @@ como a marca do software.
 | Interface | Tailwind CSS 4, web responsiva e PWA |
 | Banco/Auth | PostgreSQL e Supabase Auth com RLS |
 | Exportação | ExcelJS, CSV e Google Sheets |
-| Qualidade | ESLint, TypeScript, Vitest e build Next.js |
+| Qualidade | ESLint, TypeScript, ArchContract, Knip, Vitest, Playwright e Codecov |
+| Observabilidade | OpenTelemetry com `@vercel/otel` e logs estruturados |
 | Runtime | Node.js 24 |
 
 ## Multiempresa
@@ -57,9 +58,12 @@ npm run check
 git diff --check
 ```
 
-O gate executa lint, TypeScript, testes unitários e build. Antes da migração de
-um cliente, também é obrigatório executar a matriz SQL de isolamento em um
-ambiente descartável e o fluxo Playwright em staging.
+O gate executa lint, TypeScript, arquitetura, código morto, cobertura, auditoria,
+build, orçamento de performance e E2E. A CI acrescenta Commitlint, revisão de
+dependências, CodeQL e geração de relatório para o Codecov. Antes da migração de
+um cliente,
+também é obrigatório executar a matriz SQL de isolamento e o fluxo Playwright
+completo em staging. Consulte [a esteira de qualidade](docs/QUALITY_GATE.md).
 
 ## Produção, estoque e importações
 

@@ -1,0 +1,5 @@
+{
+  "totalClientGzipBytes": 650000,
+  "maxJavaScriptChunkGzipBytes": 120000,
+  "maxStylesheetGzipBytes": 30000
+}

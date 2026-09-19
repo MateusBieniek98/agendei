@@ -56,8 +56,21 @@ justificativa.
 
 ## Qualidade e segurança de rollout
 
-- A validação padrão de código é `npm run check` e `git diff --check`. Amplie os
-  testes conforme o risco e registre qualquer verificação que não foi possível.
+- A validação padrão de código é `npm run check` e `git diff --check`. O comando
+  executa lint, tipos, contrato arquitetural, Knip, cobertura, auditoria de
+  dependências de produção, build, orçamento de performance e Playwright.
+- O status obrigatório `quality` da CI deve passar antes do merge. Não desative,
+  ignore ou contorne um verificador para concluir uma entrega; corrija a causa ou
+  documente uma exceção temporária em Issue específica, com prazo e responsável.
+- Todo comportamento novo ou corrigido deve receber teste no menor nível
+  confiável: unitário para regras puras, integração para contratos entre módulos
+  e E2E para fluxos críticos. A cobertura atual é piso, não meta final.
+- Antes de criar um componente, helper ou serviço, pesquise implementações já
+  existentes. Respeite o fluxo `app -> components -> lib`, mantenha lógica de
+  servidor fora de componentes client-side e execute `npm run arch:check`.
+- Prefira componentes coesos e dependências explícitas. Aplique DRY quando a
+  duplicação já for concreta; não crie abstrações antecipadas nem concentre
+  fluxos distintos em um único gargalo.
 - Mudanças de banco, RLS, Auth, Storage, integrações ou isolamento multiempresa
   exigem validação em staging isolado antes de produção.
 - As migrations multiempresa nunca devem ser aplicadas diretamente na produção
@@ -65,3 +78,8 @@ justificativa.
   reconciliação, teste com duas organizações e rollback ensaiado.
 - Nunca registre ou versione senhas, tokens, chaves, dados pessoais ou dados
   operacionais reais em Issues, Pull Requests, logs, fixtures ou screenshots.
+- Termos de uso, política de privacidade e DPA só podem ser marcados como
+  aprovados após aceite formal do jurídico. Código e documentação técnica não
+  substituem essa aprovação.
+
+Consulte `docs/QUALITY_GATE.md` para ferramentas, limites e pendências.
