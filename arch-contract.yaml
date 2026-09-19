@@ -1,0 +1,52 @@
+version: 1
+
+project:
+  name: talhivo
+
+paths:
+  include:
+    - app/**/*.{ts,tsx}
+    - components/**/*.{ts,tsx}
+    - lib/**/*.{ts,tsx}
+  exclude:
+    - lib/db/**
+
+layers:
+  - name: application
+    match: app/**/*.{ts,tsx}
+  - name: components
+    match: components/**/*.{ts,tsx}
+  - name: libraries
+    match: lib/**/*.{ts,tsx}
+
+ruleset:
+  application:
+    mayDependOn: [components, libraries]
+  components:
+    mayDependOn: [libraries]
+  libraries:
+    mayDependOn: []
+
+rules:
+  - name: no-file-cycles
+    type: no-cycles
+    scope: file
+    severity: error
+
+expectations:
+  - name: libraries-must-not-depend-on-ui
+    expect:
+      layer: libraries
+    to:
+      notDependOnPaths:
+        - app/**
+        - components/**
+    severity: error
+
+  - name: reusable-components-must-not-depend-on-routes
+    expect:
+      layer: components
+    to:
+      notDependOnPaths:
+        - app/**
+    severity: error

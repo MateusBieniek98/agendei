@@ -1,28 +1,50 @@
 name: CI
 
 on:
-  push:
   pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
+  id-token: write
+  pull-requests: read
+  security-events: write
 
 jobs:
   quality:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     env:
-      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
       SUPABASE_SERVICE_ROLE_KEY: ci-placeholder
       SHARED_SYNC_TOKEN: ci-placeholder
       CRON_SECRET: ci-placeholder
+      OTEL_SERVICE_NAME: talhivo-ci
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Review dependency changes
+        if: github.event_name == 'pull_request'
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: javascript-typescript
 
       - name: Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
@@ -30,14 +52,59 @@ jobs:
       - name: Install
         run: npm ci
 
-      - name: Lint
-        run: npm run lint
+      - name: Validate pull request title
+        if: github.event_name == 'pull_request'
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: printf '%s\n' "$PR_TITLE" | npm run commitlint -- --verbose
 
-      - name: Typecheck
-        run: npm run typecheck
+      - name: Validate pull request commits
+        if: github.event_name == 'pull_request'
+        run: npm run commitlint -- --from "${{ github.event.pull_request.base.sha }}" --to "${{ github.event.pull_request.head.sha }}" --verbose
 
-      - name: Unit tests
-        run: npm run test
+      - name: Validate main commit
+        if: github.event_name == 'push'
+        run: npm run commitlint -- --last --verbose
+
+      - name: Lint, types, architecture and dead code
+        run: npm run check:source
+
+      - name: Unit and integration tests with coverage
+        run: npm run test:coverage
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v7
+        with:
+          files: coverage/lcov.info
+          fail_ci_if_error: true
+          use_oidc: true
+
+      - name: Audit production dependencies
+        run: npm run security:audit
 
       - name: Production build
         run: npm run build
+
+      - name: Performance budget
+        run: npm run performance:check
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: End-to-end tests
+        run: npm run test:e2e
+
+      - name: Analyze with CodeQL
+        if: always()
+        uses: github/codeql-action/analyze@v4
+
+      - name: Upload browser diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-diagnostics-${{ github.run_id }}
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 7

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": ["scripts/check-performance-budget.mjs"],
+  "ignore": [
+    "app/(field)/maquinas/MaquinaForm.tsx",
+    "app/(field)/resumo/ResumoCompilado.tsx",
+    "app/login/actions.ts",
+    "components/maintenance/MaintenanceNav.tsx",
+    "components/nav/AdminToolsNav.tsx",
+    "components/nav/FAB.tsx",
+    "components/nav/MobileSectionNav.tsx",
+    "components/nav/Sidebar.tsx",
+    "components/nav/TopBar.tsx",
+    "docs/google-sheets-*.js",
+    "lib/integrations/google-sheets.ts",
+    "lib/integrations/powerbi.ts",
+    "lib/integrations/webhooks.ts",
+    "public/sw.js",
+    "tmp/**"
+  ]
+}

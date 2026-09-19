@@ -15,6 +15,7 @@ Closes #
 - [ ] `npm run check`
 - [ ] `git diff --check`
 - [ ] Testes manuais relevantes descritos abaixo
+- [ ] Comportamentos alterados possuem teste no nível adequado
 
 ## Riscos e rollback
 
@@ -33,5 +34,7 @@ Closes #
 - [ ] A Issue possui uma classificação: Correção, Melhoria ou Nova função.
 - [ ] O PR esta focado nas Issues relacionadas.
 - [ ] Nenhum segredo ou dado operacional real foi adicionado.
+- [ ] Impactos de segurança, rate limit e performance foram avaliados.
+- [ ] Componentes e helpers existentes foram pesquisados antes de criar novos.
 - [ ] Documentação e migrations foram atualizadas quando necessário.
 - [ ] Deploy e migrations seguem um plano de staging e rollback quando aplicável.
