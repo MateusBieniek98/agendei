@@ -73,6 +73,7 @@ jobs:
         run: npm run test:coverage
 
       - name: Upload coverage to Codecov
+        continue-on-error: true # Remove na #41 após ativar o repositório no Codecov.
         uses: codecov/codecov-action@v7
         with:
           files: coverage/lcov.info

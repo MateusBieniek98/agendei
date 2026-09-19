@@ -37,7 +37,7 @@ git diff --check
 | Arquitetura | fluxo permitido `app -> components -> lib` e ciclos bloqueados |
 | Código morto | Knip bloqueia novos arquivos e dependências sem uso; o legado conhecido está explicitamente listado |
 | Testes | Vitest com piso global de 21% statements, 19% branches, 27% functions e 22% lines |
-| Cobertura | relatório LCOV enviado ao Codecov; patch novo tem alvo de 70% |
+| Cobertura | thresholds Vitest bloqueiam regressão; LCOV é enviado ao Codecov quando disponível |
 | Segurança | dependency review, `npm audit --omit=dev --audit-level=high` e CodeQL |
 | Performance | total do cliente até 650 KB gzip, chunk JS até 120 KB e CSS até 30 KB |
 | Navegador | health check e login sem dados de cliente em desktop e mobile |
@@ -45,6 +45,10 @@ git diff --check
 Os pisos são baseline, não objetivo. Cada PR deve manter ou elevar cobertura e
 reduzir allowlists quando tocar no código relacionado. Elevar limites exige um
 PR próprio ou testes suficientes no PR funcional.
+
+O repositório ainda precisa ser ativado no Codecov pela Issue #41. Até lá, falha
+somente no upload remoto não bloqueia o job; geração do LCOV e thresholds Vitest
+continuam obrigatórios. Depois do onboarding, o upload voltará a falhar fechado.
 
 ## Decisões de ferramenta
 
@@ -77,6 +81,7 @@ serviço, segredo de integração nem responsabilidade de autorização final.
 - Backend de observabilidade, alertas e rotina de backup: Issue #8.
 - Termos de uso, política de privacidade, DPA e aceite jurídico: Issue #11.
 - Matriz E2E autenticada, multiempresa e offline em staging: Issue #32.
+- Ativação e status remoto do Codecov: Issue #41.
 
 Esses itens bloqueiam o go-live comercial correspondente. Nenhum documento pode
 ser marcado como “aprovado pelo jurídico” sem registro do responsável e da data

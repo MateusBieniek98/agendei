@@ -60,7 +60,8 @@ git diff --check
 
 O gate executa lint, TypeScript, arquitetura, código morto, cobertura, auditoria,
 build, orçamento de performance e E2E. A CI acrescenta Commitlint, revisão de
-dependências, CodeQL e publicação no Codecov. Antes da migração de um cliente,
+dependências, CodeQL e geração de relatório para o Codecov. Antes da migração de
+um cliente,
 também é obrigatório executar a matriz SQL de isolamento e o fluxo Playwright
 completo em staging. Consulte [a esteira de qualidade](docs/QUALITY_GATE.md).
 
