@@ -23,6 +23,8 @@
     "test:e2e:ui": "playwright test --ui",
     "performance:check": "node scripts/check-performance-budget.mjs",
     "security:audit": "npm audit --omit=dev --audit-level=high",
+    "backup:create": "bash scripts/backup-supabase.sh",
+    "backup:restore": "bash scripts/restore-supabase.sh",
     "commitlint": "commitlint",
     "check:source": "npm run lint && npm run typecheck && npm run arch:check && npm run deadcode",
     "check": "npm run check:source && npm run test:coverage && npm run security:audit && npm run build && npm run performance:check && npm run test:e2e",
