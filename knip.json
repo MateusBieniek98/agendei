@@ -1,6 +1,10 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "entry": ["scripts/check-performance-budget.mjs"],
+  "entry": [
+    "scripts/backup-manifest.mjs",
+    "scripts/check-performance-budget.mjs",
+    "scripts/supabase-storage-backup.mjs"
+  ],
   "ignore": [
     "app/(field)/maquinas/MaquinaForm.tsx",
     "app/(field)/resumo/ResumoCompilado.tsx",
