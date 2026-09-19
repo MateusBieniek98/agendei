@@ -81,6 +81,14 @@ monitoramento, alertas e backups antes do go-live.
 Não execute as migrations multiempresa diretamente em produção. O processo
 exige backup, ensaio em staging, reconciliação de dados e plano de reversão.
 
+## Fluxo de trabalho
+
+Toda mudança começa em uma GitHub Issue classificada como **Correção**,
+**Melhoria** ou **Nova função**. Implementações, entregas e deploys são
+gerenciados por Pull Request, com descrição das mudanças, validação, riscos,
+limitações e próximos passos. As regras completas para pessoas e agentes estão
+em [AGENTS.md](AGENTS.md).
+
 ## Documentação comercial e operacional
 
 - [Status da transformação](docs/commercial/README.md)

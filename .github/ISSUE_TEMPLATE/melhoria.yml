@@ -1,0 +1,36 @@
+name: Melhoria
+description: Evolua uma função existente, a qualidade ou a operação.
+title: "[Melhoria] "
+labels:
+  - "tipo: melhoria"
+body:
+  - type: markdown
+    attributes:
+      value: Não inclua senhas, tokens, dados pessoais ou dados operacionais reais.
+  - type: textarea
+    id: objetivo
+    attributes:
+      label: Objetivo
+      description: Qual resultado precisa melhorar e por que ele importa?
+    validations:
+      required: true
+  - type: textarea
+    id: escopo
+    attributes:
+      label: Escopo
+      description: O que faz e o que não faz parte desta entrega?
+    validations:
+      required: true
+  - type: textarea
+    id: aceite
+    attributes:
+      label: Critérios de aceite
+      description: Liste resultados verificáveis para encerrar a Issue.
+    validations:
+      required: true
+  - type: textarea
+    id: riscos
+    attributes:
+      label: Riscos, limitações e dependências
+    validations:
+      required: true
