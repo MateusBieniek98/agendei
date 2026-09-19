@@ -14,7 +14,7 @@ export default async function GestorLayout({
     <ToastProvider>
       <AppShell
         navigation={GESTOR_NAVIGATION}
-        user={{ nome: profile.nome, role: profile.role }}
+        user={{ id: profile.id, nome: profile.nome, role: profile.role }}
         areaLabel="Gestão executiva"
       >
         {children}

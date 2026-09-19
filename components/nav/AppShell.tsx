@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import BottomNav from "./BottomNav";
 import LogoutButton from "./LogoutButton";
@@ -10,11 +10,12 @@ import NavigationIcon from "./NavigationIcon";
 import SyncStatus from "@/components/sync/SyncStatus";
 import ThemeToggle from "@/components/theme/ThemeToggle";
 import type { NavigationGroup, NavigationItem } from "./navigation";
+import { setActiveOfflineUserId } from "@/lib/offline-session";
 
 type AppShellProps = {
   children: React.ReactNode;
   navigation: NavigationGroup[];
-  user: { nome: string; role: string };
+  user: { id: string; nome: string; role: string };
   areaLabel: string;
   mobileStrategy?: "drawer" | "bottom";
   contentWidth?: "standard" | "wide";
@@ -92,6 +93,10 @@ export default function AppShell({
   const items = useMemo(() => navigation.flatMap((group) => group.items), [navigation]);
   const activeItem = items.find((item) => isItemActive(pathname, item));
   const pageTitle = activeItem?.label ?? areaLabel;
+
+  useLayoutEffect(() => {
+    setActiveOfflineUserId(user.id);
+  }, [user.id]);
 
   useEffect(() => {
     setDrawerOpen(false);

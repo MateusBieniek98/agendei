@@ -14,7 +14,7 @@ export default async function AdminLayout({
     <ToastProvider>
       <AppShell
         navigation={ADMIN_NAVIGATION}
-        user={{ nome: profile.nome, role: profile.role }}
+        user={{ id: profile.id, nome: profile.nome, role: profile.role }}
         areaLabel="Administração"
       >
         {children}
