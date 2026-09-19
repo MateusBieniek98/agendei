@@ -41,7 +41,7 @@ export default function Sidebar({
               <li key={it.href}>
                 <Link
                   href={it.href}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all"
+                  className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors"
                   style={{
                     background: active ? "var(--nav-bg-active)" : "transparent",
                     color: active ? "var(--nav-text-active)" : "var(--nav-text)",

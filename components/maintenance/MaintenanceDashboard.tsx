@@ -6,6 +6,7 @@ import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import PageHeader from "@/components/ui/PageHeader";
 import { useToast } from "@/components/ui/Toast";
+import { CardGridSkeleton, ListSkeleton } from "@/components/ui/Skeleton";
 import type { ManutencaoIndicadores, MaintenancePriority } from "@/lib/types";
 
 function priorityTone(priority: MaintenancePriority) {
@@ -74,9 +75,16 @@ export default function MaintenanceDashboard({
       />
 
       {!data ? (
-        <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-8 text-center text-sm text-[var(--text-muted)]">
-          {loading ? "Carregando indicadores..." : "Indicadores indisponíveis."}
-        </div>
+        loading ? (
+          <div className="space-y-4">
+            <CardGridSkeleton count={4} className="sm:grid-cols-2 xl:grid-cols-4" />
+            <ListSkeleton count={4} />
+          </div>
+        ) : (
+          <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-8 text-center text-sm text-[var(--text-muted)]">
+            Indicadores indisponíveis.
+          </div>
+        )
       ) : (
         <>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -98,7 +106,7 @@ export default function MaintenanceDashboard({
               {data.paradas.length === 0 ? (
                 <div className="p-8 text-center text-sm text-[var(--text-muted)]">Nenhuma máquina parada.</div>
               ) : (
-                <div className="divide-y divide-[var(--divider)]">
+                <div className="ui-list-enter divide-y divide-[var(--divider)]">
                   {data.paradas.slice(0, 8).map((item) => (
                     <Link key={item.id} href={`/manutencao/solicitacoes?chamado=${item.id}`} className="block p-4 transition-colors hover:bg-[var(--bg-hover)]">
                       <div className="flex items-start justify-between gap-3">

@@ -10,7 +10,7 @@ export function Card({
   return (
     <div
       className={
-        "rounded-lg border border-[var(--border)] bg-[var(--bg-card)] " +
+        "ui-surface rounded-lg border border-[var(--border)] bg-[var(--bg-card)] " +
         className
       }
     >

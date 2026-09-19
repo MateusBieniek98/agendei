@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import LinkPendingIndicator from "./LinkPendingIndicator";
 
 export type DashboardDockTab = "indicadores" | "equipes" | "manutencao" | "planejamento";
 export type BottomNavViewType = "gestor" | "admin" | "encarregado";
@@ -109,6 +110,7 @@ export default function BottomNav({
                       {item.icon}
                     </span>
                     <span className="max-w-full truncate">{item.label}</span>
+                    <LinkPendingIndicator />
                   </Link>
                 </li>
               );

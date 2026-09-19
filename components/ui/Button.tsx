@@ -15,8 +15,9 @@ type Props = React.ButtonHTMLAttributes<HTMLButtonElement> & {
 };
 
 const base =
-  "inline-flex items-center justify-center gap-2 rounded-md border font-semibold " +
-  "transition-colors disabled:pointer-events-none disabled:opacity-50";
+  "relative inline-flex items-center justify-center gap-2 overflow-hidden rounded-md border font-semibold " +
+  "transition-[background-color,border-color,color,box-shadow,transform,opacity] duration-150 " +
+  "active:translate-y-px disabled:pointer-events-none disabled:translate-y-0 disabled:opacity-55";
 
 const variants: Record<Variant, string> = {
   primary:
@@ -48,15 +49,19 @@ export default function Button({
     <button
       {...rest}
       disabled={disabled || loading}
+      aria-busy={loading || undefined}
+      data-loading={loading ? "true" : "false"}
       className={`${base} ${variants[variant]} ${sizes[size]} ${className ?? ""}`}
     >
       {loading && (
         <span
           aria-hidden
-          className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
+          className="ui-spinner absolute h-4 w-4"
         />
       )}
-      {children}
+      <span className={`min-w-0 truncate ${loading ? "opacity-0" : "opacity-100"}`}>
+        {children}
+      </span>
     </button>
   );
 }

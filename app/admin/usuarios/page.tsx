@@ -9,8 +9,9 @@ import ListControls, { searchItems, visibleItems } from "@/components/ui/ListCon
 import Badge from "@/components/ui/Badge";
 import { useToast } from "@/components/ui/Toast";
 import PageHeader from "@/components/ui/PageHeader";
+import { ListSkeleton, TableSkeleton } from "@/components/ui/Skeleton";
 import type { Equipe, Profile, UserRole } from "@/lib/types";
-import BulkImportDialog, { type BulkImportColumn } from "@/components/bulk/BulkImportDialog";
+import BulkImportDialog, { type BulkImportColumn } from "@/components/bulk/LazyBulkImportDialog";
 import BulkSelectionBar from "@/components/bulk/BulkSelectionBar";
 import { normalizeBulkValue, responseError } from "@/lib/bulk-import";
 
@@ -368,9 +369,7 @@ export default function UsuariosPage() {
         </div>
         <div className="divide-y divide-[var(--border)] lg:hidden">
           {carregando && (
-            <div className="p-6 text-center text-sm font-semibold text-[var(--text-muted)]">
-              Carregando usuários...
-            </div>
+            <ListSkeleton count={5} className="p-4" />
           )}
           {visiveis.map((u) => (
             <div key={u.id} className="p-4">
@@ -484,8 +483,8 @@ export default function UsuariosPage() {
             <tbody>
               {carregando && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-6 text-center text-[var(--text-muted)]">
-                    Carregando usuários...
+                  <td colSpan={7} className="p-4">
+                    <TableSkeleton rows={5} columns={7} />
                   </td>
                 </tr>
               )}
@@ -583,11 +582,12 @@ export default function UsuariosPage() {
       {/* Modal: novo usuário */}
       {criando && (
         <div
-          className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50"
+          className="ui-overlay fixed inset-0 z-50 flex items-center justify-center p-4"
+          data-state="open"
           onClick={() => setCriando(false)}
         >
           <div
-            className="w-full max-w-md space-y-3 rounded-lg bg-[var(--bg-card)] p-6"
+            className="ui-dialog-panel w-full max-w-md space-y-3 rounded-lg bg-[var(--bg-card)] p-6"
             onClick={(e) => e.stopPropagation()}
           >
             <div>
@@ -640,14 +640,15 @@ export default function UsuariosPage() {
       {/* Modal: reset de senha */}
       {resetando && (
         <div
-          className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50"
+          className="ui-overlay fixed inset-0 z-50 flex items-center justify-center p-4"
+          data-state="open"
           onClick={() => {
             setResetando(null);
             setNovaSenha("");
           }}
         >
           <div
-            className="w-full max-w-md space-y-3 rounded-lg bg-[var(--bg-card)] p-6"
+            className="ui-dialog-panel w-full max-w-md space-y-3 rounded-lg bg-[var(--bg-card)] p-6"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-lg font-bold">Redefinir senha</h3>

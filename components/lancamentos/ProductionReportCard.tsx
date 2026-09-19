@@ -56,7 +56,7 @@ export default function ProductionReportCard({
         }}
       >
         <p
-          className="text-xs font-bold uppercase tracking-wider"
+          className="text-xs font-bold uppercase"
           style={{ color: queued ? "var(--warn)" : "var(--success)" }}
         >
           {queued ? "Salvo offline" : "Produção registrada"}

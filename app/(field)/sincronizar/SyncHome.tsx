@@ -150,7 +150,8 @@ export default function SyncHome({
 
       {message && (
         <div
-          className="rounded-lg border px-4 py-3 text-sm font-bold"
+          role="status"
+          className="animate-fade-in rounded-lg border px-4 py-3 text-sm font-bold"
           style={{
             background: message.type === "ok" ? "var(--success-bg)" : "var(--danger-bg)",
             borderColor: message.type === "ok" ? "var(--success)" : "var(--danger)",
@@ -165,13 +166,17 @@ export default function SyncHome({
         <button
           type="button"
           disabled={loading || !online}
+          aria-busy={busy === "pendentes" || undefined}
           onClick={() => flushOfflineQueue()}
-          className="min-h-[56px] rounded-lg border px-4 text-left text-sm font-bold text-white transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+          className="flex min-h-[56px] items-center gap-3 rounded-lg border px-4 text-left text-sm font-bold text-white transition active:translate-y-px disabled:cursor-not-allowed disabled:opacity-60"
           style={{ background: "var(--accent)", borderColor: "var(--accent)" }}
         >
-          {busy === "pendentes" ? "Enviando pendentes..." : "Enviar pendentes"}
-          <span className="block text-xs font-semibold opacity-80">
-            {pending} lançamento(s) na fila local.
+          {busy === "pendentes" && <span className="ui-spinner h-4 w-4 shrink-0" aria-hidden="true" />}
+          <span>
+            Enviar pendentes
+            <span className="block text-xs font-semibold opacity-80">
+              {pending} lançamento(s) na fila local.
+            </span>
           </span>
         </button>
       </section>
@@ -179,7 +184,7 @@ export default function SyncHome({
       <section className="grid grid-cols-2 gap-2">
         <Link
           href="/lancamento"
-          className="rounded-lg border p-3 text-sm font-bold"
+          className="rounded-lg border p-3 text-sm font-bold transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
           style={{ background: "var(--bg-card)", borderColor: "var(--border)", color: "var(--text-primary)" }}
         >
           + Novo lançamento
@@ -189,7 +194,7 @@ export default function SyncHome({
         </Link>
         <Link
           href="/resumo"
-          className="rounded-lg border p-3 text-sm font-bold"
+          className="rounded-lg border p-3 text-sm font-bold transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
           style={{ background: "var(--bg-card)", borderColor: "var(--border)", color: "var(--text-primary)" }}
         >
           Ver resultados

@@ -11,9 +11,10 @@ import Select from "@/components/ui/Select";
 import { useToast } from "@/components/ui/Toast";
 import { num } from "@/lib/format";
 import type { Insumo } from "@/lib/types";
-import BulkImportDialog, { type BulkImportColumn } from "@/components/bulk/BulkImportDialog";
+import BulkImportDialog, { type BulkImportColumn } from "@/components/bulk/LazyBulkImportDialog";
 import BulkSelectionBar from "@/components/bulk/BulkSelectionBar";
 import { parseBooleanPtBr, parseNumberPtBr, responseError } from "@/lib/bulk-import";
+import { ListSkeleton, TableSkeleton } from "@/components/ui/Skeleton";
 
 const SUPPLY_COLUMNS: BulkImportColumn[] = [
   { key: "codigo", label: "Código", example: "INS-001" },
@@ -58,6 +59,9 @@ export default function AdminInsumosPage() {
   const [bulkOpen, setBulkOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [savingMovement, setSavingMovement] = useState(false);
+  const [pendingId, setPendingId] = useState<string | null>(null);
 
   async function carregar() {
     setLoading(true);
@@ -85,40 +89,54 @@ export default function AdminInsumosPage() {
       return;
     }
 
-    const url = editing.id ? `/api/insumos/${editing.id}` : "/api/insumos";
-    const method = editing.id ? "PATCH" : "POST";
-    const r = await fetch(url, {
-      method,
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        codigo: editing.codigo || null,
-        nome: editing.nome,
-        grupo: editing.grupo,
-        unidade: editing.unidade,
-        estoque_minimo: Number(editing.estoque_minimo ?? 0),
-        ativo: editing.ativo ?? true,
-      }),
-    });
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok) {
-      toast(`Erro: ${j.error ?? r.statusText}`, "error");
-      return;
+    setSaving(true);
+    try {
+      const url = editing.id ? `/api/insumos/${editing.id}` : "/api/insumos";
+      const method = editing.id ? "PATCH" : "POST";
+      const r = await fetch(url, {
+        method,
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          codigo: editing.codigo || null,
+          nome: editing.nome,
+          grupo: editing.grupo,
+          unidade: editing.unidade,
+          estoque_minimo: Number(editing.estoque_minimo ?? 0),
+          ativo: editing.ativo ?? true,
+        }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        toast(`Erro: ${j.error ?? r.statusText}`, "error");
+        return;
+      }
+      toast("Insumo salvo.", "success");
+      setEditing(null);
+      await carregar();
+    } catch (err) {
+      toast(`Erro ao salvar insumo: ${(err as Error).message}`, "error");
+    } finally {
+      setSaving(false);
     }
-    toast("Insumo salvo.", "success");
-    setEditing(null);
-    carregar();
   }
 
   async function inativar(item: Insumo) {
     if (!confirm(`Inativar ${item.nome}?`)) return;
-    const r = await fetch(`/api/insumos/${item.id}`, { method: "DELETE" });
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok) {
-      toast(`Erro: ${j.error ?? r.statusText}`, "error");
-      return;
+    setPendingId(item.id);
+    try {
+      const r = await fetch(`/api/insumos/${item.id}`, { method: "DELETE" });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        toast(`Erro: ${j.error ?? r.statusText}`, "error");
+        return;
+      }
+      toast("Insumo inativado.", "success");
+      await carregar();
+    } catch (err) {
+      toast(`Erro ao inativar insumo: ${(err as Error).message}`, "error");
+    } finally {
+      setPendingId(null);
     }
-    toast("Insumo inativado.", "success");
-    carregar();
   }
 
   async function salvarMovimento() {
@@ -133,23 +151,30 @@ export default function AdminInsumosPage() {
       return;
     }
 
-    const r = await fetch(`/api/insumos/${movement.insumo.id}/movimentacoes`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        tipo: movement.tipo,
-        quantidade,
-        observacoes: movement.observacoes || null,
-      }),
-    });
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok) {
-      toast(`Erro: ${j.error ?? r.statusText}`, "error");
-      return;
+    setSavingMovement(true);
+    try {
+      const r = await fetch(`/api/insumos/${movement.insumo.id}/movimentacoes`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          tipo: movement.tipo,
+          quantidade,
+          observacoes: movement.observacoes || null,
+        }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        toast(`Erro: ${j.error ?? r.statusText}`, "error");
+        return;
+      }
+      toast("Estoque atualizado.", "success");
+      setMovement(null);
+      await carregar();
+    } catch (err) {
+      toast(`Erro ao atualizar estoque: ${(err as Error).message}`, "error");
+    } finally {
+      setSavingMovement(false);
     }
-    toast("Estoque atualizado.", "success");
-    setMovement(null);
-    carregar();
   }
 
   async function importar(values: Record<string, string>) {
@@ -256,7 +281,8 @@ export default function AdminInsumosPage() {
           </ListControls>
         </div>
 
-        <div className="divide-y divide-[var(--border)] lg:hidden">
+        <div className="ui-list-enter divide-y divide-[var(--border)] lg:hidden">
+          {loading && <ListSkeleton count={5} className="p-4" />}
           {visiveis.map((item) => (
             <div key={item.id} className="p-4">
               <div className="flex items-start justify-between gap-3">
@@ -287,7 +313,7 @@ export default function AdminInsumosPage() {
                   Editar
                 </Button>
                 {item.ativo ? (
-                  <Button variant="danger" onClick={() => inativar(item)}>
+                  <Button variant="danger" loading={pendingId === item.id} onClick={() => inativar(item)}>
                     Inativar
                   </Button>
                 ) : (
@@ -320,6 +346,9 @@ export default function AdminInsumosPage() {
               </tr>
             </thead>
             <tbody>
+              {loading && (
+                <tr><td colSpan={8} className="p-4"><TableSkeleton rows={5} columns={8} /></td></tr>
+              )}
               {visiveis.map((item) => (
                 <tr key={item.id} className="border-t border-[var(--border)]">
                   <td className="px-4 py-2"><input type="checkbox" aria-label={`Selecionar ${item.nome}`} checked={selected.has(item.id)} onChange={() => setSelected((current) => { const next = new Set(current); if (next.has(item.id)) next.delete(item.id); else next.add(item.id); return next; })} className="h-4 w-4 accent-[var(--accent)]" /></td>
@@ -382,11 +411,12 @@ export default function AdminInsumosPage() {
 
       {editing && (
         <div
-          className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-black/40 p-3 sm:items-center sm:p-4"
+          className="ui-overlay fixed inset-0 z-50 flex items-end justify-center overflow-y-auto p-3 sm:items-center sm:p-4"
+          data-state="open"
           onClick={() => setEditing(null)}
         >
           <div
-            className="w-full max-w-md space-y-3 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-2xl"
+            className="ui-dialog-panel w-full max-w-md space-y-3 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-5"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-lg font-bold text-[var(--text-primary)]">
@@ -437,7 +467,7 @@ export default function AdminInsumosPage() {
               <Button variant="ghost" onClick={() => setEditing(null)}>
                 Cancelar
               </Button>
-              <Button onClick={salvar}>Salvar</Button>
+              <Button onClick={salvar} loading={saving}>Salvar</Button>
             </div>
           </div>
         </div>
@@ -445,11 +475,12 @@ export default function AdminInsumosPage() {
 
       {movement && (
         <div
-          className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-black/40 p-3 sm:items-center sm:p-4"
+          className="ui-overlay fixed inset-0 z-50 flex items-end justify-center overflow-y-auto p-3 sm:items-center sm:p-4"
+          data-state="open"
           onClick={() => setMovement(null)}
         >
           <div
-            className="w-full max-w-md space-y-3 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-2xl"
+            className="ui-dialog-panel w-full max-w-md space-y-3 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-5"
             onClick={(e) => e.stopPropagation()}
           >
             <div>
@@ -489,7 +520,7 @@ export default function AdminInsumosPage() {
               <Button variant="ghost" onClick={() => setMovement(null)}>
                 Cancelar
               </Button>
-              <Button onClick={salvarMovimento}>Salvar</Button>
+              <Button onClick={salvarMovimento} loading={savingMovement}>Salvar</Button>
             </div>
           </div>
         </div>

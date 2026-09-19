@@ -128,11 +128,11 @@ export default function SyncStatus({ className = "" }: { className?: string }) {
   const hasFailed = (snapshot?.failed ?? 0) > 0 || error;
 
   /* ── Render ─────────────────────────────────────────────── */
-  const base = `relative flex items-center justify-center w-8 h-8 rounded-xl transition-all ${className}`;
+  const base = `relative flex h-8 w-8 items-center justify-center rounded-md transition-colors ${className}`;
 
   if (syncing) {
     return (
-      <div className={base} title="Sincronizando lançamentos offline...">
+      <div className={base} role="status" aria-busy="true" title="Sincronizando lançamentos offline...">
         <SpinIcon />
       </div>
     );

@@ -80,7 +80,7 @@ function InsumoCard({
       <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_9rem]">
         <label className="block">
           <span
-            className="mb-1 block text-xs font-bold uppercase tracking-wide"
+            className="mb-1 block text-xs font-bold uppercase"
             style={{ color: "var(--text-secondary)" }}
           >
             Insumo {index + 1}
@@ -112,7 +112,7 @@ function InsumoCard({
         </label>
         <label className="block">
           <span
-            className="mb-1 block text-xs font-bold uppercase tracking-wide"
+            className="mb-1 block text-xs font-bold uppercase"
             style={{ color: "var(--text-secondary)" }}
           >
             Qtd
@@ -186,7 +186,7 @@ function StepperHeader({
               style={{ minWidth: 56 }}
             >
               <span
-                className="flex h-7 w-7 items-center justify-center rounded-md text-xs font-bold transition-all"
+                className="flex h-7 w-7 items-center justify-center rounded-md text-xs font-bold transition-colors"
                 style={{
                   background: done
                     ? "var(--success)"
@@ -444,7 +444,7 @@ function BannerPlanejamento({
       style={{ background: "var(--success-bg)", border: "1px solid var(--success)" }}
     >
       <div>
-        <p className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: "var(--success)" }}>
+        <p className="mb-1 text-xs font-bold uppercase" style={{ color: "var(--success)" }}>
           {variant === "edicao" ? "Editando apontamento" : "Atividade planejada"}
         </p>
         <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
@@ -994,7 +994,7 @@ export default function LancamentoForm({
               className="rounded-lg px-4 py-3 animate-fade-in"
               style={{ background: "var(--accent-subtle)", border: "1px solid var(--accent)" }}
             >
-              <p className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--accent)" }}>
+              <p className="text-xs font-bold uppercase" style={{ color: "var(--accent)" }}>
                 Valor estimado
               </p>
               <p className="text-2xl font-bold tabular mt-0.5" style={{ color: "var(--accent)" }}>
@@ -1032,7 +1032,7 @@ export default function LancamentoForm({
             className="rounded-lg px-4 py-3 space-y-1"
             style={{ background: "var(--bg-card-alt)", border: "1px solid var(--border)" }}
           >
-            <p className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
+            <p className="text-xs font-bold uppercase" style={{ color: "var(--text-muted)" }}>
               Resumo
             </p>
             <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>

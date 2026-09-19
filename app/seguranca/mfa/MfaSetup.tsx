@@ -4,6 +4,8 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Logo from "@/components/branding/Logo";
+import Button from "@/components/ui/Button";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { createClient } from "@/lib/supabase/client";
 
 type Enrollment = {
@@ -85,9 +87,9 @@ export default function MfaSetup({ next, required }: { next: string; required: b
 
   return (
     <main className="grid min-h-dvh place-items-center bg-[var(--bg-page)] p-4">
-      <section className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-6 shadow-xl">
+      <section className="ui-surface w-full max-w-md rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-6">
         <Logo size={48} />
-        <p className="mt-5 text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">Segurança da conta</p>
+        <p className="mt-5 text-xs font-bold uppercase text-[var(--text-muted)]">Segurança da conta</p>
         <h1 className="mt-1 text-2xl font-bold">Autenticação em dois fatores</h1>
         <p className="mt-2 text-sm text-[var(--text-secondary)]">
           {required
@@ -95,7 +97,13 @@ export default function MfaSetup({ next, required }: { next: string; required: b
             : "Proteja o acesso administrativo da empresa com um código temporário além da senha."}
         </p>
 
-        {loading && <p className="mt-6 text-sm font-semibold">Preparando autenticação…</p>}
+        {loading && (
+          <div className="mt-6 space-y-3" role="status" aria-label="Preparando autenticação">
+            <Skeleton className="h-4 w-4/5" />
+            <Skeleton className="mx-auto h-[220px] w-[220px]" />
+            <Skeleton className="h-11 w-full" />
+          </div>
+        )}
         {!loading && enrollment && (
           <div className="mt-5 space-y-3">
             <p className="text-sm">Leia o QR Code no Google Authenticator, Microsoft Authenticator ou aplicativo equivalente.</p>
@@ -119,12 +127,12 @@ export default function MfaSetup({ next, required }: { next: string; required: b
                 onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
                 inputMode="numeric"
                 autoComplete="one-time-code"
-                className="mt-1 h-12 w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 text-center text-xl font-bold tracking-[0.3em]"
+                className="mt-1 h-12 w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 text-center text-xl font-bold tabular-nums"
               />
             </label>
-            <button disabled={verifying} className="h-11 w-full rounded-lg bg-[var(--accent)] px-4 text-sm font-bold text-white disabled:opacity-60">
-              {verifying ? "Validando…" : "Validar e entrar"}
-            </button>
+            <Button type="submit" loading={verifying} className="h-11 w-full">
+              Validar e entrar
+            </Button>
           </form>
         )}
         {error && <p className="mt-4 rounded-lg bg-[var(--danger-bg)] p-3 text-sm font-semibold text-[var(--danger)]">{error}</p>}

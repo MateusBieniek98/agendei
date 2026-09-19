@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import LinkPendingIndicator from "./LinkPendingIndicator";
 
 type AdminToolItem = {
   href: string;
@@ -45,7 +46,7 @@ export default function AdminToolsNav() {
             <Link
               key={item.href}
               href={item.href}
-              className="inline-flex h-10 min-w-11 shrink-0 items-center gap-2 rounded-lg border px-3 text-xs font-bold transition"
+              className="relative inline-flex h-10 min-w-11 shrink-0 items-center gap-2 rounded-lg border px-3 text-xs font-bold transition"
               style={{
                 borderColor: active ? "var(--border-strong)" : "transparent",
                 background: active ? "var(--bg-card-alt)" : "transparent",
@@ -58,6 +59,7 @@ export default function AdminToolsNav() {
                 {item.icon}
               </span>
               <span className="whitespace-nowrap">{item.label}</span>
+              <LinkPendingIndicator />
             </Link>
           );
         })}

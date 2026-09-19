@@ -8,7 +8,8 @@ import PageHeader from "@/components/ui/PageHeader";
 import { useToast } from "@/components/ui/Toast";
 import { num } from "@/lib/format";
 import type { ProjetoComTalhoes, Talhao } from "@/lib/types";
-import BulkImportDialog, { type BulkImportColumn } from "@/components/bulk/BulkImportDialog";
+import BulkImportDialog, { type BulkImportColumn } from "@/components/bulk/LazyBulkImportDialog";
+import { ListSkeleton } from "@/components/ui/Skeleton";
 import BulkSelectionBar from "@/components/bulk/BulkSelectionBar";
 import { parseBooleanPtBr, parseNumberPtBr, responseError } from "@/lib/bulk-import";
 
@@ -41,6 +42,18 @@ export default function ProjetosAdminPage() {
   const [bulkOpen, setBulkOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState(false);
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
+
+  async function runPending(key: string, action: () => Promise<void>) {
+    setPendingAction(key);
+    try {
+      await action();
+    } catch (error) {
+      toast(`Não foi possível concluir a ação: ${(error as Error).message}`, "error");
+    } finally {
+      setPendingAction(null);
+    }
+  }
 
   async function carregar() {
     setLoading(true);
@@ -60,7 +73,7 @@ export default function ProjetosAdminPage() {
   }
 
   useEffect(() => {
-    carregar();
+    void carregar();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -97,7 +110,7 @@ export default function ProjetosAdminPage() {
     }
     setProjetoForm({ nome: "" });
     toast("Projeto salvo.", "success");
-    carregar();
+    await carregar();
   }
 
   async function salvarProjeto(id: string) {
@@ -122,7 +135,7 @@ export default function ProjetosAdminPage() {
       return next;
     });
     toast("Projeto atualizado.", "success");
-    carregar();
+    await carregar();
   }
 
   async function desativarProjeto(id: string) {
@@ -134,7 +147,7 @@ export default function ProjetosAdminPage() {
       return;
     }
     toast("Projeto excluído da lista ativa.", "success");
-    carregar();
+    await carregar();
   }
 
   async function criarTalhao(projetoId: string) {
@@ -161,7 +174,7 @@ export default function ProjetosAdminPage() {
     }
     setTalhaoForms((current) => ({ ...current, [projetoId]: EMPTY_TALHAO }));
     toast("Talhão salvo.", "success");
-    carregar();
+    await carregar();
   }
 
   async function salvarTalhao(id: string) {
@@ -186,7 +199,7 @@ export default function ProjetosAdminPage() {
       return next;
     });
     toast("Talhão atualizado.", "success");
-    carregar();
+    await carregar();
   }
 
   async function desativarTalhao(id: string) {
@@ -198,7 +211,7 @@ export default function ProjetosAdminPage() {
       return;
     }
     toast("Talhão desativado.", "success");
-    carregar();
+    await carregar();
   }
 
   async function importar(values: Record<string, string>) {
@@ -255,7 +268,7 @@ export default function ProjetosAdminPage() {
             value={projetoForm.nome}
             onChange={(e) => setProjetoForm({ nome: e.target.value })}
           />
-          <Button onClick={criarProjeto}>+ Adicionar projeto</Button>
+          <Button loading={pendingAction === "project:create"} onClick={() => void runPending("project:create", criarProjeto)}>+ Adicionar projeto</Button>
         </div>
       </section>
 
@@ -271,9 +284,7 @@ export default function ProjetosAdminPage() {
       </section>
 
       {loading ? (
-        <p className="py-12 text-center text-sm font-bold" style={{ color: "var(--text-muted)" }}>
-          Carregando projetos...
-        </p>
+        <ListSkeleton count={5} />
       ) : filtrados.length === 0 ? (
         <div className="rounded-lg p-10 text-center" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
           <p className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>
@@ -284,7 +295,7 @@ export default function ProjetosAdminPage() {
           </p>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="ui-list-enter space-y-3">
           {filtrados.map((projeto) => {
             const isOpen = expanded === projeto.id;
             const talhoes = sortTalhoes(projeto.talhoes ?? []);
@@ -330,7 +341,7 @@ export default function ProjetosAdminPage() {
                     >
                       Editar
                     </Button>
-                    <Button variant="danger" size="sm" onClick={() => desativarProjeto(projeto.id)}>
+                    <Button variant="danger" size="sm" loading={pendingAction === `project:delete:${projeto.id}`} onClick={() => void runPending(`project:delete:${projeto.id}`, () => desativarProjeto(projeto.id))}>
                       Excluir
                     </Button>
                   </div>
@@ -345,7 +356,7 @@ export default function ProjetosAdminPage() {
                           value={editingProjeto[projeto.id] ?? ""}
                           onChange={(e) => setEditingProjeto((current) => ({ ...current, [projeto.id]: e.target.value }))}
                         />
-                        <Button onClick={() => salvarProjeto(projeto.id)}>Salvar</Button>
+                        <Button loading={pendingAction === `project:save:${projeto.id}`} onClick={() => void runPending(`project:save:${projeto.id}`, () => salvarProjeto(projeto.id))}>Salvar</Button>
                         <Button
                           variant="ghost"
                           onClick={() => setEditingProjeto((current) => {
@@ -393,7 +404,7 @@ export default function ProjetosAdminPage() {
                             [projeto.id]: { ...form, observacoes: e.target.value },
                           }))}
                         />
-                        <Button onClick={() => criarTalhao(projeto.id)}>Adicionar</Button>
+                        <Button loading={pendingAction === `plot:create:${projeto.id}`} onClick={() => void runPending(`plot:create:${projeto.id}`, () => criarTalhao(projeto.id))}>Adicionar</Button>
                       </div>
                     </div>
 
@@ -439,7 +450,7 @@ export default function ProjetosAdminPage() {
                                       [talhao.id]: { ...editing, observacoes: e.target.value },
                                     }))}
                                   />
-                                  <Button onClick={() => salvarTalhao(talhao.id)}>Salvar</Button>
+                                  <Button loading={pendingAction === `plot:save:${talhao.id}`} onClick={() => void runPending(`plot:save:${talhao.id}`, () => salvarTalhao(talhao.id))}>Salvar</Button>
                                   <Button
                                     variant="ghost"
                                     onClick={() => setEditingTalhao((current) => {
@@ -480,7 +491,7 @@ export default function ProjetosAdminPage() {
                                       Editar
                                     </Button>
                                     {talhao.ativo && (
-                                      <Button variant="danger" size="sm" onClick={() => desativarTalhao(talhao.id)}>
+                                      <Button variant="danger" size="sm" loading={pendingAction === `plot:delete:${talhao.id}`} onClick={() => void runPending(`plot:delete:${talhao.id}`, () => desativarTalhao(talhao.id))}>
                                         Inativar
                                       </Button>
                                     )}
@@ -510,7 +521,7 @@ function Metric({ label, value }: { label: string; value: number }) {
       <p className="text-2xl font-bold" style={{ color: "var(--accent)" }}>
         {value}
       </p>
-      <p className="text-xs font-bold uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
+      <p className="text-xs font-bold uppercase" style={{ color: "var(--text-muted)" }}>
         {label}
       </p>
     </div>

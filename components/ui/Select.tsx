@@ -35,7 +35,7 @@ export default function Select({
         id={finalId}
         className={
           "h-11 min-h-11 rounded-md border bg-[var(--bg-input)] px-3 text-sm font-normal " +
-          "text-[var(--text-primary)] outline-none transition-colors focus:border-[var(--border-focus)] " +
+          "text-[var(--text-primary)] outline-none transition-[border-color,box-shadow,background-color] duration-150 focus:border-[var(--border-focus)] focus:ring-3 focus:ring-[var(--accent-subtle)] " +
           (error ? "border-[var(--danger)] " : "border-[var(--border)] ") +
           (className ?? "")
         }

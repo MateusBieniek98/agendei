@@ -20,9 +20,9 @@ export default async function SuspendedOrganizationPage() {
 
   return (
     <main className="grid min-h-dvh place-items-center bg-[var(--bg-page)] px-4 py-10">
-      <section className="w-full max-w-lg rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-7 text-center shadow-xl">
+      <section className="ui-surface w-full max-w-lg rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-7 text-center">
         <Logo size={64} className="justify-center" />
-        <p className="mt-5 text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+        <p className="mt-5 text-xs font-bold uppercase text-[var(--text-muted)]">
           {tenant.organization.display_name}
         </p>
         <h1 className="mt-2 text-2xl font-bold text-[var(--text-primary)]">

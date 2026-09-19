@@ -5,6 +5,7 @@ import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import { Card } from "@/components/ui/Card";
+import { FormSkeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/Toast";
 import { brl } from "@/lib/format";
 import type { Equipe, Meta, MetaEquipe } from "@/lib/types";
@@ -417,9 +418,7 @@ export default function MetasPage() {
             Cadastre e salve a meta mensal de {MESES[mesSelecionado - 1]}/{anoSelecionado} antes de distribuir por equipe.
           </div>
         ) : loadingMetasEquipe ? (
-          <p className="mt-4 text-sm font-semibold text-[var(--color-ink-600)]">
-            Carregando metas por equipe...
-          </p>
+          <FormSkeleton fields={6} className="mt-4" />
         ) : equipes.length === 0 ? (
           <p className="mt-4 text-sm font-semibold text-[var(--color-ink-600)]">
             Nenhuma equipe ativa encontrada.

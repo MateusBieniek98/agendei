@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Button from "@/components/ui/Button";
+import { ListSkeleton } from "@/components/ui/Skeleton";
 import {
   AUTOMATION_RULE_ORDER,
   DEFAULT_OPERATIONAL_AUTOMATIONS,
@@ -430,9 +431,7 @@ export default function AutomacoesOperacionaisClient() {
             </div>
             <div className="max-h-[32rem] space-y-3 overflow-y-auto p-3">
               {state === "loading" && (
-                <p className="rounded-lg border border-dashed p-3 text-sm font-bold text-[var(--text-muted)]">
-                  Carregando...
-                </p>
+                <ListSkeleton count={4} />
               )}
               {state !== "loading" &&
                 rules.every((item) => item.occurrences.length === 0) && (

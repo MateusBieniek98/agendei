@@ -15,18 +15,23 @@ export default function SuspendedOrganizationSwitcher({
     if (!organizationId) return;
     setLoading(true);
     setError("");
-    const response = await fetch("/api/organizations/active", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ organization_id: organizationId }),
-    });
-    const body = await response.json().catch(() => ({}));
-    if (response.ok) {
-      window.location.assign(body.home ?? "/");
-      return;
+    try {
+      const response = await fetch("/api/organizations/active", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ organization_id: organizationId }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (response.ok) {
+        window.location.assign(body.home ?? "/");
+        return;
+      }
+      setError(body.error ?? "Não foi possível trocar de empresa.");
+    } catch (requestError) {
+      setError(`Não foi possível trocar de empresa: ${(requestError as Error).message}`);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-    setError(body.error ?? "Não foi possível trocar de empresa.");
   }
 
   return (
@@ -36,6 +41,7 @@ export default function SuspendedOrganizationSwitcher({
         <select
           defaultValue=""
           disabled={loading}
+          aria-busy={loading || undefined}
           onChange={(event) => void switchOrganization(event.target.value)}
           className="mt-2 h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 text-sm"
         >
@@ -45,7 +51,8 @@ export default function SuspendedOrganizationSwitcher({
           ))}
         </select>
       </label>
-      {error && <p className="mt-2 text-xs font-semibold text-[var(--danger)]">{error}</p>}
+      {loading && <p role="status" className="mt-2 inline-flex items-center gap-2 text-xs font-semibold text-[var(--text-muted)]"><span className="ui-spinner h-3.5 w-3.5" aria-hidden="true" />Alterando empresa</p>}
+      {error && <p role="alert" className="animate-fade-in mt-2 text-xs font-semibold text-[var(--danger)]">{error}</p>}
     </div>
   );
 }

@@ -2,17 +2,35 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import DashboardSectionTabs, { type DashboardSection } from "@/components/dashboard/DashboardSectionTabs";
 import BottomNav from "@/components/nav/BottomNav";
-import MaintenanceFeed from "@/components/maintenance/MaintenanceFeed";
 import { brl } from "@/lib/format";
-import { LinhaChart } from "@/app/gestor/GestorCharts";
 import PeriodoFiltro, { type PeriodoState } from "@/components/dashboard/PeriodoFiltro";
-import PlanejamentoField from "@/app/(field)/planejamento/PlanejamentoField";
-import PlanejamentoAdminPage from "@/app/admin/planejamento/page";
 import type { ManutencaoIndicadores } from "@/lib/types";
 import { tenantStorageKey } from "@/lib/tenant-client";
+import { ListSkeleton, PageSkeleton, Skeleton } from "@/components/ui/Skeleton";
+
+const LinhaChart = dynamic(
+  () => import("@/app/gestor/GestorCharts").then((module) => module.LinhaChart),
+  { loading: () => <Skeleton className="h-[250px] w-full sm:h-[310px]" /> }
+);
+
+const MaintenanceFeed = dynamic(
+  () => import("@/components/maintenance/MaintenanceFeed"),
+  { loading: () => <ListSkeleton count={4} /> }
+);
+
+const PlanejamentoField = dynamic(
+  () => import("@/app/(field)/planejamento/PlanejamentoField"),
+  { loading: () => <PageSkeleton variant="list" /> }
+);
+
+const PlanejamentoAdminPage = dynamic(
+  () => import("@/app/admin/planejamento/page"),
+  { loading: () => <PageSkeleton variant="list" /> }
+);
 
 type DashboardMode = "admin" | "gestor" | "encarregado";
 type IndicatorWidgetId =
@@ -285,12 +303,15 @@ export default function AdminDashboard({
         ) : (
           <PlanejamentoField equipeId={null} />
         )
+      ) : !data && !erro ? (
+        <PageSkeleton variant={activeTab === "indicadores" ? "dashboard" : "list"} />
       ) : !data ? (
         <div
-          className="rounded-lg border p-4 text-sm font-semibold"
-          style={{ background: "var(--bg-card)", borderColor: "var(--border)", color: "var(--text-secondary)" }}
+          className="animate-fade-in rounded-lg border p-4 text-sm font-semibold"
+          style={{ background: "var(--danger-bg)", borderColor: "var(--danger)", color: "var(--danger)" }}
+          role="alert"
         >
-          {erro ? `Erro: ${erro}` : "Carregando dados..."}
+          {`Erro: ${erro}`}
         </div>
       ) : (
         <>

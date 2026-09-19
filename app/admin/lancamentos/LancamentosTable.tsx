@@ -9,10 +9,11 @@ import ListControls, { searchItems, visibleItems } from "@/components/ui/ListCon
 import { useToast } from "@/components/ui/Toast";
 import { brl, ddmmyyyy, num } from "@/lib/format";
 import type { Atividade, Equipe, Insumo, Projeto } from "@/lib/types";
-import BulkImportDialog, { type BulkImportColumn } from "@/components/bulk/BulkImportDialog";
+import BulkImportDialog, { type BulkImportColumn } from "@/components/bulk/LazyBulkImportDialog";
 import BulkSelectionBar from "@/components/bulk/BulkSelectionBar";
 import { normalizeBulkValue, parseDatePtBr, parseNumberPtBr, responseError } from "@/lib/bulk-import";
 import { MAX_PRODUCTION_INSUMOS, parseBulkImportedInsumos } from "@/lib/insumos";
+import { ListSkeleton, TableSkeleton } from "@/components/ui/Skeleton";
 
 const PRODUCTION_BASE_COLUMNS: BulkImportColumn[] = [
   { key: "data", label: "Data", example: "18/07/2026", required: true, validate: (value) => parseDatePtBr(value) ? null : "Data inválida." },
@@ -119,6 +120,8 @@ export default function LancamentosTable({
   const [bulkOpen, setBulkOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const bulkColumns = useMemo(() => productionColumns(insumos), [insumos]);
 
   async function carregar() {
@@ -176,38 +179,52 @@ export default function LancamentosTable({
 
   async function salvarEdit() {
     if (!editing) return;
-    const r = await fetch(`/api/producao/${editing.id}`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        data: editing.data,
-        equipe_id: editing.equipe_id,
-        atividade_id: editing.atividade_id,
-        projeto_id: editing.projeto_id,
-        talhao: editing.talhao,
-        quantidade: editing.quantidade,
-        observacoes: editing.observacoes,
-      }),
-    });
-    if (!r.ok) {
-      const j = await r.json().catch(() => ({}));
-      toast(`Erro: ${j.error ?? r.statusText}`, "error");
-      return;
+    setSavingEdit(true);
+    try {
+      const r = await fetch(`/api/producao/${editing.id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          data: editing.data,
+          equipe_id: editing.equipe_id,
+          atividade_id: editing.atividade_id,
+          projeto_id: editing.projeto_id,
+          talhao: editing.talhao,
+          quantidade: editing.quantidade,
+          observacoes: editing.observacoes,
+        }),
+      });
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        toast(`Erro: ${j.error ?? r.statusText}`, "error");
+        return;
+      }
+      toast("Lançamento atualizado.", "success");
+      setEditing(null);
+      await carregar();
+    } catch (err) {
+      toast(`Erro ao atualizar lançamento: ${(err as Error).message}`, "error");
+    } finally {
+      setSavingEdit(false);
     }
-    toast("Lançamento atualizado.", "success");
-    setEditing(null);
-    carregar();
   }
 
   async function excluir(id: string) {
     if (!confirm("Excluir este lançamento?")) return;
-    const r = await fetch(`/api/producao/${id}`, { method: "DELETE" });
-    if (!r.ok) {
-      toast("Erro ao excluir.", "error");
-      return;
+    setDeletingId(id);
+    try {
+      const r = await fetch(`/api/producao/${id}`, { method: "DELETE" });
+      if (!r.ok) {
+        toast("Erro ao excluir.", "error");
+        return;
+      }
+      toast("Excluído.", "success");
+      await carregar();
+    } catch (err) {
+      toast(`Erro ao excluir lançamento: ${(err as Error).message}`, "error");
+    } finally {
+      setDeletingId(null);
     }
-    toast("Excluído.", "success");
-    carregar();
   }
 
   function findByName<T extends { nome: string }>(list: T[], value: string, label: string) {
@@ -310,7 +327,8 @@ export default function LancamentosTable({
           </p>
         </div>
 
-        <div className="divide-y divide-[var(--border)] lg:hidden">
+        <div className="ui-list-enter divide-y divide-[var(--border)] lg:hidden">
+          {loading && <ListSkeleton count={5} className="p-4" />}
           {itemsVisiveis.map((l) => (
             <div key={l.id} className="p-4">
               <div className="flex items-start justify-between gap-3">
@@ -371,7 +389,7 @@ export default function LancamentosTable({
                 <Button variant="secondary" onClick={() => setEditing(l)}>
                   Editar
                 </Button>
-                <Button variant="danger" onClick={() => excluir(l.id)}>
+                <Button variant="danger" loading={deletingId === l.id} onClick={() => excluir(l.id)}>
                   Excluir
                 </Button>
               </div>
@@ -401,6 +419,9 @@ export default function LancamentosTable({
               </tr>
             </thead>
             <tbody>
+              {loading && (
+                <tr><td colSpan={10} className="p-4"><TableSkeleton rows={5} columns={10} /></td></tr>
+              )}
               {itemsVisiveis.map((l) => (
                 <tr key={l.id} className="border-t border-[var(--border)]">
                   <td className="px-4 py-2"><input type="checkbox" aria-label={`Selecionar apontamento de ${ddmmyyyy(l.data)}`} checked={selected.has(l.id)} onChange={() => setSelected((current) => { const next = new Set(current); if (next.has(l.id)) next.delete(l.id); else next.add(l.id); return next; })} className="h-4 w-4 accent-[var(--accent)]" /></td>
@@ -467,11 +488,12 @@ export default function LancamentosTable({
 
       {editing && (
         <div
-          className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-black/40 p-3 pb-[max(env(safe-area-inset-bottom),12px)] pt-[max(env(safe-area-inset-top),12px)] sm:items-center sm:p-4"
+          className="ui-overlay fixed inset-0 z-50 flex items-end justify-center overflow-y-auto p-3 pb-[max(env(safe-area-inset-bottom),12px)] pt-[max(env(safe-area-inset-top),12px)] sm:items-center sm:p-4"
+          data-state="open"
           onClick={() => setEditing(null)}
         >
           <div
-            className="max-h-[calc(100dvh_-_24px_-_env(safe-area-inset-top)_-_env(safe-area-inset-bottom))] w-full max-w-md overflow-y-auto rounded-lg bg-[var(--bg-card)] p-5 shadow-2xl sm:p-6"
+            className="ui-dialog-panel max-h-[calc(100dvh_-_24px_-_env(safe-area-inset-top)_-_env(safe-area-inset-bottom))] w-full max-w-md overflow-y-auto rounded-lg bg-[var(--bg-card)] p-5 sm:p-6"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="sticky top-0 -mx-5 -mt-5 mb-3 border-b border-[var(--border)] bg-[var(--bg-card)] px-5 py-4 sm:-mx-6 sm:-mt-6 sm:px-6">
@@ -529,7 +551,7 @@ export default function LancamentosTable({
                 <Button variant="ghost" onClick={() => setEditing(null)}>
                   Cancelar
                 </Button>
-                <Button onClick={salvarEdit}>Salvar</Button>
+                <Button onClick={salvarEdit} loading={savingEdit}>Salvar</Button>
               </div>
             </div>
           </div>
