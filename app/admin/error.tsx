@@ -2,6 +2,12 @@
 
 import RouteError from "@/components/ui/RouteError";
 
-export default function AdminError({ reset }: { reset: () => void }) {
-  return <RouteError reset={reset} />;
+export default function AdminError({
+  error,
+  reset,
+}: {
+  error: Error & { digest?: string };
+  reset: () => void;
+}) {
+  return <RouteError error={error} reset={reset} />;
 }

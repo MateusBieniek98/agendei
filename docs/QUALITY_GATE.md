@@ -41,8 +41,8 @@ a cobertura e reduzir allowlists quando tocar no código relacionado.
 
 ## Decisões de ferramenta
 
-- OpenTelemetry é a base neutra de traces. Um único monitor de erros será
-  escolhido na Issue #8; não instalar Sentry, Datadog e New Relic juntos.
+- OpenTelemetry é a base neutra de traces e Sentry é o monitor de erros. Não
+  instalar Datadog ou New Relic nesta fase.
 - ESLint continua como linter oficial por integrar as regras do Next.js. Biome
   não entra enquanto apenas duplicar esse papel.
 - Playwright é o executor E2E. Endtest só será avaliado se houver necessidade de

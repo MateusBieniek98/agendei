@@ -1,15 +1,23 @@
 "use client";
 
+import { useEffect } from "react";
+import * as Sentry from "@sentry/nextjs";
 import Button from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 
 export default function RouteError({
   title = "Não foi possível carregar esta seção",
+  error,
   reset,
 }: {
   title?: string;
+  error?: Error & { digest?: string };
   reset: () => void;
 }) {
+  useEffect(() => {
+    if (error) Sentry.captureException(error);
+  }, [error]);
+
   return (
     <div className="min-h-[60vh] flex items-center justify-center p-4">
       <Card className="w-full max-w-md p-6 text-center">
