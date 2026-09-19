@@ -1,8 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { defaultRouteForRole } from "@/lib/navigation";
-import type { UserRole } from "@/lib/types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { resolveLoginAccess } from "@/lib/tenant-transition";
 
 export const dynamic = "force-dynamic";
 
@@ -73,36 +73,18 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("active_organization_id, ativo")
-    .eq("id", auth.user.id)
-    .maybeSingle();
-
-  if (!profile?.ativo || !profile.active_organization_id) {
-    return NextResponse.redirect(new URL("/login?erro=perfil", req.url), {
-      status: 303,
-    });
-  }
-
-  const { data: membership } = await supabase
-    .from("organization_members")
-    .select("role, active")
-    .eq("organization_id", profile.active_organization_id)
-    .eq("user_id", auth.user.id)
-    .maybeSingle();
-  if (!membership?.active) {
-    return NextResponse.redirect(new URL("/login?erro=organizacao", req.url), {
+  const access = await resolveLoginAccess(supabase, auth.user.id);
+  if (!access.ok) {
+    return NextResponse.redirect(new URL(`/login?erro=${access.reason}`, req.url), {
       status: 303,
     });
   }
 
   const from = req.nextUrl.searchParams.get("from");
-  const role = membership.role as UserRole;
   const target =
     from && from !== "/login" && from !== "/catalogo"
       ? from
-      : defaultRouteForRole(role);
+      : defaultRouteForRole(access.role);
 
   return NextResponse.redirect(new URL(target, req.url), { status: 303 });
 }

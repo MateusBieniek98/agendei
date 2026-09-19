@@ -9,7 +9,7 @@ function loginErrorMessage(code: string | null) {
   if (code === "credenciais") return "E-mail ou senha incorretos.";
   if (code === "campos") return "Informe e-mail e senha.";
   if (code === "perfil") {
-    return "Login válido, mas o perfil do usuário não existe no banco.";
+    return "Login válido, mas o perfil não está ativo ou configurado para este ambiente.";
   }
   if (code === "organizacao") {
     return "Sua conta ainda não está vinculada a uma empresa ativa. Fale com o administrador.";

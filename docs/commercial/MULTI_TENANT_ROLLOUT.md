@@ -3,6 +3,17 @@
 Este procedimento é obrigatório para preservar os dados da GN. As migrations
 presentes no repositório não foram aplicadas à produção por esta entrega.
 
+## Compatibilidade para teste local
+
+Enquanto o banco da GN permanecer no schema anterior, o `next dev` pode usar
+`ALLOW_LEGACY_SINGLE_TENANT=true`. Esse modo projeta o perfil autenticado em uma
+única organização local apenas quando o Supabase confirmar que as estruturas
+multiempresa ainda não existem. Erros de permissão, RLS, perfil inativo ou
+vínculo inválido continuam bloqueando o acesso.
+
+O modo é recusado quando `NODE_ENV=production` e não substitui o ensaio em
+staging descrito abaixo.
+
 ## Artefatos
 
 1. `20260826234816_multi_tenant_expand_and_backfill.sql`: cria o modelo, a
