@@ -9,7 +9,7 @@ export default async function MaintenanceLayout({ children }: { children: React.
     <ToastProvider>
       <AppShell
         navigation={MAINTENANCE_NAVIGATION}
-        user={{ nome: profile.nome, role: profile.role }}
+        user={{ id: profile.id, nome: profile.nome, role: profile.role }}
         areaLabel="Manutenção"
       >
         {children}

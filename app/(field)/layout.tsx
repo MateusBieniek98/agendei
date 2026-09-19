@@ -14,7 +14,7 @@ export default async function FieldLayout({
     <ToastProvider>
       <AppShell
         navigation={FIELD_NAVIGATION}
-        user={{ nome: profile.nome, role: profile.role }}
+        user={{ id: profile.id, nome: profile.nome, role: profile.role }}
         areaLabel="Operação de campo"
         mobileStrategy="bottom"
         contentWidth="standard"

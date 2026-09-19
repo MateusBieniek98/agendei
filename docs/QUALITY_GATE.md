@@ -36,8 +36,9 @@ smoke E2E em Chromium desktop e mobile.
 | Performance | 650 KB gzip total, 120 KB por chunk JS e 30 KB por CSS |
 | Navegador | Health check e login sem dados de cliente |
 
-Os pisos de cobertura são baseline, não objetivo. Cada PR deve manter ou elevar
-a cobertura e reduzir allowlists quando tocar no código relacionado.
+Os pisos de cobertura são 35% statements, 25% branches, 40% functions e 38%
+lines. São baseline, não objetivo. Cada PR deve manter ou elevar a cobertura e
+reduzir allowlists quando tocar no código relacionado.
 
 ## Decisões de ferramenta
 

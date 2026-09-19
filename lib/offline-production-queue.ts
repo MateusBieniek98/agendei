@@ -1,15 +1,22 @@
 "use client";
 
+import { normalizeOfflineOwnerId, offlineOwnerMatchesSession } from "@/lib/offline-owner";
+import {
+  getActiveOfflineUserId,
+  offlineUserStorageKey,
+  OFFLINE_ACTIVE_USER_STORAGE_KEY,
+} from "@/lib/offline-session";
+
 const DB_NAME = "gn-offline";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_NAME = "productionQueue";
 const LEGACY_QUEUE_KEY = "gn:pendentes";
-const LAST_SYNC_KEY = "gn:last-manual-sync";
 const QUEUE_CHANGED_EVENT = "gn:offline-production-queue-changed";
 const QUEUE_PULSE_KEY = "gn:offline-production-queue-updated-at";
 
 export type OfflineProductionPayload = {
   client_id?: string;
+  client_user_id?: string;
   data?: string;
   equipe_id?: string;
   atividade_id?: string;
@@ -24,10 +31,11 @@ export type OfflineProductionPayload = {
   [key: string]: unknown;
 };
 
-export type OfflineQueueStatus = "pending" | "syncing" | "failed";
+export type OfflineQueueStatus = "pending" | "syncing" | "failed" | "blocked";
 
 export type OfflineProductionQueueItem = {
   clientId: string;
+  ownerUserId: string | null;
   payload: OfflineProductionPayload;
   status: OfflineQueueStatus;
   attempts: number;
@@ -37,12 +45,17 @@ export type OfflineProductionQueueItem = {
   lastAttemptAt: string | null;
 };
 
+type StoredOfflineProductionQueueItem = Omit<OfflineProductionQueueItem, "ownerUserId"> & {
+  ownerUserId?: unknown;
+};
+
 export type OfflineProductionQueueSnapshot = {
   items: OfflineProductionQueueItem[];
   total: number;
   pending: number;
   syncing: number;
   failed: number;
+  unassigned: number;
   lastSync: string | null;
 };
 
@@ -57,6 +70,7 @@ export type OfflineProductionFlushResult = {
 let dbPromise: Promise<IDBDatabase> | null = null;
 let migrationPromise: Promise<void> | null = null;
 let flushPromise: Promise<OfflineProductionFlushResult> | null = null;
+let flushOwnerUserId: string | null = null;
 
 function isBrowser() {
   return typeof window !== "undefined" && "indexedDB" in window;
@@ -119,10 +133,21 @@ function openQueueDb() {
           const store = db.createObjectStore(STORE_NAME, { keyPath: "clientId" });
           store.createIndex("status", "status", { unique: false });
           store.createIndex("createdAt", "createdAt", { unique: false });
+          store.createIndex("ownerUserId", "ownerUserId", { unique: false });
+        } else {
+          const store = request.transaction!.objectStore(STORE_NAME);
+          if (!store.indexNames.contains("ownerUserId")) {
+            store.createIndex("ownerUserId", "ownerUserId", { unique: false });
+          }
         }
       };
 
-      request.onsuccess = () => resolve(request.result);
+      request.onsuccess = () => {
+        request.result.onversionchange = () => request.result.close();
+        resolve(request.result);
+      };
+      request.onblocked = () =>
+        reject(new Error("Feche outras abas do app para atualizar a fila offline."));
       request.onerror = () => reject(request.error ?? new Error("Falha ao abrir fila offline."));
     });
   }
@@ -135,7 +160,7 @@ async function getAllItemsRaw() {
   const transaction = db.transaction(STORE_NAME, "readonly");
   const done = transactionDone(transaction);
   const request = transaction.objectStore(STORE_NAME).getAll();
-  const items = await requestToPromise<OfflineProductionQueueItem[]>(request);
+  const items = await requestToPromise<StoredOfflineProductionQueueItem[]>(request);
   await done;
   return items;
 }
@@ -156,18 +181,33 @@ async function deleteItemRaw(clientId: string) {
   await done;
 }
 
-function normalizeQueueItem(item: OfflineProductionQueueItem): OfflineProductionQueueItem {
+function normalizeQueueItem(item: StoredOfflineProductionQueueItem): OfflineProductionQueueItem {
+  const ownerUserId = normalizeOfflineOwnerId(
+    item.ownerUserId ?? item.payload?.client_user_id,
+  );
   const status: OfflineQueueStatus =
-    item.status === "syncing" || item.status === "failed" || item.status === "pending"
+    ownerUserId === null
+      ? "blocked"
+      : item.status === "syncing" ||
+          item.status === "failed" ||
+          item.status === "pending"
       ? item.status
       : "pending";
 
   return {
     clientId: item.clientId,
-    payload: { ...item.payload, client_id: item.clientId },
+    ownerUserId,
+    payload: {
+      ...item.payload,
+      client_id: item.clientId,
+      ...(ownerUserId ? { client_user_id: ownerUserId } : {}),
+    },
     status,
     attempts: Number.isFinite(item.attempts) ? Math.max(0, item.attempts) : 0,
-    lastError: item.lastError ?? null,
+    lastError:
+      ownerUserId === null
+        ? "Autoria não confirmada. Revise este lançamento antes de sincronizar."
+        : item.lastError ?? null,
     createdAt: item.createdAt || nowISO(),
     updatedAt: item.updatedAt || item.createdAt || nowISO(),
     lastAttemptAt: item.lastAttemptAt ?? null,
@@ -184,19 +224,19 @@ function emitQueueChanged() {
   }
 }
 
-function readLastSync() {
+function readLastSync(userId: string) {
   if (!isBrowser()) return null;
   try {
-    return window.localStorage.getItem(LAST_SYNC_KEY);
+    return window.localStorage.getItem(offlineUserStorageKey("last-manual-sync", userId));
   } catch {
     return null;
   }
 }
 
-function writeLastSync(value: string) {
+function writeLastSync(userId: string, value: string) {
   if (!isBrowser()) return;
   try {
-    window.localStorage.setItem(LAST_SYNC_KEY, value);
+    window.localStorage.setItem(offlineUserStorageKey("last-manual-sync", userId), value);
   } catch {
     // Last sync is informative; queue integrity does not depend on it.
   }
@@ -215,10 +255,11 @@ function legacyPayloadToItem(raw: Record<string, unknown>, index: number): Offli
 
   return {
     clientId: rawClientId,
+    ownerUserId: null,
     payload: { ...payload, client_id: rawClientId },
-    status: "pending",
+    status: "blocked",
     attempts: 0,
-    lastError: null,
+    lastError: "Autoria não confirmada. Revise este lançamento antes de sincronizar.",
     createdAt,
     updatedAt: createdAt,
     lastAttemptAt: null,
@@ -270,11 +311,14 @@ async function migrateLegacyQueue() {
 
 export async function enqueueOfflineProduction(payload: OfflineProductionPayload) {
   await migrateLegacyQueue();
+  const ownerUserId = getActiveOfflineUserId();
+  if (!ownerUserId) throw new Error("Usuário ativo não identificado.");
   const clientId = normalizeClientId(payload.client_id) ?? createOfflineProductionClientId();
   const createdAt = nowISO();
   const item: OfflineProductionQueueItem = {
     clientId,
-    payload: { ...payload, client_id: clientId },
+    ownerUserId,
+    payload: { ...payload, client_id: clientId, client_user_id: ownerUserId },
     status: "pending",
     attempts: 0,
     lastError: null,
@@ -290,22 +334,62 @@ export async function enqueueOfflineProduction(payload: OfflineProductionPayload
 
 export async function listOfflineProductions() {
   await migrateLegacyQueue();
+  const ownerUserId = getActiveOfflineUserId();
+  if (!ownerUserId) return [];
   const items = await getAllItemsRaw();
   return items
     .map(normalizeQueueItem)
+    .filter((item) => item.ownerUserId === ownerUserId)
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
 
 export async function getOfflineProductionSnapshot(): Promise<OfflineProductionQueueSnapshot> {
+  await migrateLegacyQueue();
+  const ownerUserId = getActiveOfflineUserId();
   const items = await listOfflineProductions();
+  const unassigned = ownerUserId
+    ? (await getAllItemsRaw())
+        .map(normalizeQueueItem)
+        .filter((item) => item.ownerUserId === null).length
+    : 0;
   return {
     items,
     total: items.length,
     pending: items.filter((item) => item.status === "pending").length,
     syncing: items.filter((item) => item.status === "syncing").length,
     failed: items.filter((item) => item.status === "failed").length,
-    lastSync: readLastSync(),
+    unassigned,
+    lastSync: ownerUserId ? readLastSync(ownerUserId) : null,
   };
+}
+
+export async function claimUnassignedOfflineProductions() {
+  await migrateLegacyQueue();
+  const ownerUserId = getActiveOfflineUserId();
+  if (!ownerUserId) throw new Error("Usuário ativo não identificado.");
+
+  const items = (await getAllItemsRaw()).map(normalizeQueueItem);
+  let claimed = 0;
+  for (const item of items) {
+    if (item.ownerUserId !== null) continue;
+    const updatedAt = nowISO();
+    await putItemRaw({
+      ...item,
+      ownerUserId,
+      payload: {
+        ...item.payload,
+        client_id: item.clientId,
+        client_user_id: ownerUserId,
+      },
+      status: "pending",
+      lastError: null,
+      updatedAt,
+    });
+    claimed += 1;
+  }
+
+  if (claimed > 0) emitQueueChanged();
+  return claimed;
 }
 
 async function responseErrorMessage(response: Response) {
@@ -317,9 +401,19 @@ async function responseErrorMessage(response: Response) {
   }
 }
 
-async function flushQueueNow(): Promise<OfflineProductionFlushResult> {
+async function flushQueueNow(ownerUserId: string): Promise<OfflineProductionFlushResult> {
   if (!isBrowser()) {
     return { attempted: 0, sent: 0, failed: 0, remaining: 0, lastError: null };
+  }
+
+  if (getActiveOfflineUserId() !== ownerUserId) {
+    return {
+      attempted: 0,
+      sent: 0,
+      failed: 0,
+      remaining: 0,
+      lastError: "A sessão mudou antes da sincronização.",
+    };
   }
 
   const items = (await listOfflineProductions()).sort(
@@ -346,11 +440,22 @@ async function flushQueueNow(): Promise<OfflineProductionFlushResult> {
   let lastError: string | null = null;
 
   for (const item of items) {
+    if (
+      getActiveOfflineUserId() !== ownerUserId ||
+      !offlineOwnerMatchesSession(item.ownerUserId, ownerUserId)
+    ) {
+      lastError = "A sessão mudou durante a sincronização. Tente novamente com o usuário correto.";
+      break;
+    }
     attempted += 1;
     const attemptAt = nowISO();
     const syncingItem: OfflineProductionQueueItem = {
       ...item,
-      payload: { ...item.payload, client_id: item.clientId },
+      payload: {
+        ...item.payload,
+        client_id: item.clientId,
+        client_user_id: ownerUserId,
+      },
       status: "syncing",
       attempts: item.attempts + 1,
       lastError: null,
@@ -399,9 +504,9 @@ async function flushQueueNow(): Promise<OfflineProductionFlushResult> {
     }
   }
 
-  const remaining = (await getAllItemsRaw()).length;
+  const remaining = (await listOfflineProductions()).length;
   if (remaining === 0) {
-    writeLastSync(nowISO());
+    writeLastSync(ownerUserId, nowISO());
     emitQueueChanged();
   }
 
@@ -409,9 +514,30 @@ async function flushQueueNow(): Promise<OfflineProductionFlushResult> {
 }
 
 export function flushOfflineProductions() {
+  const ownerUserId = getActiveOfflineUserId();
+  if (!ownerUserId) {
+    return Promise.resolve({
+      attempted: 0,
+      sent: 0,
+      failed: 0,
+      remaining: 0,
+      lastError: "Usuário ativo não identificado.",
+    });
+  }
+  if (flushPromise && flushOwnerUserId !== ownerUserId) {
+    return Promise.resolve({
+      attempted: 0,
+      sent: 0,
+      failed: 0,
+      remaining: 0,
+      lastError: "Outro usuário ainda está sincronizando neste dispositivo.",
+    });
+  }
   if (!flushPromise) {
-    flushPromise = flushQueueNow().finally(() => {
+    flushOwnerUserId = ownerUserId;
+    flushPromise = flushQueueNow(ownerUserId).finally(() => {
       flushPromise = null;
+      flushOwnerUserId = null;
     });
   }
   return flushPromise;
@@ -426,7 +552,8 @@ export function subscribeOfflineProductions(listener: () => void) {
       !event.key ||
       event.key === LEGACY_QUEUE_KEY ||
       event.key === QUEUE_PULSE_KEY ||
-      event.key === LAST_SYNC_KEY
+      event.key === OFFLINE_ACTIVE_USER_STORAGE_KEY ||
+      event.key === offlineUserStorageKey("last-manual-sync")
     ) {
       listener();
     }

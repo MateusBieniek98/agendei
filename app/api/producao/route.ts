@@ -15,6 +15,7 @@ import {
   type ResolvedProductionPlot,
 } from "@/lib/project-context";
 import { cicloProducao } from "@/lib/period";
+import { offlineOwnerValidationError } from "@/lib/offline-owner";
 
 type ProductionReportProgress = {
   area_total_ha: number | null;
@@ -170,7 +171,16 @@ export async function POST(req: NextRequest) {
     descarte,
     observacoes,
     client_id,
+    client_user_id,
   } = body;
+
+  const ownerError = offlineOwnerValidationError(client_user_id, profile.id);
+  if (ownerError) {
+    return NextResponse.json(
+      { error: ownerError, code: "offline_owner_mismatch" },
+      { status: 403 },
+    );
+  }
 
   if (!equipe_id || !atividade_id || !projeto_id || (!talhao_id && !talhao) || !quantidade) {
     return NextResponse.json({ error: "campos obrigatórios faltando" }, { status: 400 });

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
+  claimUnassignedOfflineProductions,
   flushOfflineProductions,
   getOfflineProductionSnapshot,
   subscribeOfflineProductions,
@@ -74,6 +75,23 @@ export default function SyncHome({
     }
   }, []);
 
+  const claimLegacyQueue = useCallback(async () => {
+    setBusy("autoria");
+    setMessage(null);
+    try {
+      const claimed = await claimUnassignedOfflineProductions();
+      await refreshLocalState();
+      setMessage({
+        type: "ok",
+        text: `${claimed} lançamento(s) antigo(s) vinculados ao seu usuário. Revise antes de enviar.`,
+      });
+    } catch (error) {
+      setMessage({ type: "error", text: (error as Error).message });
+    } finally {
+      setBusy(null);
+    }
+  }, [refreshLocalState]);
+
   useEffect(() => {
     void refreshLocalState();
 
@@ -100,6 +118,7 @@ export default function SyncHome({
   const loading = busy !== null;
   const pending = snapshot?.total ?? 0;
   const failed = snapshot?.failed ?? 0;
+  const unassigned = snapshot?.unassigned ?? 0;
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
@@ -158,6 +177,30 @@ export default function SyncHome({
         >
           {message.text}
         </div>
+      )}
+
+      {unassigned > 0 && (
+        <section
+          className="rounded-lg border p-4"
+          style={{ background: "var(--warn-bg)", borderColor: "var(--warn)" }}
+        >
+          <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
+            {unassigned} lançamento(s) antigo(s) sem autoria confirmada
+          </p>
+          <p className="mt-1 text-xs font-semibold leading-5" style={{ color: "var(--text-secondary)" }}>
+            Confirme somente se esses apontamentos foram feitos com o seu acesso neste dispositivo.
+            Eles não serão enviados automaticamente.
+          </p>
+          <button
+            type="button"
+            disabled={loading}
+            onClick={() => void claimLegacyQueue()}
+            className="mt-3 min-h-10 rounded-md border px-3 text-sm font-bold disabled:opacity-60"
+            style={{ background: "var(--bg-card)", borderColor: "var(--warn)", color: "var(--text-primary)" }}
+          >
+            {busy === "autoria" ? "Confirmando..." : "Confirmar minha autoria"}
+          </button>
+        </section>
       )}
 
       <section className="grid gap-3">
