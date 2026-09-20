@@ -119,6 +119,19 @@ create table if not exists public.organization_settings (
   updated_at timestamptz not null default now()
 );
 
+-- app_settings was historically provisioned by an optional SQL script and is
+-- absent from some live installations. Create the legacy shape here so the
+-- generic tenant backfill below can add organization_id before phase 2 replaces
+-- the global primary key with (organization_id, key).
+create table if not exists public.app_settings (
+  key text primary key,
+  value jsonb not null default '{}'::jsonb,
+  updated_by uuid references public.profiles(id) on delete set null,
+  updated_at timestamptz not null default now()
+);
+alter table public.app_settings enable row level security;
+grant all on public.app_settings to service_role;
+
 -- Public only because PostgREST does not expose the private schema. No API
 -- role receives access; all reads/writes go through server-only code.
 create table if not exists public.organization_integrations (
