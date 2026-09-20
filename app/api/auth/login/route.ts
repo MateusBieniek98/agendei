@@ -96,7 +96,9 @@ export async function POST(req: NextRequest) {
   const access = await resolveLoginAccess(supabase, data.user.id);
   if (!access.ok) return errorRedirect(access.reason);
 
-  const target = returnPath ?? defaultRouteForRole(access.role);
+  const target = access.platformAdmin
+    ? "/platform"
+    : returnPath ?? defaultRouteForRole(access.role);
   const targetUrl = new URL(target, req.url);
   const targetPath = `${targetUrl.pathname}${targetUrl.search}${targetUrl.hash}`;
   const response = new NextResponse(sessionCommitPage(targetPath), {

@@ -27,7 +27,12 @@ type SupabaseErrorLike = {
 };
 
 type LoginAccess =
-  | { ok: true; role: UserRole; legacy: boolean }
+  | {
+      ok: true;
+      role: UserRole;
+      legacy: boolean;
+      platformAdmin?: boolean;
+    }
   | { ok: false; reason: "perfil" | "organizacao" };
 
 function isUserRole(value: unknown): value is UserRole {
@@ -84,7 +89,21 @@ export async function resolveLoginAccess(
     return { ok: false, reason: "perfil" };
   }
 
-  if (!profile?.ativo || !profile.active_organization_id) {
+  if (!profile?.ativo) {
+    return { ok: false, reason: "perfil" };
+  }
+
+  const { data: platformAdmin } = await supabase.rpc("is_platform_admin");
+  if (platformAdmin === true) {
+    return {
+      ok: true,
+      role: "admin",
+      legacy: false,
+      platformAdmin: true,
+    };
+  }
+
+  if (!profile.active_organization_id) {
     return { ok: false, reason: "perfil" };
   }
 

@@ -19,6 +19,11 @@ export default async function AdminLayout({
         organization={{ id: tenant!.organization.id, displayName: tenant!.organization.display_name }}
         organizations={tenant!.availableOrganizations.map(({ organization }) => ({ id: organization.id, displayName: organization.display_name }))}
         areaLabel="Administração"
+        supportAccess={tenant!.supportSession ? {
+          organizationName: tenant!.organization.display_name,
+          reason: tenant!.supportSession.reason,
+          expiresAt: tenant!.supportSession.expires_at,
+        } : undefined}
       >
         {children}
       </AppShell>

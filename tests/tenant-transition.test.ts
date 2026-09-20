@@ -29,10 +29,14 @@ function queryResult(result: { data: unknown; error: unknown }) {
   return query;
 }
 
-function loginClient(results: Array<{ data: unknown; error: unknown }>) {
+function loginClient(
+  results: Array<{ data: unknown; error: unknown }>,
+  platformAdmin = false
+) {
   let index = 0;
   return {
     from: () => queryResult(results[index++] ?? { data: null, error: null }),
+    rpc: async () => ({ data: platformAdmin, error: null }),
   } as unknown as SupabaseClient;
 }
 
@@ -131,6 +135,20 @@ describe("transição do schema multiempresa", () => {
     await expect(resolveLoginAccess(client, profile.id)).resolves.toEqual({
       ok: false,
       reason: "perfil",
+    });
+  });
+
+  it("direciona administrador da plataforma sem exigir associação empresarial", async () => {
+    const client = loginClient(
+      [{ data: { active_organization_id: null, ativo: true }, error: null }],
+      true
+    );
+
+    await expect(resolveLoginAccess(client, profile.id)).resolves.toEqual({
+      ok: true,
+      role: "admin",
+      legacy: false,
+      platformAdmin: true,
     });
   });
 });
