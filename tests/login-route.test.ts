@@ -90,13 +90,17 @@ afterEach(() => {
 });
 
 describe("rota de login", () => {
-  it("preserva todos os cookies SSR e cabecalhos de seguranca no redirect", async () => {
+  it("confirma os cookies SSR antes de navegar para a area protegida", async () => {
     mocks.resolveLoginAccess.mockResolvedValue({ ok: true, role: "admin" });
 
     const response = await POST(request());
+    const body = await response.text();
 
-    expect(response.status).toBe(303);
-    expect(response.headers.get("location")).toBe("http://localhost:3000/admin");
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("text/html; charset=utf-8");
+    expect(response.headers.get("location")).toBeNull();
+    expect(body).toContain('window.location.replace("/admin")');
+    expect(body).toContain('content="0;url=/admin"');
     expect(response.headers.get("cache-control")).toBe(
       "private, no-cache, no-store"
     );
