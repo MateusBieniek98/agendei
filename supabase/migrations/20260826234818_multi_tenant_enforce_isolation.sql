@@ -258,24 +258,6 @@ $$;
 revoke all on function private.enforce_same_tenant_relations()
   from public, anon, authenticated;
 
-drop trigger if exists tenant_relations_organization_members
-  on public.organization_members;
-create trigger tenant_relations_organization_members
-before insert or update on public.organization_members
-for each row execute function private.enforce_same_tenant_relations(
-  'public.equipes', 'equipe_id',
-  '@member_or_platform', 'invited_by'
-);
-
-drop trigger if exists tenant_relations_organization_invitations
-  on public.organization_invitations;
-create trigger tenant_relations_organization_invitations
-before insert or update on public.organization_invitations
-for each row execute function private.enforce_same_tenant_relations(
-  'public.equipes', 'equipe_id',
-  '@member_or_platform', 'invited_by'
-);
-
 drop trigger if exists tenant_relations_equipes on public.equipes;
 create trigger tenant_relations_equipes before insert or update on public.equipes
 for each row execute function private.enforce_same_tenant_relations(
@@ -285,13 +267,15 @@ for each row execute function private.enforce_same_tenant_relations(
 drop trigger if exists tenant_relations_members on public.organization_members;
 create trigger tenant_relations_members before insert or update on public.organization_members
 for each row execute function private.enforce_same_tenant_relations(
-  'public.equipes', 'equipe_id'
+  'public.equipes', 'equipe_id',
+  '@member_or_platform', 'invited_by'
 );
 
 drop trigger if exists tenant_relations_invitations on public.organization_invitations;
 create trigger tenant_relations_invitations before insert or update on public.organization_invitations
 for each row execute function private.enforce_same_tenant_relations(
-  'public.equipes', 'equipe_id', '@member', 'invited_by'
+  'public.equipes', 'equipe_id',
+  '@member_or_platform', 'invited_by'
 );
 
 drop trigger if exists tenant_relations_services on public.services_metadata;

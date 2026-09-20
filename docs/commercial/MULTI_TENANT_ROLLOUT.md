@@ -22,6 +22,18 @@ staging descrito abaixo.
    obrigatório, troca índices, RLS, Storage e validações.
 3. `20260826234820_harden_multi_tenant_production_rpcs.sql`: endurece RPCs de
    produção/estoque, troca de organização, limites e autorização ativa.
+4. `20260920132409_grant_tenant_membership_mutations.sql`: libera a gestão de
+   membros para `authenticated`; as políticas RLS continuam limitando a ação a
+   administradores da organização.
+5. `20260920134838_harden_function_privileges_and_indexes.sql`: remove execução
+   anônima de funções privilegiadas, elimina índices transitórios duplicados e
+   cobre as novas chaves estrangeiras.
+6. `20260920135224_cover_membership_team_fk.sql`: cobre a chave estrangeira de
+   equipe dos membros sem depender do índice composto parcial já existente.
+
+A fase de expansão neutraliza triggers durante o backfill de
+`organization_id`. Sem isso, a migração produziria auditoria artificial e
+recalcularia planejamento a partir de uma alteração puramente estrutural.
 
 ## Ensaio em staging
 
@@ -30,12 +42,19 @@ staging descrito abaixo.
 3. Registrar SHA-256 do backup, horário, versão do app e responsável.
 4. Capturar contagens e somas antes da migração com
    `supabase/tests/reconciliation.sql`.
-5. Aplicar as três migrations em ordem e guardar todo o log.
-6. Confirmar zero `organization_id IS NULL` nas tabelas inventariadas.
-7. Executar `supabase/tests/tenant_isolation.sql` com dois clientes fictícios.
-8. Executar o app com a nova versão e os fluxos Playwright.
-9. Repetir a reconciliação e comparar linha a linha os resultados críticos.
-10. Cronometrar o ensaio e validar a restauração do backup.
+5. Reconciliar versões e checksums do histórico remoto. Usar `migration repair`
+   somente quando o SQL já aplicado for comprovadamente equivalente.
+6. Aplicar as seis migrations acima em ordem e guardar todo o log.
+7. Confirmar zero `organization_id IS NULL` nas tabelas inventariadas.
+8. Executar `supabase/tests/tenant_isolation.sql` com duas organizações e
+   usuários técnicos de todos os papéis.
+9. Executar o app com a nova versão e os fluxos Playwright.
+10. Repetir a reconciliação e comparar linha a linha os resultados críticos.
+11. Cronometrar o ensaio e validar a restauração do backup.
+
+O ensaio de 20/09/2026 está documentado em
+`docs/commercial/STAGING_REHEARSAL_2026-09-20.md`. Ele valida o procedimento,
+mas não autoriza publicação direta em produção.
 
 Depois de verificar pessoalmente o UUID do titular e exigir MFA, provisionar o
 primeiro administrador da plataforma pelo SQL Editor:
