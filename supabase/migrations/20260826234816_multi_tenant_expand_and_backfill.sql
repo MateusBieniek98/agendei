@@ -332,6 +332,11 @@ where lower(o.slug) = 'gn'
 
 -- Tenant-owned data. The dynamic form keeps this migration repeatable across
 -- older installations where optional modules were not created yet.
+-- The organization backfill is metadata-only: suppress user/audit/business
+-- triggers so assigning the tenant cannot recalculate planning, touch business
+-- timestamps or generate thousands of synthetic audit events.
+set local session_replication_role = replica;
+
 do $$
 declare
   table_name text;
@@ -378,6 +383,8 @@ begin
     end if;
   end loop;
 end $$;
+
+set local session_replication_role = origin;
 
 -- Dual indexes keep both the legacy and tenant-aware application versions
 -- functional during the expand/contract deployment window.
