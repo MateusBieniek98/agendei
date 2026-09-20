@@ -1,24 +1,16 @@
-// Route handler de login — alternativa ao Server Action.
-// Em route handlers, o suporte a Set-Cookie em redirect é nativo
-// e completamente confiável em qualquer plataforma de deploy.
-
 import { NextResponse, type NextRequest } from "next/server";
-import { createClient, type Session } from "@supabase/supabase-js";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { defaultRouteForRole, safeReturnPath } from "@/lib/navigation";
 import { resolveLoginAccess } from "@/lib/tenant-transition";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-function supabaseAuthCookieName() {
-  const host = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL!).hostname;
-  const ref = host.split(".")[0];
-  return `sb-${ref}-auth-token`;
-}
-
-function encodeSupabaseSession(session: Session) {
-  return `base64-${Buffer.from(JSON.stringify(session)).toString("base64url")}`;
-}
+type PendingCookie = {
+  name: string;
+  value: string;
+  options: CookieOptions;
+};
 
 export async function POST(req: NextRequest) {
   const form = await req.formData();
@@ -38,14 +30,23 @@ export async function POST(req: NextRequest) {
     return errorRedirect("campos");
   }
 
-  const supabase = createClient(
+  const pendingCookies: PendingCookie[] = [];
+  const pendingHeaders = new Map<string, string>();
+
+  const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
-      auth: {
-        autoRefreshToken: false,
-        detectSessionInUrl: false,
-        persistSession: false,
+      cookies: {
+        getAll() {
+          return req.cookies.getAll();
+        },
+        setAll(cookiesToSet, headers) {
+          pendingCookies.push(...cookiesToSet);
+          Object.entries(headers).forEach(([name, value]) =>
+            pendingHeaders.set(name, value)
+          );
+        },
       },
     }
   );
@@ -67,14 +68,10 @@ export async function POST(req: NextRequest) {
     status: 303,
   });
 
-  response.cookies.set({
-    name: supabaseAuthCookieName(),
-    value: encodeSupabaseSession(data.session),
-    path: "/",
-    maxAge: 60 * 60 * 24 * 400,
-    sameSite: "lax",
-    secure: req.nextUrl.protocol === "https:",
-  });
+  pendingCookies.forEach(({ name, value, options }) =>
+    response.cookies.set(name, value, options)
+  );
+  pendingHeaders.forEach((value, name) => response.headers.set(name, value));
 
   return response;
 }
