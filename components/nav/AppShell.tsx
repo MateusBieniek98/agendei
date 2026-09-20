@@ -24,6 +24,11 @@ type AppShellProps = {
   organizations?: Array<{ id: string; displayName: string }>;
   mobileStrategy?: "drawer" | "bottom";
   contentWidth?: "standard" | "wide";
+  supportAccess?: {
+    organizationName: string;
+    reason: string;
+    expiresAt: string;
+  };
 };
 
 function isItemActive(pathname: string, item: NavigationItem) {
@@ -95,11 +100,13 @@ export default function AppShell({
   organizations = [],
   mobileStrategy = "drawer",
   contentWidth = "wide",
+  supportAccess,
 }: AppShellProps) {
   const { toast } = useToast();
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [switchingOrganization, setSwitchingOrganization] = useState(false);
+  const [endingSupport, setEndingSupport] = useState(false);
   const items = useMemo(() => navigation.flatMap((group) => group.items), [navigation]);
   const activeItem = items.find((item) => isItemActive(pathname, item));
   const pageTitle = activeItem?.label ?? areaLabel;
@@ -118,6 +125,21 @@ export default function AppShell({
       window.location.assign(body.home ?? "/");
     } catch (error) {
       setSwitchingOrganization(false);
+      toast((error as Error).message, "error");
+    }
+  }
+
+  async function endSupportAccess() {
+    setEndingSupport(true);
+    try {
+      const response = await fetch("/api/platform/support-session", {
+        method: "DELETE",
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error ?? "Não foi possível encerrar o acesso.");
+      window.location.assign(body.next ?? "/platform");
+    } catch (error) {
+      setEndingSupport(false);
       toast((error as Error).message, "error");
     }
   }
@@ -237,6 +259,30 @@ export default function AppShell({
               </div>
             </div>
           </header>
+
+          {supportAccess && (
+            <section className="border-b border-[#d6a23a]/35 bg-[var(--warn-bg)] px-3 py-3 sm:px-5 lg:px-7" role="status">
+              <div className="mx-auto flex max-w-[1480px] flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold uppercase text-[var(--warn)]">Acesso temporário de suporte</p>
+                  <p className="mt-0.5 text-sm font-semibold text-[var(--text-primary)]">
+                    {supportAccess.organizationName} · até {new Date(supportAccess.expiresAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                  </p>
+                  <p className="mt-0.5 truncate text-xs text-[var(--text-secondary)]">{supportAccess.reason}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void endSupportAccess()}
+                  disabled={endingSupport}
+                  aria-busy={endingSupport || undefined}
+                  className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-md border border-[var(--warn)] px-3 text-xs font-semibold text-[var(--warn)] transition hover:bg-black/5 disabled:opacity-55"
+                >
+                  {endingSupport && <span className="ui-spinner h-3.5 w-3.5" aria-hidden="true" />}
+                  {endingSupport ? "Encerrando" : "Encerrar suporte"}
+                </button>
+              </div>
+            </section>
+          )}
 
           <main className={`mx-auto w-full px-3 py-4 sm:px-5 sm:py-6 lg:px-7 lg:py-7 ${contentWidth === "standard" ? "max-w-6xl" : "max-w-[1480px]"}`}>
             {children}

@@ -127,4 +127,20 @@ describe("rota de login", () => {
     );
     expect(response.cookies.getAll()).toHaveLength(0);
   });
+
+  it("leva o administrador global para o ambiente da plataforma", async () => {
+    mocks.resolveLoginAccess.mockResolvedValue({
+      ok: true,
+      role: "admin",
+      legacy: false,
+      platformAdmin: true,
+    });
+
+    const response = await POST(request());
+    const body = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(body).toContain('window.location.replace("/platform")');
+    expect(body).not.toContain('window.location.replace("/admin")');
+  });
 });

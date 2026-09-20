@@ -20,6 +20,7 @@ export default function MfaSetup({ next, required }: { next: string; required: b
   const [factorId, setFactorId] = useState("");
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(true);
+  const [enrolling, setEnrolling] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [error, setError] = useState("");
 
@@ -37,23 +38,6 @@ export default function MfaSetup({ next, required }: { next: string; required: b
       const verified = factors.totp.find((factor) => factor.status === "verified");
       if (verified) {
         setFactorId(verified.id);
-        setLoading(false);
-        return;
-      }
-      const { data, error: enrollError } = await supabase.auth.mfa.enroll({
-        factorType: "totp",
-        friendlyName: required ? "Administração da plataforma" : "Administração da empresa",
-      });
-      if (!active) return;
-      if (enrollError) {
-        setError(enrollError.message);
-      } else {
-        setFactorId(data.id);
-        setEnrollment({
-          factorId: data.id,
-          qrCode: data.totp.qr_code,
-          secret: data.totp.secret,
-        });
       }
       setLoading(false);
     }
@@ -62,6 +46,54 @@ export default function MfaSetup({ next, required }: { next: string; required: b
       active = false;
     };
   }, [required]);
+
+  async function beginEnrollment() {
+    setEnrolling(true);
+    setError("");
+    const supabase = createClient();
+    const { data: factors, error: factorsError } = await supabase.auth.mfa.listFactors();
+    if (factorsError) {
+      setError(factorsError.message);
+      setEnrolling(false);
+      return;
+    }
+
+    const verified = factors.totp.find((factor) => factor.status === "verified");
+    if (verified) {
+      setFactorId(verified.id);
+      setEnrollment(null);
+      setEnrolling(false);
+      return;
+    }
+
+    const cleanupResponse = await fetch("/api/auth/mfa/enrollment", {
+      method: "DELETE",
+    });
+    if (!cleanupResponse.ok) {
+      const body = await cleanupResponse.json().catch(() => ({}));
+      setError(body.error ?? "Não foi possível preparar o autenticador.");
+      setEnrolling(false);
+      return;
+    }
+
+    const { data, error: enrollError } = await supabase.auth.mfa.enroll({
+      factorType: "totp",
+      friendlyName: required ? "Administração da plataforma" : "Administração da empresa",
+    });
+    if (enrollError) {
+      setError(enrollError.message);
+      setEnrolling(false);
+      return;
+    }
+
+    setFactorId(data.id);
+    setEnrollment({
+      factorId: data.id,
+      qrCode: data.totp.qr_code.trimEnd(),
+      secret: data.totp.secret,
+    });
+    setEnrolling(false);
+  }
 
   async function verify(event: React.FormEvent) {
     event.preventDefault();
@@ -114,8 +146,25 @@ export default function MfaSetup({ next, required }: { next: string; required: b
             </details>
           </div>
         )}
-        {!loading && !enrollment && !error && (
-          <p className="mt-5 text-sm">Abra o autenticador já vinculado e informe o código atual.</p>
+        {!loading && !enrollment && (
+          factorId ? (
+            <p className="mt-5 text-sm">Abra o autenticador já vinculado e informe o código atual.</p>
+          ) : (
+            <div className="mt-5 rounded-lg border border-[var(--border)] bg-[var(--bg-card-alt)] p-4">
+              <p className="text-sm text-[var(--text-secondary)]">
+                Vincule um aplicativo autenticador para proteger o ambiente administrativo.
+              </p>
+              <Button
+                type="button"
+                variant="secondary"
+                loading={enrolling}
+                className="mt-3 w-full"
+                onClick={() => void beginEnrollment()}
+              >
+                Configurar autenticador
+              </Button>
+            </div>
+          )
         )}
 
         {!loading && factorId && (

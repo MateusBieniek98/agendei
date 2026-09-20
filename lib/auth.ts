@@ -3,10 +3,12 @@ import "server-only";
 import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createSupabaseServer } from "./supabase/server";
+import { createSupabaseAdminClient } from "./supabase/admin";
 import type {
   Organization,
   OrganizationMembership,
   OrganizationSettings,
+  PlatformSupportSession,
   Profile,
   TenantContext,
   UserRole,
@@ -61,11 +63,78 @@ export const getCurrentTenantContext = cache(
     }
 
     const memberships = (membershipsData ?? []) as unknown as MembershipQueryRow[];
-    const selected =
-      memberships.find(
-        (membership) =>
-          membership.organization_id === baseProfile.active_organization_id
-      ) ?? memberships[0];
+    const { data: platformAdmin } = await supabase.rpc("is_platform_admin");
+
+    if (platformAdmin === true) {
+      const admin = createSupabaseAdminClient();
+      const { data: supportData } = admin
+        ? await admin
+            .from("platform_support_sessions")
+            .select("id,organization_id,reason,started_at,expires_at")
+            .eq("actor_id", auth.user.id)
+            .is("ended_at", null)
+            .gt("expires_at", new Date().toISOString())
+            .order("started_at", { ascending: false })
+            .limit(1)
+            .maybeSingle()
+        : { data: null };
+      const supportSession = supportData as PlatformSupportSession | null;
+
+      if (supportSession && admin) {
+        const [{ data: organizationData }, { data: settingsData }] =
+          await Promise.all([
+            admin
+              .from("organizations")
+              .select("*")
+              .eq("id", supportSession.organization_id)
+              .maybeSingle(),
+            admin
+              .from("organization_settings")
+              .select("*")
+              .eq("organization_id", supportSession.organization_id)
+              .maybeSingle(),
+          ]);
+        const organization = organizationData as Organization | null;
+        if (!organization) return null;
+
+        const membership: OrganizationMembership = {
+          organization_id: organization.id,
+          user_id: baseProfile.id,
+          role: "admin",
+          equipe_id: null,
+          active: true,
+          invited_by: null,
+          joined_at: supportSession.started_at,
+          created_at: supportSession.started_at,
+          updated_at: supportSession.started_at,
+        };
+        const profile: Profile = {
+          ...baseProfile,
+          role: "admin",
+          equipe_id: null,
+          active_organization_id: organization.id,
+        };
+
+        return {
+          profile,
+          organization,
+          membership,
+          settings: (settingsData as OrganizationSettings | null) ?? null,
+          availableOrganizations: [{ organization, membership }],
+          supportSession,
+        };
+      }
+
+      // A platform operator only enters a tenant through an explicit,
+      // expiring support session. Never fall back to a customer membership.
+      return null;
+    }
+
+    let selected = memberships.find(
+      (membership) =>
+        membership.organization_id === baseProfile.active_organization_id
+    );
+    if (!selected) selected = memberships[0];
 
     if (!selected?.organizations) return null;
 
@@ -145,10 +214,16 @@ export async function getCurrentAuthContext(): Promise<{
 
 export async function requireTenantContext(): Promise<TenantContext> {
   const tenant = await getCurrentTenantContext();
-  if (!tenant) redirect("/login?erro=organizacao");
+  if (!tenant) {
+    if (await isCurrentUserPlatformAdmin()) {
+      redirect("/platform?aviso=sessao-expirada");
+    }
+    redirect("/login?erro=organizacao");
+  }
   if (
-    tenant.organization.status === "suspended" ||
-    tenant.organization.status === "cancelled"
+    !tenant.supportSession &&
+    (tenant.organization.status === "suspended" ||
+      tenant.organization.status === "cancelled")
   ) {
     redirect("/organizacao-suspensa");
   }
@@ -177,11 +252,17 @@ export async function isCurrentUserPlatformAdmin() {
 
 export async function getPlatformMfaStatus() {
   const supabase = await createSupabaseServer();
-  const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-  if (error) return { currentLevel: null, nextLevel: null };
+  const [{ data: claimsData, error: claimsError }, { data: auth, error: userError }] =
+    await Promise.all([supabase.auth.getClaims(), supabase.auth.getUser()]);
+  if (claimsError || userError) return { currentLevel: null, nextLevel: null };
+  const aal = claimsData?.claims.aal;
+  const currentLevel = aal === "aal1" || aal === "aal2" ? aal : null;
+  const hasVerifiedFactor = auth.user?.factors?.some(
+    (factor) => factor.status === "verified"
+  );
   return {
-    currentLevel: data.currentLevel,
-    nextLevel: data.nextLevel,
+    currentLevel,
+    nextLevel: hasVerifiedFactor ? ("aal2" as const) : currentLevel,
   };
 }
 

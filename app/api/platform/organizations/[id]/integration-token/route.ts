@@ -1,12 +1,10 @@
 import { createHash, randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
-import { getPlatformMfaStatus, isCurrentUserPlatformAdmin } from "@/lib/auth";
 import { consumeOrganizationRateLimit } from "@/lib/rate-limit";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { createSupabaseServer } from "@/lib/supabase/server";
 import { logEvent } from "@/lib/logger";
 import { encryptIntegrationSecret } from "@/lib/integration-secrets";
 import { validateWebhookUrl } from "@/lib/google-sheets-apontamentos";
+import { getPlatformApiContext } from "@/lib/platform-admin";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -14,30 +12,11 @@ export const runtime = "nodejs";
 type Context = { params: Promise<{ id: string }> };
 
 export async function POST(request: Request, context: Context) {
-  if (!(await isCurrentUserPlatformAdmin())) {
-    return NextResponse.json({ error: "forbidden" }, { status: 403 });
-  }
-  const assurance = await getPlatformMfaStatus();
-  if (assurance.currentLevel !== "aal2") {
-    return NextResponse.json(
-      { error: "mfa_required", next: "/seguranca/mfa" },
-      { status: 403 }
-    );
-  }
-
-  const admin = createSupabaseAdminClient();
-  if (!admin) {
-    return NextResponse.json(
-      { error: "SUPABASE_SERVICE_ROLE_KEY não configurada no servidor." },
-      { status: 500 }
-    );
-  }
-  const supabase = await createSupabaseServer();
-  const { data: auth } = await supabase.auth.getUser();
-  if (!auth.user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
+  const platform = await getPlatformApiContext();
+  if ("response" in platform) return platform.response;
 
   const { id } = await context.params;
-  const { data: organization } = await admin
+  const { data: organization } = await platform.admin
     .from("organizations")
     .select("id,display_name")
     .eq("id", id)
@@ -70,14 +49,14 @@ export async function POST(request: Request, context: Context) {
   } catch (error) {
     return NextResponse.json({ error: (error as Error).message }, { status: 500 });
   }
-  const { data: existingIntegration } = await admin
+  const { data: existingIntegration } = await platform.admin
     .from("organization_integrations")
     .select("config")
     .eq("organization_id", id)
     .eq("provider", "google_sheets")
     .maybeSingle();
   const existingConfig = (existingIntegration?.config ?? {}) as Record<string, unknown>;
-  const { error } = await admin.from("organization_integrations").upsert(
+  const { error } = await platform.admin.from("organization_integrations").upsert(
     {
       organization_id: id,
       provider: "google_sheets",
@@ -95,14 +74,14 @@ export async function POST(request: Request, context: Context) {
   );
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
-  await admin.from("platform_audit_log").insert({
-    actor_id: auth.user.id,
+  await platform.admin.from("platform_audit_log").insert({
+    actor_id: platform.user.id,
     organization_id: id,
     action: "organization.integration_token_rotated",
     details: { provider: "google_sheets" },
   });
   logEvent("info", "organization.integration_token_rotated", {
-    actorId: auth.user.id,
+    actorId: platform.user.id,
     organizationId: id,
     provider: "google_sheets",
   });

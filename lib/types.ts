@@ -51,6 +51,14 @@ export type OrganizationSettings = {
   updated_at: string;
 };
 
+export type PlatformSupportSession = {
+  id: string;
+  organization_id: string;
+  reason: string;
+  started_at: string;
+  expires_at: string;
+};
+
 export type Profile = {
   id: string;
   email: string;
@@ -72,6 +80,7 @@ export type TenantContext = {
     organization: Organization;
     membership: OrganizationMembership;
   }>;
+  supportSession?: PlatformSupportSession | null;
 };
 
 export type Equipe = {

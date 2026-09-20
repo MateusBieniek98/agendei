@@ -437,7 +437,7 @@ body {
 .animate-slide-up { animation: slide-up var(--motion-standard) var(--ease-emphasized) both; }
 
 .route-transition {
-  animation: route-enter var(--motion-standard) var(--ease-emphasized) both;
+  animation: route-enter var(--motion-standard) var(--ease-emphasized) backwards;
 }
 
 .ui-skeleton {

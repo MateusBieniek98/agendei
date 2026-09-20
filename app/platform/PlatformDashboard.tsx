@@ -1,265 +1,385 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Logo from "@/components/branding/Logo";
-import { PRODUCT_BRAND } from "@/lib/product-brand";
+import LogoutButton from "@/components/nav/LogoutButton";
+import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
-import { InlineProgress, TableSkeleton } from "@/components/ui/Skeleton";
+import { Card, CardBody, CardHeader, StatCard } from "@/components/ui/Card";
+import Input from "@/components/ui/Input";
+import Select from "@/components/ui/Select";
+import { TableSkeleton } from "@/components/ui/Skeleton";
+import { useToast } from "@/components/ui/Toast";
+import { PRODUCT_BRAND } from "@/lib/product-brand";
+import type { OrganizationStatus } from "@/lib/types";
+import CreateOrganizationDialog from "./CreateOrganizationDialog";
+import OrganizationDrawer from "./OrganizationDrawer";
+import type {
+  PlatformAuditEntry,
+  PlatformOrganization,
+} from "./platform-types";
 
-type OrganizationItem = {
-  id: string;
-  slug: string;
-  display_name: string;
-  status: string;
-  plan_code: string;
-  user_limit: number;
-  active_users: number;
-  contract_started_at: string | null;
-  contract_ends_at: string | null;
-  created_at: string;
+const STATUS_LABEL: Record<OrganizationStatus, string> = {
+  onboarding: "Em implantação",
+  active: "Ativa",
+  suspended: "Suspensa",
+  cancelled: "Cancelada",
 };
 
-export default function PlatformDashboard() {
-  const [items, setItems] = useState<OrganizationItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [pendingAction, setPendingAction] = useState<string | null>(null);
-  const [message, setMessage] = useState("");
+const ACTION_LABEL: Record<string, string> = {
+  "organization.created": "Empresa criada",
+  "organization.updated": "Empresa atualizada",
+  "organization.support_started": "Suporte iniciado",
+  "organization.support_ended": "Suporte encerrado",
+  "organization.integration_token_rotated": "Token de integração renovado",
+  "organization.user_invited": "Usuário convidado",
+  "organization.user_created_assisted": "Usuário criado",
+};
 
-  const load = useCallback(async () => {
-    setLoading(true);
+function statusTone(status: OrganizationStatus) {
+  if (status === "active") return "success" as const;
+  if (status === "onboarding") return "info" as const;
+  if (status === "suspended") return "warning" as const;
+  return "danger" as const;
+}
+
+function formatDate(value: string | null, withTime = false) {
+  if (!value) return "—";
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    ...(withTime ? { hour: "2-digit", minute: "2-digit" } : {}),
+  }).format(new Date(value));
+}
+
+export default function PlatformDashboard() {
+  const { toast } = useToast();
+  const [items, setItems] = useState<PlatformOrganization[]>([]);
+  const [audit, setAudit] = useState<PlatformAuditEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState("all");
+  const [createOpen, setCreateOpen] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  const load = useCallback(async (background = false) => {
+    if (background) setRefreshing(true);
+    else setLoading(true);
     try {
-      const response = await fetch("/api/platform/organizations", { cache: "no-store" });
-      const body = await response.json().catch(() => ({}));
-      setItems(response.ok && Array.isArray(body.items) ? body.items : []);
-      if (!response.ok) setMessage(body.error ?? "Falha ao carregar empresas.");
+      const [organizationsResponse, auditResponse] = await Promise.all([
+        fetch("/api/platform/organizations", { cache: "no-store" }),
+        fetch("/api/platform/audit", { cache: "no-store" }),
+      ]);
+      const [organizationsBody, auditBody] = await Promise.all([
+        organizationsResponse.json().catch(() => ({})),
+        auditResponse.json().catch(() => ({})),
+      ]);
+      if (!organizationsResponse.ok) {
+        if (organizationsBody.next) window.location.assign(organizationsBody.next);
+        throw new Error(organizationsBody.error ?? "Falha ao carregar empresas.");
+      }
+      if (!auditResponse.ok) {
+        throw new Error(auditBody.error ?? "Falha ao carregar auditoria.");
+      }
+      setItems(Array.isArray(organizationsBody.items) ? organizationsBody.items : []);
+      setAudit(Array.isArray(auditBody.items) ? auditBody.items : []);
     } catch (error) {
-      setItems([]);
-      setMessage(`Falha ao carregar empresas: ${(error as Error).message}`);
+      toast((error as Error).message, "error");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  }, []);
+  }, [toast]);
 
   useEffect(() => {
     void load();
-  }, [load]);
-
-  async function createOrganization(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const formElement = event.currentTarget;
-    setSaving(true);
-    setMessage("");
-    try {
-      const form = new FormData(formElement);
-      const response = await fetch("/api/platform/organizations", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(Object.fromEntries(form.entries())),
-      });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        setMessage(body.error ?? "Falha ao criar empresa.");
-        return;
-      }
-      setMessage(body.onboarding?.message ?? "Empresa criada.");
-      formElement.reset();
-      await load();
-    } catch (error) {
-      setMessage(`Falha ao criar empresa: ${(error as Error).message}`);
-    } finally {
-      setSaving(false);
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("aviso") === "sessao-expirada") {
+      toast("O acesso temporário à empresa expirou.", "info");
+      window.history.replaceState({}, "", "/platform");
     }
-  }
+  }, [load, toast]);
 
-  async function updateStatus(id: string, status: string) {
-    setPendingAction(`status:${id}`);
-    setMessage("");
-    try {
-      const response = await fetch("/api/platform/organizations", {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ id, status }),
-      });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        setMessage(body.error ?? "Falha ao atualizar empresa.");
-        return;
-      }
-      setMessage(status === "suspended" ? "Empresa suspensa e acesso operacional bloqueado." : "Status atualizado.");
-      await load();
-    } catch (error) {
-      setMessage(`Falha ao atualizar empresa: ${(error as Error).message}`);
-    } finally {
-      setPendingAction(null);
-    }
-  }
+  const filtered = useMemo(() => {
+    const term = search.trim().toLocaleLowerCase("pt-BR");
+    return items.filter((item) => {
+      if (status !== "all" && item.status !== status) return false;
+      if (!term) return true;
+      return [
+        item.display_name,
+        item.legal_name,
+        item.document_number,
+        item.slug,
+      ].some((value) => value?.toLocaleLowerCase("pt-BR").includes(term));
+    });
+  }, [items, search, status]);
 
-  async function updateCommercial(
-    id: string,
-    patch: Record<string, string | number | null>
-  ) {
-    setPendingAction(`commercial:${id}`);
-    setMessage("");
-    try {
-      const response = await fetch("/api/platform/organizations", {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ id, ...patch }),
-      });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        setMessage(body.error ?? "Falha ao atualizar contrato.");
-        return;
-      }
-      setMessage("Dados comerciais atualizados.");
-      await load();
-    } catch (error) {
-      setMessage(`Falha ao atualizar contrato: ${(error as Error).message}`);
-    } finally {
-      setPendingAction(null);
-    }
-  }
+  const selected = items.find((item) => item.id === selectedId) ?? null;
+  const active = items.filter((item) => item.status === "active").length;
+  const onboarding = items.filter((item) => item.status === "onboarding").length;
+  const blocked = items.filter(
+    (item) => item.status === "suspended" || item.status === "cancelled"
+  ).length;
+  const activeUsers = items.reduce((total, item) => total + item.active_users, 0);
 
-  async function rotateIntegrationToken(id: string, displayName: string) {
-    if (!confirm(`Gerar um novo token para ${displayName}? O token anterior deixará de funcionar.`)) return;
-    const webhookUrl = window.prompt(
-      "URL /exec do Apps Script (deixe vazio para manter a configuração atual):",
-      ""
+  function updateItem(updated: PlatformOrganization) {
+    setItems((current) =>
+      current.map((item) => (item.id === updated.id ? updated : item))
     );
-    if (webhookUrl === null) return;
-    setPendingAction(`token:${id}`);
-    setMessage("");
-    try {
-      const response = await fetch(`/api/platform/organizations/${id}/integration-token`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ apontamentos_webhook_url: webhookUrl.trim() }),
-      });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        setMessage(body.error ?? "Falha ao gerar token.");
-        return;
-      }
-      const copied = await navigator.clipboard.writeText(String(body.token)).then(
-        () => true,
-        () => false
-      );
-      setMessage(
-        copied
-          ? "Token copiado. Guarde-o agora: ele não será exibido novamente."
-          : `Token (copie agora): ${body.token}`
-      );
-    } catch (error) {
-      setMessage(`Falha ao gerar token: ${(error as Error).message}`);
-    } finally {
-      setPendingAction(null);
-    }
   }
 
   return (
-    <main className="min-h-dvh bg-[var(--bg-page)] px-4 py-6 sm:px-6 lg:px-10">
-      <div className="mx-auto max-w-7xl space-y-6">
-        <header className="flex flex-col gap-4 rounded-lg bg-[var(--shell-bg)] p-6 text-white sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
-            <Logo size={48} variant="mono-light" />
-            <div>
-              <p className="text-xs font-bold uppercase text-white/55">Administração da plataforma</p>
-              <h1 className="text-2xl font-bold">{PRODUCT_BRAND.name}</h1>
-            </div>
+    <div className="min-h-dvh bg-[var(--bg-page)] text-[var(--text-primary)]">
+      <header className="border-b border-white/10 bg-[var(--shell-bg)] text-white">
+        <div className="mx-auto flex min-h-[76px] max-w-[1480px] items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
+          <Logo size={42} variant="mono-light" />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold">{PRODUCT_BRAND.name} Operações</p>
+            <p className="truncate text-xs text-white/50">Administração global da plataforma</p>
           </div>
-          <Link href="/" className="text-sm font-bold text-white/75 hover:text-white">Voltar ao app</Link>
-        </header>
+          <Link
+            href="/seguranca/mfa"
+            className="hidden min-h-9 items-center rounded-md px-3 text-xs font-semibold text-white/65 transition hover:bg-white/10 hover:text-white sm:inline-flex"
+          >
+            Segurança
+          </Link>
+          <LogoutButton className="inline-flex min-h-9 items-center rounded-md px-3 text-xs font-semibold text-white/65 transition hover:bg-white/10 hover:text-white">
+            Sair
+          </LogoutButton>
+        </div>
+      </header>
 
-        {message && <p role="status" className="animate-fade-in rounded-lg border border-[var(--border)] bg-[var(--bg-card)] px-4 py-3 text-sm font-semibold">{message}</p>}
-
-        <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
-          <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-5">
-            <h2 className="text-lg font-bold">Empresas</h2>
-            <p className="mt-1 text-sm text-[var(--text-secondary)]">Contratos e limites são controlados manualmente no piloto.</p>
-            <div className="mt-5 overflow-x-auto">
-              <table className="w-full min-w-[920px] text-left text-sm">
-                <thead className="text-xs uppercase text-[var(--text-muted)]"><tr><th className="pb-3">Empresa</th><th className="pb-3">Status</th><th className="pb-3">Plano e usuários</th><th className="pb-3">Contrato</th><th className="pb-3">Integração</th><th className="pb-3">Criada</th></tr></thead>
-                <tbody>
-                  {items.map((item) => (
-                    <tr key={item.id} className="border-t border-[var(--border)]">
-                      <td className="py-3"><p className="font-bold">{item.display_name}</p><p className="text-xs text-[var(--text-muted)]">{item.slug}</p></td>
-                      <td className="py-3">
-                        <div className="flex items-center gap-2"><select
-                          aria-label={`Status de ${item.display_name}`}
-                          value={item.status}
-                          disabled={pendingAction === `status:${item.id}`}
-                          aria-busy={pendingAction === `status:${item.id}` || undefined}
-                          onChange={(event) => void updateStatus(item.id, event.target.value)}
-                          className="h-9 rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-2 text-xs font-bold"
-                        >
-                          <option value="onboarding">implantação</option>
-                          <option value="active">ativa</option>
-                          <option value="suspended">suspensa</option>
-                          <option value="cancelled">cancelada</option>
-                        </select>{pendingAction === `status:${item.id}` && <span className="ui-spinner h-3.5 w-3.5" aria-hidden="true" />}</div>
-                      </td>
-                      <td className="py-3" aria-busy={pendingAction === `commercial:${item.id}` || undefined}>
-                        <input
-                          aria-label={`Plano de ${item.display_name}`}
-                          defaultValue={item.plan_code}
-                          disabled={pendingAction === `commercial:${item.id}`}
-                          onBlur={(event) => {
-                            if (event.target.value !== item.plan_code) void updateCommercial(item.id, { plan_code: event.target.value });
-                          }}
-                          className="h-8 w-24 rounded border border-[var(--border)] bg-[var(--bg-input)] px-2 text-xs"
-                        />
-                        <div className="mt-1 flex items-center gap-1 text-xs text-[var(--text-muted)]">
-                          <span>{item.active_users}/</span>
-                          <input
-                            aria-label={`Limite de usuários de ${item.display_name}`}
-                            type="number"
-                            min={item.active_users || 1}
-                            defaultValue={item.user_limit}
-                            disabled={pendingAction === `commercial:${item.id}`}
-                            onBlur={(event) => {
-                              const value = Number(event.target.value);
-                              if (value !== item.user_limit) void updateCommercial(item.id, { user_limit: value });
-                            }}
-                            className="h-7 w-16 rounded border border-[var(--border)] bg-[var(--bg-input)] px-2 text-xs"
-                          />
-                        </div>
-                        {pendingAction === `commercial:${item.id}` && <InlineProgress label="Salvando" />}
-                      </td>
-                      <td className="py-3">
-                        <div className="grid gap-1">
-                          <input aria-label={`Início do contrato de ${item.display_name}`} type="date" defaultValue={item.contract_started_at ?? ""} disabled={pendingAction === `commercial:${item.id}`} onBlur={(event) => { if (event.target.value !== (item.contract_started_at ?? "")) void updateCommercial(item.id, { contract_started_at: event.target.value || null }); }} className="h-8 rounded border border-[var(--border)] bg-[var(--bg-input)] px-2 text-xs" />
-                          <input aria-label={`Fim do contrato de ${item.display_name}`} type="date" defaultValue={item.contract_ends_at ?? ""} disabled={pendingAction === `commercial:${item.id}`} onBlur={(event) => { if (event.target.value !== (item.contract_ends_at ?? "")) void updateCommercial(item.id, { contract_ends_at: event.target.value || null }); }} className="h-8 rounded border border-[var(--border)] bg-[var(--bg-input)] px-2 text-xs" />
-                        </div>
-                      </td>
-                      <td className="py-3"><Button type="button" variant="ghost" size="sm" loading={pendingAction === `token:${item.id}`} onClick={() => void rotateIntegrationToken(item.id, item.display_name)}>Gerar token</Button></td>
-                      <td className="py-3">{new Date(item.created_at).toLocaleDateString("pt-BR")}</td>
-                    </tr>
-                  ))}
-                  {!loading && items.length === 0 && <tr><td colSpan={6} className="py-8 text-center text-[var(--text-muted)]">Nenhuma empresa cadastrada.</td></tr>}
-                </tbody>
-              </table>
-              {loading && items.length === 0 && <TableSkeleton rows={5} columns={6} className="mt-2" />}
-            </div>
+      <main className="mx-auto w-full max-w-[1480px] space-y-6 px-4 py-5 sm:px-6 sm:py-7 lg:px-8">
+        <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase text-[var(--text-muted)]">Ambiente global</p>
+            <h1 className="mt-1 text-2xl font-semibold">Empresas</h1>
           </div>
-
-          <form onSubmit={createOrganization} className="rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-5">
-            <h2 className="text-lg font-bold">Nova empresa</h2>
-            <div className="mt-4 space-y-3">
-              <label className="block text-sm font-semibold">Nome operacional<input name="display_name" required className="mt-1 h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3" /></label>
-              <label className="block text-sm font-semibold">Razão social<input name="legal_name" className="mt-1 h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3" /></label>
-              <label className="block text-sm font-semibold">E-mail de cobrança<input name="billing_email" type="email" className="mt-1 h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3" /></label>
-              <label className="block text-sm font-semibold">Nome do primeiro administrador<input name="admin_name" className="mt-1 h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3" /></label>
-              <label className="block text-sm font-semibold">E-mail do primeiro administrador<input name="admin_email" type="email" className="mt-1 h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3" /></label>
-              <label className="block text-sm font-semibold">Plano<select name="plan_code" defaultValue="founder" className="mt-1 h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3"><option value="founder">Piloto fundador</option><option value="standard">Padrão</option><option value="custom">Personalizado</option></select></label>
-              <label className="block text-sm font-semibold">Início do contrato<input name="contract_started_at" type="date" className="mt-1 h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3" /></label>
-              <label className="block text-sm font-semibold">Limite de usuários<input name="user_limit" type="number" min="1" defaultValue="30" className="mt-1 h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3" /></label>
-            </div>
-            <Button type="submit" loading={saving} className="mt-5 w-full">Criar empresa</Button>
-          </form>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              loading={refreshing}
+              onClick={() => void load(true)}
+            >
+              Atualizar
+            </Button>
+            <Button type="button" onClick={() => setCreateOpen(true)}>
+              Nova empresa
+            </Button>
+          </div>
         </section>
-      </div>
-    </main>
+
+        <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <StatCard label="Empresas" value={items.length} hint="Total cadastrado" />
+          <StatCard label="Ativas" value={active} hint="Operação liberada" tone="positive" />
+          <StatCard label="Em implantação" value={onboarding} hint="Onboarding em curso" tone="warning" />
+          <StatCard label="Usuários ativos" value={activeUsers} hint={`${blocked} empresas bloqueadas`} />
+        </section>
+
+        <Card>
+          <CardHeader
+            title="Carteira de clientes"
+            subtitle={`${filtered.length} de ${items.length} empresas`}
+            right={refreshing ? <span className="ui-spinner h-4 w-4" aria-label="Atualizando" /> : undefined}
+          />
+          <CardBody className="border-b border-[var(--divider)]">
+            <div className="grid gap-3 sm:grid-cols-[minmax(240px,1fr)_220px]">
+              <Input
+                type="search"
+                aria-label="Buscar empresa"
+                placeholder="Buscar por nome, CNPJ ou identificador"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+              />
+              <Select
+                aria-label="Filtrar por status"
+                value={status}
+                onChange={(event) => setStatus(event.target.value)}
+                options={[
+                  { value: "all", label: "Todos os status" },
+                  { value: "active", label: "Ativas" },
+                  { value: "onboarding", label: "Em implantação" },
+                  { value: "suspended", label: "Suspensas" },
+                  { value: "cancelled", label: "Canceladas" },
+                ]}
+              />
+            </div>
+          </CardBody>
+
+          <div className="divide-y divide-[var(--divider)] sm:hidden">
+            {filtered.map((item) => (
+              <article key={item.id} className="space-y-4 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-[var(--text-primary)]">{item.display_name}</p>
+                    <p className="mt-0.5 truncate text-xs text-[var(--text-muted)]">
+                      {item.document_number || item.slug}
+                    </p>
+                  </div>
+                  <Badge tone={statusTone(item.status)}>{STATUS_LABEL[item.status]}</Badge>
+                </div>
+                <dl className="grid grid-cols-3 gap-3 text-xs">
+                  <div>
+                    <dt className="text-[var(--text-muted)]">Plano</dt>
+                    <dd className="mt-1 font-semibold text-[var(--text-primary)]">{item.plan_code}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[var(--text-muted)]">Usuários</dt>
+                    <dd className="mt-1 font-semibold tabular-nums text-[var(--text-primary)]">
+                      {item.active_users} / {item.user_limit}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-[var(--text-muted)]">Contrato</dt>
+                    <dd className="mt-1 font-semibold text-[var(--text-primary)]">
+                      {item.contract_ends_at
+                        ? formatDate(item.contract_ends_at)
+                        : item.contract_started_at
+                          ? formatDate(item.contract_started_at)
+                          : "Não informado"}
+                    </dd>
+                  </div>
+                </dl>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => setSelectedId(item.id)}
+                >
+                  Gerenciar empresa
+                </Button>
+              </article>
+            ))}
+            {!loading && filtered.length === 0 && (
+              <p className="px-4 py-10 text-center text-sm text-[var(--text-muted)]">
+                Nenhuma empresa encontrada.
+              </p>
+            )}
+            {loading && <TableSkeleton rows={4} columns={2} className="m-4" />}
+          </div>
+
+          <div className="hidden overflow-x-auto sm:block">
+            <table className="w-full min-w-[900px] text-left text-sm">
+              <thead className="bg-[var(--bg-card-alt)] text-[11px] font-semibold uppercase text-[var(--text-muted)]">
+                <tr>
+                  <th className="px-4 py-3">Empresa</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Plano</th>
+                  <th className="px-4 py-3">Usuários</th>
+                  <th className="px-4 py-3">Contrato</th>
+                  <th className="px-4 py-3 text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--divider)]">
+                {filtered.map((item) => (
+                  <tr key={item.id} className="transition-colors hover:bg-[var(--bg-hover)]">
+                    <td className="px-4 py-3.5">
+                      <p className="font-semibold text-[var(--text-primary)]">{item.display_name}</p>
+                      <p className="mt-0.5 text-xs text-[var(--text-muted)]">
+                        {item.document_number || item.slug}
+                      </p>
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <Badge tone={statusTone(item.status)}>{STATUS_LABEL[item.status]}</Badge>
+                    </td>
+                    <td className="px-4 py-3.5"><p className="font-medium">{item.plan_code}</p></td>
+                    <td className="px-4 py-3.5 tabular-nums">
+                      <span className="font-semibold">{item.active_users}</span>
+                      <span className="text-[var(--text-muted)]"> / {item.user_limit}</span>
+                    </td>
+                    <td className="px-4 py-3.5 text-xs text-[var(--text-secondary)]">
+                      {item.contract_ends_at
+                        ? `até ${formatDate(item.contract_ends_at)}`
+                        : item.contract_started_at
+                          ? `desde ${formatDate(item.contract_started_at)}`
+                          : "Não informado"}
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <div className="flex justify-end">
+                        <Button type="button" variant="secondary" size="sm" onClick={() => setSelectedId(item.id)}>Gerenciar</Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {!loading && filtered.length === 0 && (
+                  <tr><td colSpan={6} className="px-4 py-12 text-center text-sm text-[var(--text-muted)]">Nenhuma empresa encontrada.</td></tr>
+                )}
+              </tbody>
+            </table>
+            {loading && <TableSkeleton rows={6} columns={6} className="m-4" />}
+          </div>
+        </Card>
+
+        <Card>
+          <CardHeader title="Atividade da plataforma" subtitle="Últimas 60 operações administrativas" />
+          <div className="divide-y divide-[var(--divider)] sm:hidden">
+            {audit.map((entry) => (
+              <article key={entry.id} className="space-y-2 p-4 text-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <p className="font-semibold text-[var(--text-primary)]">
+                    {ACTION_LABEL[entry.action] ?? entry.action}
+                  </p>
+                  <time className="shrink-0 text-xs text-[var(--text-muted)]">
+                    {formatDate(entry.created_at, true)}
+                  </time>
+                </div>
+                <p className="text-xs text-[var(--text-secondary)]">
+                  {entry.organization_name} · {entry.actor_name}
+                </p>
+              </article>
+            ))}
+            {!loading && audit.length === 0 && (
+              <p className="px-4 py-10 text-center text-sm text-[var(--text-muted)]">
+                Nenhuma operação registrada.
+              </p>
+            )}
+            {loading && <TableSkeleton rows={3} columns={2} className="m-4" />}
+          </div>
+
+          <div className="hidden overflow-x-auto sm:block">
+            <table className="w-full min-w-[720px] text-left text-sm">
+              <thead className="bg-[var(--bg-card-alt)] text-[11px] font-semibold uppercase text-[var(--text-muted)]">
+                <tr>
+                  <th className="px-4 py-3">Data</th>
+                  <th className="px-4 py-3">Operação</th>
+                  <th className="px-4 py-3">Empresa</th>
+                  <th className="px-4 py-3">Responsável</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--divider)]">
+                {audit.map((entry) => (
+                  <tr key={entry.id}>
+                    <td className="whitespace-nowrap px-4 py-3 text-xs text-[var(--text-muted)]">{formatDate(entry.created_at, true)}</td>
+                    <td className="px-4 py-3 font-medium">{ACTION_LABEL[entry.action] ?? entry.action}</td>
+                    <td className="px-4 py-3 text-[var(--text-secondary)]">{entry.organization_name}</td>
+                    <td className="px-4 py-3 text-[var(--text-secondary)]">{entry.actor_name}</td>
+                  </tr>
+                ))}
+                {!loading && audit.length === 0 && (
+                  <tr><td colSpan={4} className="px-4 py-10 text-center text-[var(--text-muted)]">Nenhuma operação registrada.</td></tr>
+                )}
+              </tbody>
+            </table>
+            {loading && <TableSkeleton rows={4} columns={4} className="m-4" />}
+          </div>
+        </Card>
+      </main>
+
+      <CreateOrganizationDialog
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={() => void load(true)}
+      />
+      <OrganizationDrawer
+        organization={selected}
+        onClose={() => setSelectedId(null)}
+        onUpdated={updateItem}
+      />
+    </div>
   );
 }
